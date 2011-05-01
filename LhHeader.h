@@ -8,9 +8,9 @@
 #ifndef LZHEADER_H
 #define LZHEADER_H
 
-#include <string>
-//#include <QString>
-//#include <QByteArray>
+#include <QString>
+#include <QTextCodec>
+#include <QList>
 
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
@@ -19,12 +19,7 @@
 #include "GenericTime.h"
 #include "FiletimeHelper.h"
 
-//typedef int boolean;            /* TRUE or FALSE */
-
 #define METHOD_TYPE_STORAGE     5
-
-// this is just ridiculous..
-//#define FILENAME_LENGTH 1024
 
 
 typedef struct LzHeader 
@@ -34,6 +29,7 @@ typedef struct LzHeader
 	{
 		memset(this, 0, sizeof(LzHeader));
 	}
+	//TODO:
 	void init_header()
 	{
 	}
@@ -45,11 +41,9 @@ typedef struct LzHeader
     size_t          original_size;
     unsigned char   attribute;
     unsigned char   header_level;
-	std::string      name;
-	std::string      dirname;
-	std::string      realname;
-    //char            name[FILENAME_LENGTH];
-    //char            realname[FILENAME_LENGTH];/* real name for symbolic link */
+	QString         name;
+	QString         dirname;
+	QString         realname; // real name for symbolic link (unix)
     unsigned int    crc;      /* file CRC */
     bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
@@ -64,11 +58,11 @@ typedef struct LzHeader
     unsigned short  unix_uid;
     unsigned short  unix_gid;
 	
-	std::string      user;
-	std::string      group;
-    //char            user[256];
-    //char            group[256];
+	QString         user;
+	QString         group;
 }  LzHeader;
+
+typedef QList<LzHeader*> tFileList;
 
 
 // indices of values of header in file
@@ -89,7 +83,7 @@ enum tHeaderIndices
 };
 
 
-class CLzHeader
+class CLhHeader
 {
 private:
 	// TODO: these buffer handlings REALLY need to be fixed..
@@ -163,15 +157,24 @@ private:
 		}
 	}
 	
-	std::string get_string(int len)
+	// note: string isn't null-terminated in file
+	// so we need to work around that..
+	//
+	// note: read-buffer is deallocated/overwritten
+	// later when next chunk is read/done.
+	//
+	QString get_string(int len)
 	{
-		std::string szVal;
-		szVal.assign(m_get_ptr, len);
-		//szVal.assign(len, 0x00);
+		QString szVal;
+		if (m_pTextCodec == nullptr)
+		{
+			szVal = QString::fromAscii(m_get_ptr, len);
+		}
+		else
+		{
+			szVal = m_pTextCodec->toUnicode(m_get_ptr, len);
+		}
 		m_get_ptr += len;
-
-		// must give copy: read-buffer will be destroyed/overwritten
-		// when next chunk is read
 		return szVal;
 	}
 
@@ -204,7 +207,12 @@ private:
 protected:
 	tHeaderLevel m_enHeaderLevel;
 	int m_iHeaderSize;
+	
+	tFileList m_HeaderList;
+	
 	CCrcIo m_crcio;
+	
+	QTextCodec *m_pTextCodec;
 	
 	inline int calc_sum(unsigned char *p, size_t len) const
 	{
@@ -218,15 +226,34 @@ protected:
 	
 
 public:
-	CLzHeader(void)
+	CLhHeader(void)
 		: m_iHeaderSize(0)
 		//, m_nReadOffset(0)
 		, m_get_ptr(nullptr)
 		, m_get_ptr_end(nullptr)
+		, m_HeaderList()
 		, m_crcio()
+		, m_pTextCodec(nullptr)
 	{}
-	~CLzHeader(void)
-	{}
+	~CLhHeader(void)
+	{
+		auto it = m_HeaderList.begin();
+		auto itEnd = m_HeaderList.end();
+		while (it != itEnd)
+		{
+			LzHeader *pHeader = (*it);
+			delete pHeader;
+			
+			++it;
+		}
+		m_HeaderList.clear();
+	}
+	
+	void SetConversionCodec(QTextCodec *pCodec)
+	{
+		m_pTextCodec = pCodec;
+	}
+	
 
 	// If true, archive is msdos SFX (executable)
 	bool IsMsdosSFX1(CReadBuffer &Buffer) const
@@ -354,7 +381,7 @@ public:
 		return true;
 	}
 	
-	LzHeader *GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile);
+	void ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile);
 	
 protected:
 	//ssize_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);

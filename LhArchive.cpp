@@ -14,26 +14,15 @@ CLhArchive::CLhArchive(QLhALib *pParent)
 	m_ulPackedSizeTotal(0),
 	m_ulUnpackedSizeTotal(0),
 	m_ulFileCountTotal(0),
-	m_FileHeader(),
-	m_FileList()
+	m_Headers()
 {
 }
 
 CLhArchive::~CLhArchive(void)
 {
-	auto it = m_FileList.begin();
-	auto itEnd = m_FileList.end();
-	while (it != itEnd)
-	{
-		LzHeader *pHeader = (*it);
-		delete pHeader;
-		
-		++it;
-	}
-	m_FileList.clear();
 }
 
-bool CLhArchive::ConvertFromCodepage(QTextCodec *pCodec)
+void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 {
 	/*
 	auto it = m_FileList.begin();
@@ -53,7 +42,7 @@ bool CLhArchive::ConvertFromCodepage(QTextCodec *pCodec)
 	}
 	*/
 
-	return true;
+	m_Headers.SetConversionCodec(pCodec);
 }
 
 /////////////// protected methods
@@ -77,11 +66,11 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 		throw IOException("Failed reading header");
 	}
 	
-	if (m_FileHeader.IsValidLha(Buffer) == false)
+	if (m_Headers.IsValidLha(Buffer) == false)
 	{
 		throw ArcException("No supported header in file", m_szCurrentArchive.toStdString());
 	}
-	if (m_FileHeader.ParseBuffer(Buffer) == false)
+	if (m_Headers.ParseBuffer(Buffer) == false)
 	{
 		throw ArcException("Failed to parse header", m_szCurrentArchive.toStdString());
 	}
@@ -146,6 +135,16 @@ bool CLhArchive::List()
 	// emulate old style, read 4096 max. at a time
 	CReadBuffer Buffer(4096);
 
+	// throws exception on error
+	m_Headers.ParseHeaders(Buffer, ArchiveFile);
+	/*
+	if (m_FileHeader.ParseHeaders(Buffer, ArchiveFile) == false)
+	{
+		throw ArcException("Failed handling headers", m_szCurrentArchive.toStdString());
+	}
+	*/
+	
+	/*
 	LzHeader *pHeader = nullptr;
 	do
 	{
@@ -156,6 +155,7 @@ bool CLhArchive::List()
 			m_FileList.push_back(pHeader);
 		}
 	} while (pHeader != nullptr);
+	*/
 	
 	return true;
 }

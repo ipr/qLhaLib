@@ -59,8 +59,8 @@ bool QLhALib::AddFiles(QStringList &lstFiles)
 // convert file names from given code page
 // to unicode (helper for user of library)
 //
-bool QLhALib::ConvertFromCodepage(QTextCodec *pCodec)
+void QLhALib::SetConversionCodec(QTextCodec *pCodec)
 {
-	return m_pLhaHandler->ConvertFromCodepage(pCodec);
+	m_pLhaHandler->SetConversionCodec(pCodec);
 }
 

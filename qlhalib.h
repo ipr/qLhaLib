@@ -164,7 +164,7 @@ public slots:
 	
 	// helper for user of library:
 	// convert filenames from given codepage to unicode
-	bool ConvertFromCodepage(QTextCodec *pCodec);
+	void SetConversionCodec(QTextCodec *pCodec);
 	
 signals:
 	void message(QString);

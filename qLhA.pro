@@ -15,8 +15,8 @@ DEFINES += _CRT_SECURE_NO_WARNINGS
 SOURCES += qlhalib.cpp \
     AnsiFile.cpp \
     LhArchive.cpp \
-    LzHeader.cpp \
     crcio.cpp \
+    LhHeader.cpp
 
 # src/util.c 
 # src/lhlist.c 
@@ -37,11 +37,11 @@ HEADERS += qlhalib.h\
         qLhA_global.h \
     AnsiFile.h \
     LhArchive.h \
-    LzHeader.h \
     GenericTime.h \
     LhaTypeDefs.h \
     crcio.h \
     FiletimeHelper.h \
+    LhHeader.h
 
 # src/lha_macro.h 
 # src/lha_main.h 
@@ -52,4 +52,3 @@ HEADERS += qlhalib.h\
 # LzEncode.h 
 # Huffman.h
 # LzDecode.h 
-

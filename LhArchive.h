@@ -32,7 +32,7 @@ public:
 //typedef QList<CFileEntry> tFileList;
 
 // temp
-typedef QList<LzHeader*> tFileList;
+//typedef QList<LzHeader*> tFileList;
 
 // fwd. decl. for parent
 class QLhALib;
@@ -48,7 +48,7 @@ public:
     CLhArchive(QLhALib *pParent);
 	virtual ~CLhArchive(void);
 	
-	bool ConvertFromCodepage(QTextCodec *pCodec);
+	void SetConversionCodec(QTextCodec *pCodec);
 	
 protected:
 	QString m_szCurrentArchive;
@@ -59,8 +59,8 @@ protected:
 	unsigned long m_ulUnpackedSizeTotal;
 	unsigned long m_ulFileCountTotal;
 	
-	CLzHeader m_FileHeader;
-	tFileList m_FileList;
+	CLhHeader m_Headers;
+	//tFileList m_FileList;
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
 	

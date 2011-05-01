@@ -8,97 +8,74 @@
 #include <QString>
 
 
-LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
+void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 {
     //char *archive_delim = "\377\\"; /* `\' is for level 0 header and broken archive. */
     //char *system_delim = "//";
     //int filename_case = CODEPAGE_NONE;
 
-	m_get_ptr = (char*)Buffer.GetBegin();
-	m_get_ptr_end = (char*)Buffer.GetEnd();
-	
-    int end_mark = getc((FILE*)ArchiveFile);
-    if (end_mark == EOF || end_mark == 0) 
+	bool bIsEnd = false;
+	while (bIsEnd == false)
 	{
-        return nullptr;           /* finish */
-    }
-    m_get_ptr[0] = end_mark;
+		m_get_ptr = (char*)Buffer.GetBegin();
+		m_get_ptr_end = (char*)Buffer.GetEnd();
+		
+		int end_mark = getc((FILE*)ArchiveFile);
+		if (end_mark == EOF || end_mark == 0) 
+		{
+			bIsEnd = true;
+			break;           /* finish */
+		}
+		m_get_ptr[0] = end_mark;
+		
+		if (ArchiveFile.Read(m_get_ptr + 1, COMMON_HEADER_SIZE - 1) == false) 
+		{
+			throw ArcException("Invalid header (LHarc file ?)", "");
+		}
+		
+		LzHeader *pHeader = new LzHeader();
+		bool bRet = false;
+		switch (m_get_ptr[I_HEADER_LEVEL]) 
+		{
+		case 0:
+			bRet = get_header_level0(ArchiveFile, pHeader, Buffer);
+			break;
+		case 1:
+			bRet = get_header_level1(ArchiveFile, pHeader, Buffer);
+			break;
+		case 2:
+			bRet = get_header_level2(ArchiveFile, pHeader, Buffer);
+			break;
+		case 3:
+			bRet = get_header_level3(ArchiveFile, pHeader, Buffer);
+			break;
+		default:
+			throw ArcException("Unknown level header", m_get_ptr[I_HEADER_LEVEL]);
+		}
+		
+		if (bRet == false)
+		{
+			throw ArcException("Failure reading header", "");
+		}
 
-    if (ArchiveFile.Read(m_get_ptr + 1, COMMON_HEADER_SIZE - 1) == false) 
-	{
-        throw ArcException("Invalid header (LHarc file ?)", "");
-    }
-
-	LzHeader *pHeader = new LzHeader();
-	bool bRet = false;
-    switch (m_get_ptr[I_HEADER_LEVEL]) 
-	{
-    case 0:
-		bRet = get_header_level0(ArchiveFile, pHeader, Buffer);
-        break;
-    case 1:
-		bRet = get_header_level1(ArchiveFile, pHeader, Buffer);
-        break;
-    case 2:
-		bRet = get_header_level2(ArchiveFile, pHeader, Buffer);
-        break;
-    case 3:
-		bRet = get_header_level3(ArchiveFile, pHeader, Buffer);
-        break;
-    default:
-		throw ArcException("Unknown level header", m_get_ptr[I_HEADER_LEVEL]);
-    }
-	
-	if (bRet == false)
-	{
-        throw ArcException("Failure reading header", "");
+		// correct fix path-names
+		pHeader->name.replace('\\', "/");
+		pHeader->dirname.replace('\\', "/");
+		
+		if ((pHeader->unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK) 
+		{
+			/* hdr->name is symbolic link name */
+			/* hdr->realname is real name */
+			int iPos = pHeader->name.lastIndexOf('|');
+			if (iPos == -1)
+			{
+				// not found as expecing -> fatal
+				throw ArcException("Unknown symlink name", pHeader->name.toStdString());
+			}
+			pHeader->realname = pHeader->name.left(iPos +1);
+		}
+		m_HeaderList.push_back(pHeader);
 	}
-
-    /* filename conversion */
-	/*
-    switch (pHeader->extend_type) 
-	{
-    case EXTEND_MSDOS:
-        filename_case = CODEPAGE_NONE;
-        break;
-    case EXTEND_HUMAN:
-    case EXTEND_OS68K:
-    case EXTEND_XOSK:
-    case EXTEND_UNIX:
-    case EXTEND_JAVA:
-        filename_case = CODEPAGE_NONE;
-        break;
-
-    case EXTEND_MACOS:
-        archive_delim = "\377/:\\"; // `\' is for level 0 header and broken archive. 
-        system_delim = "/://";
-        filename_case = CODEPAGE_NONE;
-        break;
-
-    default:
-        filename_case = CODEPAGE_NONE;
-        break;
-    }
-	*/
-
-	if ((pHeader->unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK) 
-	{
-		/* hdr->name is symbolic link name */
-		/* hdr->realname is real name */
-		std::string::size_type nPos = pHeader->name.find('|');
-		if (nPos != std::string::npos)
-		{
-			pHeader->realname = pHeader->name.substr(nPos+1);
-			
-			//nPos = pHeader->name.find('|', nPos);
-		}
-        else
-		{
-			throw ArcException("Unknown symlink name", pHeader->name);
-		}
-    }
-
-    return pHeader;
 }
 
 
@@ -140,7 +117,7 @@ LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
  */
 
 //static ssize_t
-size_t CLzHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc)
+size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc)
 {
     size_t whole_size = header_size;
     int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
@@ -322,7 +299,7 @@ size_t CLzHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
  *    bit6  archive bit (need to backup)
  *
  */
-bool CLzHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
 {
     size_t header_size;
     size_t extend_size;
@@ -343,7 +320,8 @@ bool CLzHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 		throw ArcException("Checksum error (LHarc file?)", checksum);
     }
 
-    get_bytes(pHeader->method, 5, sizeof(pHeader->method));
+	// there's size to it given so use it
+    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = generic_to_unix_stamp(get_longword());
@@ -440,7 +418,7 @@ bool CLzHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLzHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
 {
     size_t header_size;
     size_t extend_size;
@@ -462,7 +440,8 @@ bool CLzHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 		throw ArcException("Checksum error (LHarc file?)", checksum);
     }
 
-    get_bytes(pHeader->method, 5, sizeof(pHeader->method));
+	// there's size to it given so use it
+    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = generic_to_unix_stamp(get_longword());
@@ -532,7 +511,7 @@ bool CLzHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLzHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
 {
     size_t header_size;
     size_t extend_size;
@@ -547,7 +526,8 @@ bool CLzHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 		throw ArcException("Invalid header (LHarc file ?)", 0);
     }
 
-    get_bytes(pHeader->method, 5, sizeof(pHeader->method));
+	// there's size to it given so use it
+    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = get_longword();
@@ -613,7 +593,7 @@ bool CLzHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLzHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
 {
     size_t header_size;
     size_t extend_size;
@@ -627,7 +607,8 @@ bool CLzHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 		throw ArcException("Invalid header (LHarc file ?)", 0);
     }
 
-    get_bytes(pHeader->method, 5, sizeof(pHeader->method));
+	// there's size to it given so use it
+    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = get_longword();
