@@ -1,14 +1,17 @@
 #ifndef CRCIO_H
 #define CRCIO_H
 
-		 
+#include <stdint.h>
+#include <limits.h>
+
+
 class CCrcIo
 {
 protected:
 	unsigned int m_crctable[UCHAR_MAX + 1];
 	//int      dispflg;
 
-	inline void make_crctable(void);
+	void make_crctable();
 
 	/* useless
 	inline void InitializeCrc(unsigned int &crc)

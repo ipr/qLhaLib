@@ -41,12 +41,7 @@ protected:
 		tm.tm_year = subbits(t, 25, 7) + 80;
 		tm.tm_isdst = -1;
 	
-	#if HAVE_MKTIME
 		return mktime(&tm);
-	#else
-		return timelocal(&tm);
-	#endif
-		
 	}
 
 	inline long unix_to_generic_stamp(const time_t t) const

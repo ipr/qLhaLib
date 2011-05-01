@@ -8,6 +8,8 @@
 #ifndef LZHEADER_H
 #define LZHEADER_H
 
+#include <string>
+
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
 
@@ -15,7 +17,13 @@
 #include "GenericTime.h"
 #include "FiletimeHelper.h"
 
-typedef int boolean;            /* TRUE or FALSE */
+//typedef int boolean;            /* TRUE or FALSE */
+
+#define METHOD_TYPE_STORAGE     5
+
+// this is just ridiculous..
+//#define FILENAME_LENGTH 1024
+
 
 typedef struct LzHeader 
 {
@@ -23,7 +31,10 @@ typedef struct LzHeader
 	LzHeader()
 	{
 		memset(this, 0, sizeof(LzHeader));
-	};
+	}
+	void init_header()
+	{
+	}
 	
     size_t          header_size;
     int             size_field_length;
@@ -32,21 +43,29 @@ typedef struct LzHeader
     size_t          original_size;
     unsigned char   attribute;
     unsigned char   header_level;
-    char            name[FILENAME_LENGTH];
-    char            realname[FILENAME_LENGTH];/* real name for symbolic link */
+	std::string     name;
+	std::string     dirname;
+	std::string     realname;
+    //char            name[FILENAME_LENGTH];
+    //char            realname[FILENAME_LENGTH];/* real name for symbolic link */
     unsigned int    crc;      /* file CRC */
-    boolean         has_crc;  /* file CRC */
+    bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
     unsigned char   extend_type;
     unsigned char   minor_version;
 
     /* extend_type == EXTEND_UNIX  and convert from other type. */
+    time_t          unix_creation_stamp;
     time_t          unix_last_modified_stamp;
+    time_t          unix_last_access_stamp;
     unsigned short  unix_mode;
     unsigned short  unix_uid;
     unsigned short  unix_gid;
-    char            user[256];
-    char            group[256];
+	
+	std::string     user;
+	std::string     group;
+    //char            user[256];
+    //char            group[256];
 }  LzHeader;
 
 
@@ -125,7 +144,8 @@ private:
 
 	inline int get_bytes(char *buf, int len, int size)
 	{
-		for (int i = 0; i < len && i < size; i++)
+		int i = 0;
+		for (; i < len && i < size; i++)
 		{
 			buf[i] = m_get_ptr[i];
 		}
@@ -139,6 +159,14 @@ private:
 		{
 			put_byte(buf[i]);
 		}
+	}
+	
+	std::string get_string(int len)
+	{
+		std::string szVal;
+		szVal.assign(m_get_ptr, len);
+		//szVal.assign(len, 0x00);
+		return szVal;
 	}
 
 	time_t generic_to_unix_stamp(long t)
@@ -172,7 +200,7 @@ protected:
 	int m_iHeaderSize;
 	CCrcIo m_crcio;
 	
-	inline int calc_sum(char *p, int len)
+	inline int calc_sum(unsigned char *p, size_t len) const
 	{
 		int sum = 0;
 		while (len--) 

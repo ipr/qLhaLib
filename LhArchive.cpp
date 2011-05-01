@@ -21,7 +21,8 @@ CLhArchive::CLhArchive(QLhALib *pParent)
 
 void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 {
-	size_t nMaxSeekSize = 64 * 1024; // max seek size
+	//size_t nMaxSeekSize = 64 * 1024; // max seek size
+	size_t nMaxSeekSize = 4096; // max seek size
 	size_t nFileSize = ArchiveFile.GetSize();
 	
 	// check if we have smaller file than expected
@@ -39,11 +40,11 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 	
 	if (m_FileHeader.IsValidLha(Buffer) == false)
 	{
-		throw ArcException("No supported header in file", m_szCurrentArchive);
+		throw ArcException("No supported header in file", m_szCurrentArchive.toStdString());
 	}
 	if (m_FileHeader.ParseBuffer(Buffer) == false)
 	{
-		throw ArcException("Failed to parse header", m_szCurrentArchive);
+		throw ArcException("Failed to parse header", m_szCurrentArchive.toStdString());
 	}
 	
 	// just seek start.. 
@@ -96,27 +97,16 @@ bool CLhArchive::List()
 	//
 	if (m_nArchiveFileSize < 16)
 	{
-		throw ArcException("File too small", m_szCurrentArchive);
+		throw ArcException("File too small", m_szCurrentArchive.toStdString());
 	}
 	
 	// throws exception on failure:
 	// when no valid header or such
 	SeekHeader(ArchiveFile);
 
-	// just read it at once and be done with it..
-	// 
-	CReadBuffer Buffer(m_nArchiveFileSize);
-	if (ArchiveFile.Read(Buffer) == false)
-	{
-		throw IOException("Failed reading archive");
-	}
-	
-	// just seek start.. 
-	if (ArchiveFile.Seek(0, SEEK_SET) == false)
-	{
-		throw IOException("Failed seeking start");
-	}
-	
+	// emulate old style, read 4096 max. at a time
+	CReadBuffer Buffer(4096);
+
 	LzHeader *pHeader = nullptr;
 	do
 	{
