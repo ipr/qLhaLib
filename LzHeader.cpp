@@ -10,11 +10,9 @@
 
 LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 {
-    //int archive_kanji_code = CODEPAGE_SJIS;
-    //int system_kanji_code = default_system_kanji_code;
-    char *archive_delim = "\377\\"; /* `\' is for level 0 header and broken archive. */
-    char *system_delim = "//";
-    int filename_case = CODEPAGE_NONE;
+    //char *archive_delim = "\377\\"; /* `\' is for level 0 header and broken archive. */
+    //char *system_delim = "//";
+    //int filename_case = CODEPAGE_NONE;
 
 	m_get_ptr = (char*)Buffer.GetBegin();
 	m_get_ptr_end = (char*)Buffer.GetEnd();
@@ -57,6 +55,7 @@ LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 	}
 
     /* filename conversion */
+	/*
     switch (pHeader->extend_type) 
 	{
     case EXTEND_MSDOS:
@@ -80,30 +79,9 @@ LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
         filename_case = CODEPAGE_NONE;
         break;
     }
+	*/
 
-	/*
-    if (optional_archive_kanji_code)
-        archive_kanji_code = optional_archive_kanji_code;
-    if (optional_system_kanji_code)
-        system_kanji_code = optional_system_kanji_code;
-    if (optional_archive_delim)
-        archive_delim = optional_archive_delim;
-    if (optional_system_delim)
-        system_delim = optional_system_delim;
-    if (optional_filename_case)
-        filename_case = optional_filename_case;
-		*/
-
-    /* kanji code and delimiter conversion */
-	/*
-    convert_filename(pHeader->name, strlen(pHeader->name), sizeof(pHeader->name),
-                     archive_kanji_code,
-                     system_kanji_code,
-                     archive_delim, 
-					 system_delim, 
-					 filename_case);*/
-
-    if ((pHeader->unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK) 
+	if ((pHeader->unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK) 
 	{
 		/* hdr->name is symbolic link name */
 		/* hdr->realname is real name */
@@ -140,26 +118,6 @@ LzHeader *CLzHeader::GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 /*                                              2002.06.29  Hiroto Sakai    */
 /*  Ver. 1.14i autoconfiscated & rewritten      2003.02.23  Koji Arai       */
 /* ------------------------------------------------------------------------ */
-//#include "lha_main.h"
-/*
-
-// CODE_EUC, CODE_SJIS, CODE_UTF8, CODE_CAP
-tKanjiCodePage optional_archive_kanji_code = CODEPAGE_NONE;
-
-// CODE_EUC, CODE_SJIS, CODE_UTF8, CODE_CAP
-tKanjiCodePage optional_system_kanji_code = CODEPAGE_NONE;
-
-char *optional_archive_delim = NULL;
-char *optional_system_delim = NULL;
-int optional_filename_case = CODEPAGE_NONE;
-
-#ifdef MULTIBYTE_FILENAME
-tKanjiCodePage default_system_kanji_code = MULTIBYTE_FILENAME;
-#else
-tKanjiCodePage default_system_kanji_code = CODEPAGE_NONE;
-#endif
-
-*/
 
 
 /*

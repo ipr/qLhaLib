@@ -79,6 +79,8 @@
 // fwd. decl. class for entry point
 class CLhArchive;
 
+class QTextCodec;
+
 class QLHASHARED_EXPORT QLhALib : public QObject
 {
 	Q_OBJECT
@@ -160,6 +162,9 @@ public slots:
 	bool AddFiles(QStringList &lstFiles);
 	//bool Update();
 	
+	// helper for user of library:
+	// convert filenames from given codepage to unicode
+	bool ConvertFromCodepage(QTextCodec *pCodec);
 	
 signals:
 	void message(QString);

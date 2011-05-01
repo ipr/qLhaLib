@@ -1,7 +1,9 @@
 #include "qlhalib.h"
 
-// entry point for older code
+// entry point for actual handling code
 #include "LhArchive.h"
+
+#include <QTextCodec>
 
 
 QLhALib::QLhALib(QObject *parent)
@@ -52,5 +54,13 @@ bool QLhALib::Test()
 bool QLhALib::AddFiles(QStringList &lstFiles)
 {
 	return m_pLhaHandler->AddFiles(lstFiles);
+}
+
+// convert file names from given code page
+// to unicode (helper for user of library)
+//
+bool QLhALib::ConvertFromCodepage(QTextCodec *pCodec)
+{
+	return m_pLhaHandler->ConvertFromCodepage(pCodec);
 }
 

@@ -19,7 +19,7 @@
 #include "AnsiFile.h"
 #include "LzHeader.h"
 
-
+/*
 // for each file entry in archive
 class CFileEntry
 {
@@ -28,11 +28,17 @@ public:
 	{
 	}
 };
+*/
+//typedef QList<CFileEntry> tFileList;
 
-typedef QList<CFileEntry> tFileList;
+// temp
+typedef QList<LzHeader*> tFileList;
 
 // fwd. decl. for parent
 class QLhALib;
+
+class QTextCodec;
+
 
 class CLhArchive : public QObject
 {
@@ -40,6 +46,9 @@ class CLhArchive : public QObject
 
 public:
     CLhArchive(QLhALib *pParent);
+	virtual ~CLhArchive(void);
+	
+	bool ConvertFromCodepage(QTextCodec *pCodec);
 	
 protected:
 	QString m_szCurrentArchive;

@@ -9,6 +9,8 @@
 #define LZHEADER_H
 
 #include <string>
+//#include <QString>
+//#include <QByteArray>
 
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
@@ -43,9 +45,9 @@ typedef struct LzHeader
     size_t          original_size;
     unsigned char   attribute;
     unsigned char   header_level;
-	std::string     name;
-	std::string     dirname;
-	std::string     realname;
+	std::string      name;
+	std::string      dirname;
+	std::string      realname;
     //char            name[FILENAME_LENGTH];
     //char            realname[FILENAME_LENGTH];/* real name for symbolic link */
     unsigned int    crc;      /* file CRC */
@@ -62,8 +64,8 @@ typedef struct LzHeader
     unsigned short  unix_uid;
     unsigned short  unix_gid;
 	
-	std::string     user;
-	std::string     group;
+	std::string      user;
+	std::string      group;
     //char            user[256];
     //char            group[256];
 }  LzHeader;
@@ -166,6 +168,10 @@ private:
 		std::string szVal;
 		szVal.assign(m_get_ptr, len);
 		//szVal.assign(len, 0x00);
+		m_get_ptr += len;
+
+		// must give copy: read-buffer will be destroyed/overwritten
+		// when next chunk is read
 		return szVal;
 	}
 

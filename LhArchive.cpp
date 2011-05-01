@@ -4,6 +4,8 @@
 
 #include "AnsiFile.h"
 
+#include <QTextCodec>
+
 
 CLhArchive::CLhArchive(QLhALib *pParent)
 	: QObject(pParent),
@@ -15,6 +17,43 @@ CLhArchive::CLhArchive(QLhALib *pParent)
 	m_FileHeader(),
 	m_FileList()
 {
+}
+
+CLhArchive::~CLhArchive(void)
+{
+	auto it = m_FileList.begin();
+	auto itEnd = m_FileList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		delete pHeader;
+		
+		++it;
+	}
+	m_FileList.clear();
+}
+
+bool CLhArchive::ConvertFromCodepage(QTextCodec *pCodec)
+{
+	/*
+	auto it = m_FileList.begin();
+	auto itEnd = m_FileList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		
+		pHeader->name = pCodec->toUnicode(pHeader->name);
+		pHeader->dirname = pCodec->toUnicode(pHeader->dirname);
+		pHeader->realname = pCodec->toUnicode(pHeader->realname);
+		
+		pHeader->user = pCodec->toUnicode(pHeader->user);
+		pHeader->group = pCodec->toUnicode(pHeader->group);
+		
+		++it;
+	}
+	*/
+
+	return true;
 }
 
 /////////////// protected methods
@@ -114,7 +153,7 @@ bool CLhArchive::List()
 		if (pHeader != nullptr)
 		{
 			// -> add file entry of it to list
-			delete pHeader;
+			m_FileList.push_back(pHeader);
 		}
 	} while (pHeader != nullptr);
 	
