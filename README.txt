@@ -9,6 +9,7 @@ autoconfiscated version.
 
 See: http://lha.sourceforge.jp/
 and: http://www2m.biglobe.ne.jp/~dolphin/lha/lha-unix.htm
+Also: http://homepage1.nifty.com/dangan/en/Content/Program/Java/jLHA/Notes/Notes.html
 
 In progress..
 

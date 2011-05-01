@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "FiletimeHelper.h"
+
 class CGenericTime
 {
 protected:
@@ -62,16 +64,14 @@ protected:
 				(tm->tm_sec / 2));
 	}
 	
-	inline uint64_t wintime_to_unix_stamp() const
+	inline uint64_t winfiletime_to_unix_stamp(const unsigned long ulHiPart, const unsigned long ulLoPart) const
 	{
-		uint64_t t;
-		uint64_t epoch = ((uint64_t)0x019db1de << 32) + 0xd53e8000;
-						 /* 0x019db1ded53e8000ULL: 1970-01-01 00:00:00 (UTC) */
-	
-		t = (unsigned long)get_longword();
-		t |= (uint64_t)(unsigned long)get_longword() << 32;
-		t = (t - epoch) / 10000000;
-		return t;
+		FILETIME ft;
+		ft.dwHighDateTime = ulHiPart;
+		ft.dwLowDateTime = ulLoPart;
+		
+		CFiletimeHelper ftH(ft);
+		return ftH.GetAsUnixTime();
 	}
 	
 	
