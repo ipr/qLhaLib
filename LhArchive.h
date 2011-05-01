@@ -17,7 +17,7 @@
 #include <QStringList>
 
 #include "AnsiFile.h"
-#include "LzHeader.h"
+#include "LhHeader.h"
 
 /*
 // for each file entry in archive

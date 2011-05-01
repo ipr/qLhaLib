@@ -3,7 +3,7 @@
 // structure and code for handling Lz-archive header
 //
 
-#include "LzHeader.h"
+#include "LhHeader.h"
 
 #include <QString>
 
