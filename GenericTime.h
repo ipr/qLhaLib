@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <time.h>
 
-#include "FiletimeHelper.h"
 
+// some kinda shitty msdos-timestamp.. blah..
 class CGenericTime
 {
 protected:
@@ -64,16 +64,6 @@ protected:
 				(tm->tm_sec / 2));
 	}
 	
-	inline uint64_t winfiletime_to_unix_stamp(const unsigned long ulHiPart, const unsigned long ulLoPart) const
-	{
-		FILETIME ft;
-		ft.dwHighDateTime = ulHiPart;
-		ft.dwLowDateTime = ulLoPart;
-		
-		CFiletimeHelper ftH(ft);
-		return ftH.GetAsUnixTime();
-	}
-	
 	
 public:
 	CGenericTime(void)
@@ -96,7 +86,7 @@ public:
 	{
 		return generic_to_unix_stamp(m_lGenericTime);
 	}
-	
+
 };
 
 #endif // GENERICTIME_H

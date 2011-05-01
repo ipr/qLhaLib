@@ -11,9 +11,20 @@
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
 
+#include "crcio.h"
+#include "GenericTime.h"
+#include "FiletimeHelper.h"
+
 typedef int boolean;            /* TRUE or FALSE */
 
-typedef struct LzHeader {
+typedef struct LzHeader 
+{
+	// constructor
+	LzHeader()
+	{
+		memset(this, 0, sizeof(LzHeader));
+	};
+	
     size_t          header_size;
     int             size_field_length;
     char            method[METHOD_TYPE_STORAGE];
@@ -59,9 +70,107 @@ enum tHeaderIndices
 
 class CLzHeader
 {
+private:
+	// TODO: these buffer handlings REALLY need to be fixed..
+	// change methods later, move to buffer-class
+	//
+	char    *m_get_ptr;
+	char    *m_get_ptr_end;
+	
+	char    *m_put_ptr;
+	
+	inline int get_byte()
+	{
+		return *m_get_ptr++ & 0xff;
+	}
+	inline void skip_bytes(size_t len)
+	{
+		m_get_ptr += (len);
+	}
+	inline void put_byte(int c)
+	{
+		*m_put_ptr++ = (char)(c);
+	}
+
+	inline int get_word()
+	{
+		int b0 = get_byte();
+		int b1 = get_byte();
+		int w = (b1 << 8) + b0;
+		return w;
+	}
+	
+	inline void put_word(unsigned int v)
+	{
+		put_byte(v);
+		put_byte(v >> 8);
+	}
+
+	inline long get_longword()
+	{
+		long b0 = get_byte();
+		long b1 = get_byte();
+		long b2 = get_byte();
+		long b3 = get_byte();
+		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
+	}
+	
+	inline void put_longword(long v)
+	{
+		put_byte(v);
+		put_byte(v >> 8);
+		put_byte(v >> 16);
+		put_byte(v >> 24);
+	}
+
+	inline int get_bytes(char *buf, int len, int size)
+	{
+		for (int i = 0; i < len && i < size; i++)
+		{
+			buf[i] = m_get_ptr[i];
+		}
+		m_get_ptr += len;
+		return i;
+	}
+	
+	inline void put_bytes(char *buf, int len)
+	{
+		for (int i = 0; i < len; i++)
+		{
+			put_byte(buf[i]);
+		}
+	}
+
+	time_t generic_to_unix_stamp(long t)
+	{
+		CGenericTime Time(t);
+		return (time_t)Time;
+	}
+	
+	long unix_to_generic_stamp(time_t t)
+	{
+		CGenericTime Time(t);
+		return (long)Time;
+	}
+	
+	unsigned long wintime_to_unix_stamp()
+	{
+		unsigned long ulHiPart = (unsigned long)get_longword();
+		unsigned long ulLoPart = (unsigned long)get_longword();
+		
+		CFiletimeHelper ft(ulHiPart, ulLoPart);
+		return ft.GetAsUnixTime();
+	}
+
+	// TODO: make better way..
+	//size_t m_nReadOffset;
+	
+	
+	
 protected:
 	tHeaderLevel m_enHeaderLevel;
 	int m_iHeaderSize;
+	CCrcIo m_crcio;
 	
 	inline int calc_sum(char *p, int len)
 	{
@@ -73,11 +182,14 @@ protected:
 		return sum & 0xff;
 	}
 	
-	//void init_header();
-	
+
 public:
 	CLzHeader(void)
 		: m_iHeaderSize(0)
+		//, m_nReadOffset(0)
+		, m_get_ptr(nullptr)
+		, m_get_ptr_end(nullptr)
+		, m_crcio()
 	{}
 	~CLzHeader(void)
 	{}
@@ -208,6 +320,18 @@ public:
 		return true;
 	}
 	
+	LzHeader *GetNextHeader(CReadBuffer &Buffer, CAnsiFile &ArchiveFile);
+	
+protected:
+	//ssize_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);
+	
+	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
+	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
+	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
+	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
+	
+	//void init_header(LzHeader *pHeader);
 };
 
 

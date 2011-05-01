@@ -103,6 +103,31 @@ bool CLhArchive::List()
 	// when no valid header or such
 	SeekHeader(ArchiveFile);
 
+	// just read it at once and be done with it..
+	// 
+	CReadBuffer Buffer(m_nArchiveFileSize);
+	if (ArchiveFile.Read(Buffer) == false)
+	{
+		throw IOException("Failed reading archive");
+	}
+	
+	// just seek start.. 
+	if (ArchiveFile.Seek(0, SEEK_SET) == false)
+	{
+		throw IOException("Failed seeking start");
+	}
+	
+	LzHeader *pHeader = nullptr;
+	do
+	{
+		pHeader = m_FileHeader.GetNextHeader(Buffer, ArchiveFile);
+		if (pHeader != nullptr)
+		{
+			// -> add file entry of it to list
+			delete pHeader;
+		}
+	} while (pHeader != nullptr);
+	
 	return true;
 }
 

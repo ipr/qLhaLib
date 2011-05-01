@@ -57,6 +57,14 @@ public:
 	{
 		m_u64Stamp = GetFiletimeValue(ftStamp);
 	}
+    CFiletimeHelper(const unsigned long ulHiPart, const unsigned long ulLoPart)
+		: m_u64Stamp(0)
+	{
+		FILETIME ft;
+		ft.dwHighDateTime = ulHiPart;
+		ft.dwLowDateTime = ulLoPart;
+		m_u64Stamp = GetFiletimeValue(ft);
+	}
     ~CFiletimeHelper()
 	{}
 	
