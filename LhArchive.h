@@ -45,10 +45,8 @@ class CLhArchive : public QObject
 	Q_OBJECT
 
 public:
-    CLhArchive(QLhALib *pParent);
+    CLhArchive(QLhALib *pParent, QString &szArchive);
 	virtual ~CLhArchive(void);
-	
-	void SetConversionCodec(QTextCodec *pCodec);
 	
 protected:
 	QString m_szCurrentArchive;
@@ -63,6 +61,17 @@ protected:
 	//tFileList m_FileList;
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
+
+public slots:
+	
+	//void SetArchiveFile(QString szArchive);
+	void SetConversionCodec(QTextCodec *pCodec);
+
+	bool Extract(QString &szExtractPath);
+	bool List();
+	bool Test();
+	
+	bool AddFiles(QStringList &lstFiles);
 	
 signals:
 	void message(QString);
@@ -70,15 +79,13 @@ signals:
 	void error(QString);
 	void fatal_error(QString);
 
-public slots:
-	void SetArchiveFile(QString szArchive);
-
-public:
-	bool Extract(QString &szExtractPath);
-	bool List();
-	bool Test();
+	// file added to archive
+	//void FileAdded(QString);
+	// file extracted from archive
+	//void FileExtracted(QString);
 	
-	bool AddFiles(QStringList &lstFiles);
+	// file found in archive
+	//void FileLocated(CFileEntry);
 	
 };
 

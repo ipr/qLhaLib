@@ -7,9 +7,9 @@
 #include <QTextCodec>
 
 
-CLhArchive::CLhArchive(QLhALib *pParent)
+CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 	: QObject(pParent),
-	m_szCurrentArchive(),
+	m_szCurrentArchive(szArchive),
 	m_nArchiveFileSize(0),
 	m_ulPackedSizeTotal(0),
 	m_ulUnpackedSizeTotal(0),
@@ -20,11 +20,6 @@ CLhArchive::CLhArchive(QLhALib *pParent)
 
 CLhArchive::~CLhArchive(void)
 {
-}
-
-void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
-{
-	m_Headers.SetConversionCodec(pCodec);
 }
 
 /////////////// protected methods
@@ -67,9 +62,16 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 
 /////////////// public slots
 
+/*
 void CLhArchive::SetArchiveFile(QString szArchive)
 {
 	m_szCurrentArchive = szArchive;
+}
+*/
+
+void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
+{
+	m_Headers.SetConversionCodec(pCodec);
 }
 
 bool CLhArchive::Extract(QString &szExtractPath)

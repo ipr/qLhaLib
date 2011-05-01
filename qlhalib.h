@@ -78,7 +78,6 @@
 
 // fwd. decl. class for entry point
 class CLhArchive;
-
 class QTextCodec;
 
 class QLHASHARED_EXPORT QLhALib : public QObject
@@ -87,6 +86,7 @@ class QLHASHARED_EXPORT QLhALib : public QObject
 
 private:
 	CLhArchive *m_pLhaHandler;
+	QTextCodec *m_pTextCodec;
 	
 protected:
 	
@@ -124,11 +124,13 @@ protected:
 	// work/temp folder path to use (if necessary)
 	//QString m_szWorkPath;
 	
+	void PrepareArchive(QString &szArchive);
+	
 public:
     QLhALib(QObject *parent = 0);
     virtual ~QLhALib();
 
-public:
+public slots:
 	// various operation flags and options accessible below
 	// TODO: see what should be supported..
 	
@@ -152,8 +154,11 @@ public:
 	
 	//void SetWorkPath(QString szPath);
 
-public slots:
+	// helper for user of library:
+	// convert filenames from given codepage to unicode
+	void SetConversionCodec(QTextCodec *pCodec);
 
+	//////////////////	
 	// actual operations below
 	bool Extract(QString &szExtractPath);
 	bool List();
@@ -162,20 +167,19 @@ public slots:
 	bool AddFiles(QStringList &lstFiles);
 	//bool Update();
 	
-	// helper for user of library:
-	// convert filenames from given codepage to unicode
-	void SetConversionCodec(QTextCodec *pCodec);
-	
 signals:
 	void message(QString);
 	void warning(QString);
 	void error(QString);
 	void fatal_error(QString);
+
+	// file added to archive
+	//void FileAdded(QString);
+	// file extracted from archive
+	//void FileExtracted(QString);
 	
-//public slots:
-	// for testing purposes,
-	// you can pass entire commandline to original parser
-	//int lhamain(int argc, char **argv);
+	// file found in archive
+	//void FileLocated(CFileEntry);
 	
 };
 
