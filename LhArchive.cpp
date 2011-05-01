@@ -24,24 +24,6 @@ CLhArchive::~CLhArchive(void)
 
 void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 {
-	/*
-	auto it = m_FileList.begin();
-	auto itEnd = m_FileList.end();
-	while (it != itEnd)
-	{
-		LzHeader *pHeader = (*it);
-		
-		pHeader->name = pCodec->toUnicode(pHeader->name);
-		pHeader->dirname = pCodec->toUnicode(pHeader->dirname);
-		pHeader->realname = pCodec->toUnicode(pHeader->realname);
-		
-		pHeader->user = pCodec->toUnicode(pHeader->user);
-		pHeader->group = pCodec->toUnicode(pHeader->group);
-		
-		++it;
-	}
-	*/
-
 	m_Headers.SetConversionCodec(pCodec);
 }
 
@@ -87,24 +69,7 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 
 void CLhArchive::SetArchiveFile(QString szArchive)
 {
-	if (m_szCurrentArchive != szArchive)
-	{
-		m_szCurrentArchive = szArchive;
-		
-		/*
-		CAnsiFile ArchiveFile;
-		if (ArchiveFile.Open(m_szCurrentArchive.toStdString()) == false)
-		{
-			// throw exception?
-			// (does it affect signal handling in Qt?)
-		}
-		m_nArchiveFileSize = ArchiveFile.GetSize();
-		*/
-
-		// TODO:
-		// close old
-		// open new
-	}
+	m_szCurrentArchive = szArchive;
 }
 
 bool CLhArchive::Extract(QString &szExtractPath)
@@ -137,25 +102,6 @@ bool CLhArchive::List()
 
 	// throws exception on error
 	m_Headers.ParseHeaders(Buffer, ArchiveFile);
-	/*
-	if (m_FileHeader.ParseHeaders(Buffer, ArchiveFile) == false)
-	{
-		throw ArcException("Failed handling headers", m_szCurrentArchive.toStdString());
-	}
-	*/
-	
-	/*
-	LzHeader *pHeader = nullptr;
-	do
-	{
-		pHeader = m_FileHeader.GetNextHeader(Buffer, ArchiveFile);
-		if (pHeader != nullptr)
-		{
-			// -> add file entry of it to list
-			m_FileList.push_back(pHeader);
-		}
-	} while (pHeader != nullptr);
-	*/
 	
 	return true;
 }

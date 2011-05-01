@@ -11,8 +11,6 @@
 void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 {
     //char *archive_delim = "\377\\"; /* `\' is for level 0 header and broken archive. */
-    //char *system_delim = "//";
-    //int filename_case = CODEPAGE_NONE;
 
 	bool bIsEnd = false;
 	while (bIsEnd == false)
@@ -75,6 +73,11 @@ void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 			pHeader->realname = pHeader->name.left(iPos +1);
 		}
 		m_HeaderList.push_back(pHeader);
+		
+		if (ArchiveFile.Seek(pHeader->packed_size, SEEK_CUR) == false)
+		{
+			throw IOException("Failure seeking next header");
+		}
 	}
 }
 

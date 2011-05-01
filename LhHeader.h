@@ -27,7 +27,6 @@ typedef struct LzHeader
 	// constructor
 	LzHeader()
 	{
-		memset(this, 0, sizeof(LzHeader));
 	}
 	//TODO:
 	void init_header()
