@@ -1,6 +1,7 @@
 //////////////////////////////////
 //
-// structure and code for handling archive-file header
+// structure and code for handling archive-file header:
+// there are various different headers and extensions
 //
 // Ilkka Prusi 2011
 //
@@ -8,6 +9,7 @@
 #ifndef LZHEADER_H
 #define LZHEADER_H
 
+#include <QObject>
 #include <QString>
 #include <QTextCodec>
 #include <QList>
@@ -27,10 +29,25 @@ typedef struct LzHeader
 	// constructor
 	LzHeader()
 	{
+		/* the `method' member is rewrote by the encoding function.
+		   but need set for empty files */
+		memcpy(method, LZHUFF0_METHOD, METHOD_TYPE_STORAGE);
+		
+		packed_size = 0;
+		original_size = 0;
+		attribute = GENERIC_ATTRIBUTE;
+		header_level = 0;
+		
+		crc = 0x0000;
+		extend_type = EXTEND_UNIX;
 	}
+	
 	//TODO:
+	//void init_header(FILE *pFile)
+	//void init_header(CAnsiFile &File)
 	void init_header()
 	{
+
 	}
 	
     size_t          header_size;
@@ -61,8 +78,6 @@ typedef struct LzHeader
 	QString         group;
 }  LzHeader;
 
-typedef QList<LzHeader*> tFileList;
-
 
 // indices of values of header in file
 enum tHeaderIndices
@@ -82,9 +97,10 @@ enum tHeaderIndices
 };
 
 
-class CLhHeader
+class CLhHeader : public QObject
 {
 private:
+	
 	// TODO: these buffer handlings REALLY need to be fixed..
 	// change methods later, move to buffer-class
 	//
@@ -207,12 +223,14 @@ protected:
 	tHeaderLevel m_enHeaderLevel;
 	int m_iHeaderSize;
 	
+	typedef QList<LzHeader*> tFileList;
 	tFileList m_HeaderList;
 	
 	CCrcIo m_crcio;
 	
 	QTextCodec *m_pTextCodec;
-	
+	CReadBuffer *m_pReadBuffer;
+
 	inline int calc_sum(unsigned char *p, size_t len) const
 	{
 		int sum = 0;
@@ -225,14 +243,16 @@ protected:
 	
 
 public:
-	CLhHeader(void)
-		: m_iHeaderSize(0)
+	CLhHeader(QObject *parent = 0)
+		: QObject(parent)
+		, m_iHeaderSize(0)
 		//, m_nReadOffset(0)
 		, m_get_ptr(nullptr)
 		, m_get_ptr_end(nullptr)
 		, m_HeaderList()
 		, m_crcio()
 		, m_pTextCodec(nullptr)
+		, m_pReadBuffer(nullptr)
 	{}
 	~CLhHeader(void)
 	{
@@ -252,7 +272,6 @@ public:
 	{
 		m_pTextCodec = pCodec;
 	}
-	
 
 	// If true, archive is msdos SFX (executable)
 	bool IsMsdosSFX1(CReadBuffer &Buffer) const
@@ -380,17 +399,30 @@ public:
 		return true;
 	}
 	
-	void ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile);
+	void ParseHeaders(CAnsiFile &ArchiveFile);
+
+	/*
+//signals:
+	//void message(QString);
+	//void warning(QString);
+	//void error(QString); // -> exception instead
+	//void fatal_error(QString); // -> exception instead
+	
+	// file-entry found in archive-file
+	//void FileLocated(LzHeader*);
+	 */
+
 	
 protected:
 	//ssize_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);
-	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc);
 	
-	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
-	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
-	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
-	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer);
+	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	
+	void UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize);
 	//void init_header(LzHeader *pHeader);
 };
 

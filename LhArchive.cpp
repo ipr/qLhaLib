@@ -14,12 +14,21 @@ CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 	m_ulPackedSizeTotal(0),
 	m_ulUnpackedSizeTotal(0),
 	m_ulFileCountTotal(0),
-	m_Headers()
+	m_pHeaders(nullptr)
 {
+	m_pHeaders = new CLhHeader(this);
+	
+	//connect(m_pHeaders, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
+	//connect(m_pHeaders, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
+	//connect(m_pHeaders, SIGNAL(FileLocated(LzHeader*)), this, SLOT(FileLocated(LzHeader*)));
 }
 
 CLhArchive::~CLhArchive(void)
 {
+	if (m_pHeaders != nullptr)
+	{
+		delete m_pHeaders;
+	}
 }
 
 /////////////// protected methods
@@ -43,11 +52,11 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 		throw IOException("Failed reading header");
 	}
 	
-	if (m_Headers.IsValidLha(Buffer) == false)
+	if (m_pHeaders->IsValidLha(Buffer) == false)
 	{
 		throw ArcException("No supported header in file", m_szCurrentArchive.toStdString());
 	}
-	if (m_Headers.ParseBuffer(Buffer) == false)
+	if (m_pHeaders->ParseBuffer(Buffer) == false)
 	{
 		throw ArcException("Failed to parse header", m_szCurrentArchive.toStdString());
 	}
@@ -71,8 +80,17 @@ void CLhArchive::SetArchiveFile(QString szArchive)
 
 void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 {
-	m_Headers.SetConversionCodec(pCodec);
+	m_pHeaders->SetConversionCodec(pCodec);
 }
+
+/*
+void CLhArchive::FileLocated(LzHeader *pHeader)
+{
+	// TEMP!
+	// TESTING ONLY!
+	emit message(pHeader->name);
+}
+*/
 
 bool CLhArchive::Extract(QString &szExtractPath)
 {
@@ -85,6 +103,10 @@ bool CLhArchive::List()
 	if (ArchiveFile.Open(m_szCurrentArchive.toStdString()) == false)
 	{
 		throw IOException("Failed opening archive");
+		
+		// alternate:
+		//emit fatal_error("Failed opening archive");
+		//return false;
 	}
 	m_nArchiveFileSize = ArchiveFile.GetSize();
 
@@ -100,10 +122,10 @@ bool CLhArchive::List()
 	SeekHeader(ArchiveFile);
 
 	// emulate old style, read 4096 max. at a time
-	CReadBuffer Buffer(4096);
+	//CReadBuffer Buffer(4096);
 
 	// throws exception on error
-	m_Headers.ParseHeaders(Buffer, ArchiveFile);
+	m_pHeaders->ParseHeaders(ArchiveFile);
 	
 	return true;
 }

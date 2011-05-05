@@ -64,75 +64,12 @@ private:
 	//bool m_bKeepExisting; // keep existing data if growing buffer..
 	//bool m_bPageAlign; // page-size aligned allocations
 
-	// allocate or grow if necessary
-	inline void PrepareBuffer(const size_t nMinSize)
+	inline void CreateBuffer(const size_t nMinSize)
 	{
 		// allocate new
-		if (m_pReadBuffer == nullptr
-			|| m_nReadBufferSize == 0)
-		{
-			m_pReadBuffer = new unsigned char[nMinSize];
-			m_nReadBufferSize = nMinSize;
-			::memset(m_pReadBuffer, 0, m_nReadBufferSize);
-			return;
-		}
-
-/*		// growing, do we need this..?
-		if (m_pReadBuffer != nullptr
-			&& m_nReadBufferSize < nMinSize)
-		{
-			size_t nNewSize = nMinSize;
-//			if (nNewSize > m_nMaxBufferSize)
-//			{
-//				nNewSize = m_nMaxBufferSize;
-//			}
-			
-			delete m_pReadBuffer; // destroy old smaller
-
-			// create new larger
-			m_pReadBuffer = new unsigned char[nNewSize];
-			m_nReadBufferSize = nNewSize;
-			return;
-		}
-*/
-		// otherwise do nothing (keep existing)
-	}
-	
-	void GrowBuffer(const size_t nMinSize)
-	{
-		if (m_pReadBuffer == nullptr
-			|| m_nReadBufferSize == 0)
-		{
-			m_pReadBuffer = new unsigned char[nMinSize];
-			m_nReadBufferSize = nMinSize;
-			::memset(m_pReadBuffer, 0, m_nReadBufferSize);
-			return;
-		}
-
-		// growing, do we need this..?
-		if (m_pReadBuffer != nullptr
-			&& m_nReadBufferSize < nMinSize)
-		{
-			size_t nNewSize = nMinSize;
-			/*
-			if (nNewSize > m_nMaxBufferSize)
-			{
-				nNewSize = m_nMaxBufferSize;
-			}
-			*/
-			
-			unsigned char *pNewBuf = new unsigned char[nNewSize];
-		
-			memcpy(pNewBuf, m_pReadBuffer, m_nReadBufferSize); // keep data
-			delete m_pReadBuffer; // destroy old smaller
-
-			// keep new buffer
-			m_pReadBuffer = pNewBuf;
-			m_nReadBufferSize = nNewSize;
-			return;
-		}
-
-		// otherwise do nothing (keep existing)
+		m_pReadBuffer = new unsigned char[nMinSize];
+		m_nReadBufferSize = nMinSize;
+		::memset(m_pReadBuffer, 0, m_nReadBufferSize);
 	}
 
 public:
@@ -141,7 +78,7 @@ public:
 		, m_nReadBufferSize(0)
 		//, m_nMaxBufferSize(MAX_READ_BUFFER_SIZE)
 	{
-		PrepareBuffer(INITIAL_READ_BUFFER_SIZE);
+		CreateBuffer(INITIAL_READ_BUFFER_SIZE);
 	}
 	
 	CReadBuffer(const size_t nMinsize) 
@@ -149,7 +86,7 @@ public:
 		, m_nReadBufferSize(0)
 		//, m_nMaxBufferSize(MAX_READ_BUFFER_SIZE)
 	{
-		PrepareBuffer(nMinsize);
+		CreateBuffer(nMinsize);
 	}
 	
 	/*
@@ -170,10 +107,39 @@ public:
 			delete m_pReadBuffer;
 		}
 	}
-	
-	void Resize()
+
+	// allocate or grow if necessary
+	void PrepareBuffer(const size_t nMinSize)
 	{
+		if (m_pReadBuffer == nullptr
+			|| m_nReadBufferSize == 0)
+		{
+			CreateBuffer(nMinSize);
+			return;
+		}
+
+		// growing, do we need this..?
+		if (m_pReadBuffer != nullptr
+			&& m_nReadBufferSize < nMinSize)
+		{
+			size_t nNewSize = nMinSize;
+			/*
+			if (nNewSize > m_nMaxBufferSize)
+			{
+				nNewSize = m_nMaxBufferSize;
+			}
+			*/
+			delete m_pReadBuffer; // destroy old smaller
+			
+			m_pReadBuffer = new unsigned char[nNewSize];
+			m_nReadBufferSize = nNewSize;
+			//return;
+		}
+
+		// otherwise just clear existing (keep existing)
+		::memset(m_pReadBuffer, 0, m_nReadBufferSize);
 	}
+
 
 	// note: don't make it const:
 	// allow modify to read into it..

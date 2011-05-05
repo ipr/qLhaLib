@@ -45,8 +45,6 @@ HEADERS += qlhalib.h\
 
 # src/lha_macro.h 
 # src/lha_main.h 
-# config.h 
-# stringencoding.h 
 # bitio.h 
 # lhdir.h 
 # LzEncode.h 

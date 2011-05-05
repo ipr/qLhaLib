@@ -2,21 +2,30 @@
 //
 // structure and code for handling Lz-archive header
 //
+// Ilkka Prusi 2011
+//
 
 #include "LhHeader.h"
 
 #include <QString>
 
 
-void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
+void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 {
     //char *archive_delim = "\377\\"; /* `\' is for level 0 header and broken archive. */
+	
+	if (m_pReadBuffer == nullptr)
+	{
+		// emulate old style, read 4096 max. at a time
+		m_pReadBuffer = new CReadBuffer(4096); // default bufsize
+	}
+	m_pReadBuffer->PrepareBuffer(4096);
 
 	bool bIsEnd = false;
 	while (bIsEnd == false)
 	{
-		m_get_ptr = (char*)Buffer.GetBegin();
-		m_get_ptr_end = (char*)Buffer.GetEnd();
+		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
+		m_get_ptr_end = (char*)m_pReadBuffer->GetEnd();
 		
 		int end_mark = getc((FILE*)ArchiveFile);
 		if (end_mark == EOF || end_mark == 0) 
@@ -36,16 +45,16 @@ void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 		switch (m_get_ptr[I_HEADER_LEVEL]) 
 		{
 		case 0:
-			bRet = get_header_level0(ArchiveFile, pHeader, Buffer);
+			bRet = get_header_level0(ArchiveFile, pHeader);
 			break;
 		case 1:
-			bRet = get_header_level1(ArchiveFile, pHeader, Buffer);
+			bRet = get_header_level1(ArchiveFile, pHeader);
 			break;
 		case 2:
-			bRet = get_header_level2(ArchiveFile, pHeader, Buffer);
+			bRet = get_header_level2(ArchiveFile, pHeader);
 			break;
 		case 3:
-			bRet = get_header_level3(ArchiveFile, pHeader, Buffer);
+			bRet = get_header_level3(ArchiveFile, pHeader);
 			break;
 		default:
 			throw ArcException("Unknown level header", m_get_ptr[I_HEADER_LEVEL]);
@@ -73,6 +82,8 @@ void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
 			pHeader->realname = pHeader->name.left(iPos +1);
 		}
 		m_HeaderList.push_back(pHeader);
+		
+		//emit FileLocated(pHeader);
 		
 		if (ArchiveFile.Seek(pHeader->packed_size, SEEK_CUR) == false)
 		{
@@ -120,7 +131,7 @@ void CLhHeader::ParseHeaders(CReadBuffer &Buffer, CAnsiFile &ArchiveFile)
  */
 
 //static ssize_t
-size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc)
+size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc)
 {
     size_t whole_size = header_size;
     int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
@@ -130,21 +141,24 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         return 0;
 	}
 
+	// clear or allocate larger if necessary
+	m_pReadBuffer->PrepareBuffer(header_size);
+	
     while (header_size) 
 	{
-		m_get_ptr = (char*)Buffer.GetBegin();
+		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
 		
-        if (Buffer.GetSize() < header_size) 
+        if (m_pReadBuffer->GetSize() < header_size) 
 		{
 			throw ArcException("header size too large.", header_size);
         }
 
-        if (ArchiveFile.Read(Buffer.GetBegin(), header_size) == false) 
+        if (ArchiveFile.Read(m_pReadBuffer->GetBegin(), header_size) == false) 
 		{
 			throw ArcException("Invalid header (LHa file ?)", 0);
         }
 
-		unsigned char *pBuf = Buffer.GetBegin();
+		unsigned char *pBuf = m_pReadBuffer->GetBegin();
 		
         int ext_type = get_byte();
         switch (ext_type) 
@@ -231,6 +245,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                0xff: extended attribute - permission, owner-id and timestamp
                      (level 3 on UNLHA32) */
             skip_bytes(header_size - n);
+			//emit warning(QString("unknown extended header %1").arg(ext_type));
             break;
         }
 
@@ -302,7 +317,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
  *    bit6  archive bit (need to backup)
  *
  */
-bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
     size_t extend_size;
@@ -311,7 +326,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
     pHeader->header_size = header_size = get_byte();
     int checksum = get_byte();
 	
-	unsigned char *pBuf = Buffer.GetBegin();
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
 	{
@@ -421,7 +436,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
     size_t extend_size;
@@ -431,7 +446,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
     pHeader->header_size = header_size = get_byte();
     checksum = get_byte();
 
-	unsigned char *pBuf = Buffer.GetBegin();
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
 	{
@@ -470,7 +485,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 	}
 
     extend_size = get_word();
-    extend_size = get_extended_header(ArchiveFile, pHeader, Buffer, extend_size, 0);
+    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, 0);
     if (extend_size == -1)
 	{
         return false;
@@ -514,7 +529,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
     size_t extend_size;
@@ -522,7 +537,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
     pHeader->size_field_length = 2; /* in bytes */
     pHeader->header_size = header_size = get_word();
 
-	unsigned char *pBuf = Buffer.GetBegin();
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL2_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
 	{
@@ -549,17 +564,14 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
 
-    extend_size = get_extended_header(ArchiveFile, pHeader, Buffer, extend_size, &hcrc);
+    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, &hcrc);
     if (extend_size == -1)
 	{
         return false;
 	}
 
     int padding = header_size - I_LEVEL2_HEADER_SIZE - extend_size;
-    while (padding--)           /* padding should be 0 or 1 */
-	{
-        hcrc = m_crcio.UpdateCrc(hcrc, fgetc((FILE*)ArchiveFile));
-	}
+	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
 
     if (pHeader->header_crc != hcrc)
 	{
@@ -596,14 +608,14 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
  * -------------------------------------------------
  *
  */
-bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer)
+bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
     size_t extend_size;
 
     pHeader->size_field_length = get_word();
 
-	unsigned char *pBuf = Buffer.GetBegin();
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL3_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
 	{
@@ -631,17 +643,14 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
 
-    extend_size = get_extended_header(ArchiveFile, pHeader, Buffer, extend_size, &hcrc);
+    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, &hcrc);
     if (extend_size == -1)
 	{
         return false;
 	}
 
     int padding = header_size - I_LEVEL3_HEADER_SIZE - extend_size;
-    while (padding--)           /* padding should be 0 */
-	{
-        hcrc = m_crcio.UpdateCrc(hcrc, fgetc((FILE*)ArchiveFile));
-	}
+	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
 
     if (pHeader->header_crc != hcrc)
 	{
@@ -649,6 +658,41 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader, CRe
 	}
 
     return true;
+}
+
+void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize)
+{
+	// allocate enough for padding (zeroed)
+	// or just clear existing if enough
+	m_pReadBuffer->PrepareBuffer(lPadSize);
+
+	// check how much of file remains
+	long lPos = 0;
+	ArchiveFile.Tell(lPos);
+	long lRemaining = (ArchiveFile.GetSize() - lPos);
+
+	// read padding
+	bool bRet = false;
+	if (lRemaining < lPadSize)
+	{
+		bRet = ArchiveFile.Read(m_pReadBuffer->GetBegin(), lRemaining);
+	}
+	else
+	{
+		bRet = ArchiveFile.Read(m_pReadBuffer->GetBegin(), lPadSize);
+	}
+	
+	if (bRet == false)
+	{
+		throw IOException("Failed reading header padding for crc");
+	}
+
+	// update crc by padding-values
+	unsigned char *pData = m_pReadBuffer->GetBegin();
+	for (long l = 0; l < lPadSize; l++)
+	{
+        hcrc = m_crcio.UpdateCrc(hcrc, pData[l]);
+	}
 }
 
 

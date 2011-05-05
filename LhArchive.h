@@ -29,10 +29,7 @@ public:
 	}
 };
 */
-//typedef QList<CFileEntry> tFileList;
 
-// temp
-//typedef QList<LzHeader*> tFileList;
 
 // fwd. decl. for parent
 class QLhALib;
@@ -57,8 +54,7 @@ protected:
 	unsigned long m_ulUnpackedSizeTotal;
 	unsigned long m_ulFileCountTotal;
 	
-	CLhHeader m_Headers;
-	//tFileList m_FileList;
+	CLhHeader *m_pHeaders;
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
 
@@ -66,6 +62,7 @@ public slots:
 	
 	//void SetArchiveFile(QString szArchive);
 	void SetConversionCodec(QTextCodec *pCodec);
+	//void FileLocated(LzHeader *pHeader);
 
 	bool Extract(QString &szExtractPath);
 	bool List();
@@ -79,14 +76,6 @@ signals:
 	void error(QString);
 	void fatal_error(QString);
 
-	// file added to archive
-	//void FileAdded(QString);
-	// file extracted from archive
-	//void FileExtracted(QString);
-	
-	// file found in archive
-	//void FileLocated(CFileEntry);
-	
 };
 
 #endif // LHARCHIVE_H

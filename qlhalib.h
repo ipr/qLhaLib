@@ -172,14 +172,6 @@ signals:
 	void warning(QString);
 	void error(QString);
 	void fatal_error(QString);
-
-	// file added to archive
-	//void FileAdded(QString);
-	// file extracted from archive
-	//void FileExtracted(QString);
-	
-	// file found in archive
-	//void FileLocated(CFileEntry);
 	
 };
 

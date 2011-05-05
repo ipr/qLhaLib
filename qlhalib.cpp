@@ -1,5 +1,7 @@
 #include "qlhalib.h"
 
+#include <exception>
+
 // entry point for actual handling code
 #include "LhArchive.h"
 
@@ -22,8 +24,6 @@ void QLhALib::PrepareArchive(QString &szArchive)
 	connect(m_pLhaHandler, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
 	connect(m_pLhaHandler, SIGNAL(error(QString)), this, SIGNAL(error(QString)));
 	connect(m_pLhaHandler, SIGNAL(fatal_error(QString)), this, SIGNAL(fatal_error(QString)));
-	
-	//connect(m_pLhaHandler, SIGNAL(FileLocated(CFileEntry)), this, SIGNAL(FileLocated(CFileEntry)));
 }
 
 
@@ -67,22 +67,54 @@ void QLhALib::SetConversionCodec(QTextCodec *pCodec)
 
 bool QLhALib::Extract(QString &szExtractPath)
 {
-	return m_pLhaHandler->Extract(szExtractPath);
+	try
+	{
+		return m_pLhaHandler->Extract(szExtractPath);
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
 }
 
 bool QLhALib::List()
 {
-	return m_pLhaHandler->List();
+	try
+	{
+		return m_pLhaHandler->List();
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
 }
 
 bool QLhALib::Test()
 {
-	return m_pLhaHandler->Test();
+	try
+	{
+		return m_pLhaHandler->Test();
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
 }
 
 bool QLhALib::AddFiles(QStringList &lstFiles)
 {
-	return m_pLhaHandler->AddFiles(lstFiles);
+	try
+	{
+		return m_pLhaHandler->AddFiles(lstFiles);
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
 }
 
 
