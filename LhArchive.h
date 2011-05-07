@@ -22,7 +22,7 @@
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
 #include "LhHeader.h"
-
+#include "LhExtract.h"
 
 
 class CLhArchive : public QObject
@@ -50,6 +50,7 @@ protected:
 
 	// descriptions (headers) of each entry in archive
 	CLhHeader *m_pHeaders;
+	CLhExtract *m_pExtraction;
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
 	

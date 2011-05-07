@@ -9,13 +9,19 @@ CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 	m_ulTotalUnpacked(0),
 	m_ulTotalFiles(0),
 	m_uiCrc(0),
-	m_pHeaders(nullptr)
+	m_pHeaders(nullptr),
+	m_pExtraction(nullptr)
 {
 	m_pHeaders = new CLhHeader(this);
+	m_pExtraction = new CLhExtract(this);
 }
 
 CLhArchive::~CLhArchive(void)
 {
+	if (m_pExtraction != nullptr)
+	{
+		delete m_pExtraction;
+	}
 	if (m_pHeaders != nullptr)
 	{
 		delete m_pHeaders;
@@ -63,109 +69,6 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 	if (ArchiveFile.Seek(0, SEEK_SET) == false)
 	{
 		throw IOException("Failed seeking start");
-	}
-}
-
-tHuffBits CLhArchive::GetDictionaryBits(const tCompressionMethod enMethod) const
-{
-    switch (enMethod) 
-	{
-    case LZHUFF0_METHOD_NUM:    /* -lh0- */
-        return LZHUFF0_DICBIT;
-    case LZHUFF1_METHOD_NUM:    /* -lh1- */
-        return LZHUFF1_DICBIT;
-    case LZHUFF2_METHOD_NUM:    /* -lh2- */
-        return LZHUFF2_DICBIT;
-    case LZHUFF3_METHOD_NUM:    /* -lh2- */
-        return LZHUFF3_DICBIT;
-    case LZHUFF4_METHOD_NUM:    /* -lh4- */
-        return LZHUFF4_DICBIT;
-    case LZHUFF5_METHOD_NUM:    /* -lh5- */
-        return LZHUFF5_DICBIT;
-    case LZHUFF6_METHOD_NUM:    /* -lh6- */
-        return LZHUFF6_DICBIT;
-    case LZHUFF7_METHOD_NUM:    /* -lh7- */
-        return LZHUFF7_DICBIT;
-    case LARC_METHOD_NUM:       /* -lzs- */
-        return LARC_DICBIT;
-    case LARC5_METHOD_NUM:      /* -lz5- */
-        return LARC5_DICBIT;
-    case LARC4_METHOD_NUM:      /* -lz4- */
-        return LARC4_DICBIT;
-		
-    default:
-		break;
-    }
-
-	//warning("unknown method %d", method);
-	return LZHUFF5_DICBIT; /* for backward compatibility */
-}
-
-// decode data from archive and write to prepared output file,
-// use given metadata as help..
-//
-void CLhArchive::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
-{
-	// TODO: determine decoding method
-	//if (pHeader->method == ???)
-	// -> simplify, make enumerated type
-	tCompressionMethod enMethod = pHeader->GetMethod();
-	if (enMethod == LZHDIRS_METHOD_NUM)
-	{
-		// just make directories and no actual files ?
-		return;
-	}
-
-    size_t read_size = 0;
-	unsigned int crc = 0;
-	
-	// huffman dictionary bits
-	tHuffBits enHuffBits = GetDictionaryBits(enMethod);
-	if ((int)enHuffBits == 0)
-	{
-		// no compression, just copy to output
-		
-		CReadBuffer Buf(4096);
-		size_t nToWrite = pHeader->original_size;
-		while (nToWrite > 0)
-		{
-			read_size = nToWrite;
-			if (read_size > 4096)
-			{
-				read_size = 4096;
-			}
-			
-			if (ArchiveFile.Read(Buf.GetBegin(), read_size) == false)
-			{
-				throw IOException("Failed reading data");
-			}
-			
-			// update crc (could make static instance..)
-            crc = m_pHeaders->m_crcio.calccrc(crc, Buf.GetBegin(), read_size);
-			
-			// write output
-			if (OutFile.Write(Buf.GetBegin(), read_size) == false)
-			{
-				throw IOException("Failed writing output");
-			}
-			nToWrite -= read_size;
-		}
-		
-		// file done
-	}
-	else
-	{
-		// LZ decoding
-		//crc = decode_output();
-	}
-	
-	// flush to disk
-	OutFile.Flush();
-	
-	// verify CRC
-	if (pHeader->has_crc == true && pHeader->crc != crc)
-	{
-		//throw ArcException("CRC error on extract", pHeader->filename.toStdString());
 	}
 }
 
@@ -245,7 +148,7 @@ bool CLhArchive::Extract(QString &szExtractPath)
 		// decode from archive to output..
 		// give parsed metadata and prepared output also
 		//
-		ExtractFile(ArchiveFile, pHeader, OutFile);
+		m_pExtraction->ExtractFile(ArchiveFile, pHeader, OutFile);
 		
 		++it;
 	}

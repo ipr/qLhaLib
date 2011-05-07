@@ -16,7 +16,9 @@ SOURCES += qlhalib.cpp \
     AnsiFile.cpp \
     LhArchive.cpp \
     crcio.cpp \
-    LhHeader.cpp
+    LhHeader.cpp \
+    LhExtract.cpp \
+    LhDecoder.cpp
 
 # src/util.c 
 # src/lhlist.c 
@@ -41,7 +43,9 @@ HEADERS += qlhalib.h\
     LhaTypeDefs.h \
     crcio.h \
     FiletimeHelper.h \
-    LhHeader.h
+    LhHeader.h \
+    LhExtract.h \
+    LhDecoder.h
 
 # src/lha_macro.h 
 # src/lha_main.h 
