@@ -127,23 +127,26 @@ typedef struct LzHeader
     size_t          packed_size;
     size_t          original_size;
     unsigned char   header_level;
-	QString         name;
+	QString         filename;
 	QString         dirname;
 	QString         realname; // real name for symbolic link (unix)
 
-	// MS-DOS attribute-flags
-    MsdosFlags      MsDosAttributes;
-	
     unsigned int    crc;      /* file CRC */
     bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
     unsigned char   extend_type;
-    unsigned char   minor_version;
 
+	// MS-DOS attribute-flags
+    MsdosFlags      MsDosAttributes;
+	
     /* extend_type == EXTEND_UNIX  and convert from other type. */
+	
     time_t          unix_creation_stamp;
     time_t          unix_last_modified_stamp;
     time_t          unix_last_access_stamp;
+
+	// only on unix-extension ?
+    unsigned char   minor_version;
 	
 	UnixModeFlags   UnixMode;
     unsigned short  unix_uid;
@@ -491,7 +494,7 @@ public:
 	bool ParseBuffer(CReadBuffer &Buffer)
 	{
 		unsigned char *p = Buffer.GetBegin();
-		unsigned char *pEnd = Buffer.GetEnd();
+		//unsigned char *pEnd = Buffer.GetEnd();
 		
 		m_enHeaderLevel = (tHeaderLevel)(p[I_HEADER_LEVEL]);
 		m_iHeaderSize = p[I_HEADER_SIZE];

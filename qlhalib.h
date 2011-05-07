@@ -73,7 +73,7 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
-
+#include <QDateTime>
 
 // fwd. decl. class for entry point
 class CLhArchive;
@@ -136,13 +136,17 @@ public:
 			, m_ulUnpackedSize(0)
 			, m_ulPackedSize(0)
 			, m_bPackedSizeAvailable(true)
+			, m_Stamp()
 			, m_szFileName()
-			, m_szPathName()
+			//, m_szPathName()
+			, m_szPackMode()
+			//, m_szComment()
 		{
 		}
 	
-		// CRC from archive (note: only 16-bit in LHa..),
-		// 32-bit on LZX
+		// CRC from archive,
+		// only 16-bit CRC in LHa
+		// (32-bit CRC in LZX)
 		unsigned int m_uiCrc;
 		
 		// unpacked size of file
@@ -155,10 +159,20 @@ public:
 		// -> not supported by LHa..
 		bool m_bPackedSizeAvailable;
 		
+		// "last modified" time usually
+		QDateTime m_Stamp;
+		
 		// name of entry from archive
 		QString m_szFileName;
 		
-		QString m_szPathName;
+		//QString m_szPathName;
+		//QString m_szRealName; // if symlink?
+
+		// -l??- string, e.g. '-lh5-', '-lz0-'
+		QString m_szPackMode;
+		
+		// uncompressed file-comment from archive (if any)
+		//QString m_szComment;
 	};
 	
 	// simplest way to list all files in archive for caller

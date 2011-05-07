@@ -88,20 +88,20 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		}
 
 		// fix path-names
-		pHeader->name.replace('\\', "/");
+		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
 		
 		if (pHeader->UnixMode.IsSymLink() == true) 
 		{
 			/* hdr->name is symbolic link name */
 			/* hdr->realname is real name */
-			int iPos = pHeader->name.lastIndexOf('|');
+			int iPos = pHeader->filename.lastIndexOf('|');
 			if (iPos == -1)
 			{
 				// not found as expecing -> fatal
-				throw ArcException("Unknown symlink name", pHeader->name.toStdString());
+				throw ArcException("Unknown symlink name", pHeader->filename.toStdString());
 			}
-			pHeader->realname = pHeader->name.left(iPos +1);
+			pHeader->realname = pHeader->filename.left(iPos +1);
 		}
 		
 		
@@ -178,7 +178,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         case EXTH_FILENAME:
             /* filename */
             //name_length = get_bytes(pHeader->name, header_size-n, sizeof(pHeader->name)-1);
-            pHeader->name = get_string(header_size-n);
+            pHeader->filename = get_string(header_size-n);
             break;
         case EXTH_PATH:
             /* directory */
@@ -270,7 +270,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
     /* concatenate dirname and filename */
     if (pHeader->dirname.length() > 0) 
 	{
-		pHeader->name += pHeader->dirname;
+		// bug? this was reversed..?
+		pHeader->filename += pHeader->dirname;
     }
 
     return whole_size;
@@ -350,7 +351,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     int name_length = get_byte();
-    pHeader->name = get_string(name_length);
+    pHeader->filename = get_string(name_length);
 
     extend_size = header_size+2 - name_length - 24;
 
@@ -466,7 +467,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 
     int name_length = get_byte();
     //i = get_bytes(pHeader->name, name_length, sizeof(pHeader->name)-1);
-    pHeader->name = get_string(name_length);
+    pHeader->filename = get_string(name_length);
 
     /* defaults for other type */
     pHeader->has_crc = true;

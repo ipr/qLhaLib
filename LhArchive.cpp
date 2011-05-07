@@ -106,11 +106,15 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		lstArchiveInfo.push_back(QLhALib::CArchiveEntry());
 		
 		QLhALib::CArchiveEntry &Entry = lstArchiveInfo.back();
-		Entry.m_szFileName = pHeader->name;
-		Entry.m_szPathName = pHeader->dirname;
+		Entry.m_szFileName = pHeader->filename;
 		Entry.m_uiCrc = pHeader->crc;
 		Entry.m_ulPackedSize = pHeader->packed_size;
 		Entry.m_ulUnpackedSize = pHeader->original_size;
+		Entry.m_szPackMode = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
+		Entry.m_Stamp.setTime_t(pHeader->unix_last_modified_stamp);
+		
+		// attributes? which ones?
+		// unix/msdos? not always both..
 		
 		// update archive statistics
 		m_ulTotalPacked += pHeader->packed_size;
