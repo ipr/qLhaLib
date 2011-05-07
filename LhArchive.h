@@ -20,6 +20,7 @@
 #include <qlhalib.h>
 
 #include "AnsiFile.h"
+#include "LhaTypeDefs.h"
 #include "LhHeader.h"
 
 
@@ -43,10 +44,18 @@ protected:
 	
 	// does not apply to LHa
 	//unsigned long m_ulMergeSize; 
-	
+
+	// archive-file crc ?
+	unsigned int m_uiCrc;
+
+	// descriptions (headers) of each entry in archive
 	CLhHeader *m_pHeaders;
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
+	
+	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod) const;
+	
+	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 
 public slots:
 	

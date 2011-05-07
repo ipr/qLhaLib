@@ -91,7 +91,18 @@ typedef struct UnixModeFlags
 	// is file just symbolic link instead of actual file?
 	bool IsSymLink()
 	{
+		// TODO: UNIX_FILE_TYPEMASK ?
 		if ((unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK)
+		{
+			return true;
+		}
+		return false;
+	}
+	
+	bool IsDirectory()
+	{
+		// TODO: UNIX_FILE_TYPEMASK ?
+		if ((unix_mode & UNIX_FILE_DIRECTORY) == UNIX_FILE_DIRECTORY)
 		{
 			return true;
 		}
@@ -116,6 +127,8 @@ typedef struct LzHeader
 		crc = 0x0000;
 		extend_type = EXTEND_UNIX;
 		
+		data_pos = 0;
+		
 		// defaults for these
 		//unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
 		unix_gid = 0;
@@ -123,7 +136,7 @@ typedef struct LzHeader
 	}
 	
     size_t          header_size;
-    int             size_field_length;
+    int             size_field_length; // "size" variable may have different sizes??
     char            method[METHOD_TYPE_STORAGE];
     size_t          packed_size;
     size_t          original_size;
@@ -138,6 +151,9 @@ typedef struct LzHeader
     unsigned int    header_crc; /* header CRC */
 	
     unsigned char   extend_type;
+	
+	// keep offset of data in file for locating later..
+	long            data_pos;
 
 	// MS-DOS attribute-flags
     MsdosFlags      MsDosAttributes;
@@ -157,6 +173,77 @@ typedef struct LzHeader
 	
 	QString         user;
 	QString         group;
+
+	bool IsMethod(char Method[METHOD_TYPE_STORAGE])
+	{
+		if (memcmp(method, Method, METHOD_TYPE_STORAGE) == 0)
+		{
+			return true;
+		}
+		return false;
+	}
+	
+	// get suitable method for extraction:
+	// check string if it is supported.
+	//
+	// note: there are some variations..
+	//
+	tCompressionMethod GetMethod()
+	{
+		if (IsMethod(LZHUFF0_METHOD) == true)
+		{
+			return LZHUFF0_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF1_METHOD) == true)
+		{
+			return LZHUFF1_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF2_METHOD) == true)
+		{
+			return LZHUFF2_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF3_METHOD) == true)
+		{
+			return LZHUFF3_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF4_METHOD) == true)
+		{
+			return LZHUFF4_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF5_METHOD) == true)
+		{
+			return LZHUFF5_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF6_METHOD) == true)
+		{
+			return LZHUFF6_METHOD_NUM;
+		}
+		else if (IsMethod(LZHUFF7_METHOD) == true)
+		{
+			return LZHUFF7_METHOD_NUM;
+		}
+		else if (IsMethod(LARC_METHOD) == true)
+		{
+			return LARC_METHOD_NUM;
+		}
+		else if (IsMethod(LARC5_METHOD) == true)
+		{
+			return LARC5_METHOD_NUM;
+		}
+		else if (IsMethod(LARC4_METHOD) == true)
+		{
+			return LARC4_METHOD_NUM;
+		}
+		else if (IsMethod(LZHDIRS_METHOD) == true)
+		{
+			return LZHDIRS_METHOD_NUM;
+		}
+		
+		// unknown/unsupported
+		return LZ_UNKNOWN;
+	}
+	
+	
 }  LzHeader;
 
 
@@ -223,14 +310,18 @@ private:
 	{
 		return *m_get_ptr++ & 0xff;
 	}
+	
 	inline void skip_bytes(size_t len)
 	{
 		m_get_ptr += (len);
 	}
+	
+	/*
 	inline void put_byte(int c)
 	{
 		*m_put_ptr++ = (char)(c);
 	}
+	*/
 
 	inline int get_word()
 	{
@@ -240,11 +331,13 @@ private:
 		return w;
 	}
 	
+	/*
 	inline void put_word(unsigned int v)
 	{
 		put_byte(v);
 		put_byte(v >> 8);
 	}
+	*/
 
 	inline long get_longword()
 	{
@@ -254,7 +347,8 @@ private:
 		long b3 = get_byte();
 		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
 	}
-	
+
+	/*
 	inline void put_longword(long v)
 	{
 		put_byte(v);
@@ -262,6 +356,7 @@ private:
 		put_byte(v >> 16);
 		put_byte(v >> 24);
 	}
+	*/
 
 	inline int get_bytes(char *buf, int len, int size)
 	{
@@ -274,6 +369,7 @@ private:
 		return i;
 	}
 	
+	/*
 	inline void put_bytes(char *buf, int len)
 	{
 		for (int i = 0; i < len; i++)
@@ -281,6 +377,7 @@ private:
 			put_byte(buf[i]);
 		}
 	}
+	*/
 	
 	// note: string isn't null-terminated in file
 	// so we need to work around that..
@@ -354,6 +451,12 @@ public:
 		, m_pReadBuffer(nullptr)
 	{}
 	~CLhHeader(void)
+	{
+		// cleanup when destroyed
+		Clear();
+	}
+	
+	void Clear()
 	{
 		auto it = m_HeaderList.begin();
 		auto itEnd = m_HeaderList.end();

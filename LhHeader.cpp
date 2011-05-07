@@ -86,7 +86,14 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		{
 			throw ArcException("Failure reading header", "");
 		}
-
+		
+		// keep this file offset (after header)
+		// to locate data in archive for the file-entry later
+		if (ArchiveFile.Tell(pHeader->data_pos) == false)
+		{
+			throw IOException("Failure getting current position");
+		}
+		
 		// fix path-names
 		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
@@ -104,7 +111,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			pHeader->realname = pHeader->filename.left(iPos +1);
 		}
 		
-		
+		// seek past actual data of the entry in archive
 		if (ArchiveFile.Seek(pHeader->packed_size, SEEK_CUR) == false)
 		{
 			throw IOException("Failure seeking next header");
@@ -610,8 +617,6 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  */
 bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-    size_t header_size;
-
     pHeader->size_field_length = get_word();
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -633,8 +638,10 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->has_crc = true;
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
-    pHeader->header_size = header_size = get_longword();
+    //pHeader->header_size = header_size = get_longword();
+    pHeader->header_size = get_longword();
 	
+    size_t header_size = pHeader->header_size;
     size_t extend_size = get_longword();
 
     unsigned int hcrc = 0;

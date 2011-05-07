@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include <limits.h>
 
-
+// 16-bit CRC table and counting,
+// could make static instance of this..
+// CRC table is only modified when instance is created.
+//
 class CCrcIo
 {
 protected:

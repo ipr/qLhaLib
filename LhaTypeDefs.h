@@ -36,7 +36,7 @@ enum tKanjiCodePage
 };
 
 // all compression methods
-//
+// define -> enum by IPr
 /* Added N.Watazaki ..V */
 enum tCompressionMethod
 {
@@ -51,7 +51,9 @@ enum tCompressionMethod
 	LARC_METHOD_NUM     = 8,
 	LARC5_METHOD_NUM    = 9,
 	LARC4_METHOD_NUM    = 10,
-	LZHDIRS_METHOD_NUM  = 11
+	LZHDIRS_METHOD_NUM  = 11,
+	
+	LZ_UNKNOWN  = 99 // unknown/unsupported method
 };
 /* Added N.Watazaki ..^ */
 
