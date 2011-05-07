@@ -13,5 +13,7 @@ Also: http://homepage1.nifty.com/dangan/en/Content/Program/Java/jLHA/Notes/Notes
 
 In progress..
 
-Viewing contents mostly done.
+Only viewing currently supported.
+
+Prebuilt binaries available in my page: http://personal.inet.fi/koti/ipr/qlhatool/index.html
 
