@@ -13,6 +13,7 @@
 #include <QString>
 #include <QTextCodec>
 #include <QList>
+#include <QDateTime>
 
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
@@ -131,9 +132,11 @@ typedef struct LzHeader
 	QString         dirname;
 	QString         realname; // real name for symbolic link (unix)
 
+	// note: only 16-bit crc..
     unsigned int    crc;      /* file CRC */
     bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
+	
     unsigned char   extend_type;
 
 	// MS-DOS attribute-flags
@@ -141,9 +144,9 @@ typedef struct LzHeader
 	
     /* extend_type == EXTEND_UNIX  and convert from other type. */
 	
-    time_t          unix_creation_stamp;
-    time_t          unix_last_modified_stamp;
-    time_t          unix_last_access_stamp;
+    QDateTime       creation_stamp;
+    QDateTime       last_modified_stamp;
+    QDateTime       last_access_stamp;
 
 	// only on unix-extension ?
     unsigned char   minor_version;
@@ -300,22 +303,15 @@ private:
 		return szVal;
 	}
 
-	/*
-	time_t generic_to_unix_stamp(long t)
-	{
-		CGenericTime Time(t);
-		return (time_t)Time;
-	}
-	*/
-	
-	unsigned long wintime_to_unix_stamp()
+	CFiletimeHelper get_wintime()
 	{
 		unsigned long ulHiPart = (unsigned long)get_longword();
 		unsigned long ulLoPart = (unsigned long)get_longword();
 		
 		CFiletimeHelper ft(ulHiPart, ulLoPart);
-		return ft.GetAsUnixTime();
+		return ft;
 	}
+	
 
 	// TODO: make better way..
 	//size_t m_nReadOffset;

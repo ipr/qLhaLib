@@ -196,9 +196,13 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				/* Windows time stamp (FILETIME structure) */
 				/* time in 100 nanosecond-intervals since 1601-01-01 00:00:00 (UTC) */
 				
-				pHeader->unix_creation_stamp = wintime_to_unix_stamp();
-				pHeader->unix_last_modified_stamp = wintime_to_unix_stamp(); // already set ?
-				pHeader->unix_last_access_stamp = wintime_to_unix_stamp();
+				CFiletimeHelper ftCreation = get_wintime();
+				CFiletimeHelper ftLastModified = get_wintime();
+				CFiletimeHelper ftLastAccess = get_wintime();
+				
+				pHeader->creation_stamp.setTime_t((time_t)ftCreation);
+				pHeader->last_modified_stamp.setTime_t((time_t)ftLastModified); // already set ?
+				pHeader->last_access_stamp.setTime_t((time_t)ftLastAccess);
 				
 				// last modified time
 				//if (pHeader->header_level >= 2)  /* time_t has been already set */
@@ -225,7 +229,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
         case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
-            pHeader->unix_last_modified_stamp = (time_t) get_longword();
+			// (32-bit time_t)
+            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
             break;
         default:
             /* other headers */
@@ -347,7 +352,8 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = (time_t)CGenericTime(get_longword());
+	CGenericTime gtStamp(get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     int name_length = get_byte();
@@ -384,7 +390,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
         if (extend_size >= 11) 
 		{
             pHeader->minor_version = get_byte();
-            pHeader->unix_last_modified_stamp = (time_t) get_longword();
+            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
             pHeader->UnixMode.unix_mode = get_word();
             pHeader->unix_uid = get_word();
             pHeader->unix_gid = get_word();
@@ -461,7 +467,8 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = (time_t)CGenericTime(get_longword());
+	CGenericTime gtStamp(get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
     pHeader->header_level = get_byte();
 
@@ -543,7 +550,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = get_longword();
+    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
@@ -618,7 +625,7 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = get_longword();
+    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 

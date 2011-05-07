@@ -71,13 +71,6 @@ public:
 	CGenericTime(const long lTime)
 		: m_lGenericTime(lTime)
 	{}
-	/*
-	CGenericTime(const time_t Time)
-		: m_lGenericTime(0)
-	{
-		m_lGenericTime = unix_to_generic_stamp(Time);
-	}
-	*/
 	
 	operator time_t () const
 	{

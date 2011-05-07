@@ -111,7 +111,7 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_ulPackedSize = pHeader->packed_size;
 		Entry.m_ulUnpackedSize = pHeader->original_size;
 		Entry.m_szPackMode = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
-		Entry.m_Stamp.setTime_t(pHeader->unix_last_modified_stamp);
+		Entry.m_Stamp = pHeader->last_modified_stamp;
 		
 		// attributes? which ones?
 		// unix/msdos? not always both..
