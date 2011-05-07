@@ -22,11 +22,15 @@
 // also must expect some features for C++ support
 // and must be able to build Qt..
 //
-// 3) standard-library support
+// 3) better scoping
+// trying to figure out all 
+// those external/global variables all over the place..
+//
+// 4) standard-library support
 // C-style buffers replaces (in places)
 // by std::string, std::list and std::vector, for example.
 //
-// 4) removed console-output
+// 5) removed console-output
 // does not belong in a library-code, which is what this should become..
 //
 //

@@ -97,7 +97,39 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 {
 	CLhDecoder *pDecoder = GetDecoder(pHeader->GetMethod());
 	
+	// we do this above..
+    //decode_set = decode_define[interface->method - 1];
+
+	size_t nToRead = pHeader->packed_size;
 	size_t nToWrite = pHeader->original_size;
+	
+    unsigned int adjust = 0; // inline in decode() in slide.c
+    //unsigned int dicsiz1 = 0; // inline in decode() in slide.c..
+	unsigned long dicsiz = 0; // static in slide.c
+    dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
+	
+	// out-buffer? local only?
+    //unsigned char *dtext = (unsigned char *)xmalloc(dicsiz);
+	//memset(dtext, 0, dicsiz);
+	//memset(dtext, ' ', dicsiz);
+	
+    //decode_set.decode_start(); // initalize&set tables?
+    //dicsiz1 = dicsiz - 1; // why separate?
+    //adjust = 256 - THRESHOLD;
+    if (m_Compression == LARC_METHOD_NUM)
+	{
+        adjust = 256 - 2;
+	}
+
+	// some more globals to locals..
+	// let's guess where these are used later..
+	size_t decode_count = 0;
+    unsigned long loc = 0;
+
+	
+	// below is best-guess what should be done,
+	// see decoding for how large changes may be needed..
+	//
 	while (nToWrite > 0)
 	{
 		size_t read_size = nToWrite;
@@ -112,19 +144,25 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 			throw IOException("Failed reading data");
 		}
 		
-		// decode
-		//pDecoder->
-		
-		// update crc (could make static instance..)
-		//m_uiCrc = m_crcio.calccrc(m_uiCrc, pDecoder->GetDecoded(), pDecoder->GetDecodedSize());
-		
-		// write to output
-		if (OutFile.Write(pDecoder->GetDecoded(), pDecoder->GetDecodedSize()) == false)
+		unsigned char *pReadBuf = m_ReadBuf.GetBegin();
+		while (read_size > 0)
 		{
-			throw IOException("Failed writing output");
+			// decode
+			//pDecoder->Decode(pReadBuf, read_size);
+			
+			// update crc (could make static instance..)
+			//m_uiCrc = m_crcio.calccrc(m_uiCrc, pDecoder->GetDecoded(), pDecoder->GetDecodedSize());
+			
+			// write to output
+			if (OutFile.Write(pDecoder->GetDecoded(), pDecoder->GetDecodedSize()) == false)
+			{
+				throw IOException("Failed writing output");
+			}
+			
+			nToWrite -= pDecoder->GetDecodedSize();
+			read_size -= pDecoder->GetReadPackedSize();
+			pReadBuf = pReadBuf + pDecoder->GetReadPackedSize();
 		}
-		
-		nToWrite -= pDecoder->GetDecodedSize();
 	}
 }
 
