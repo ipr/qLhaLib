@@ -14,16 +14,23 @@ void QLhALib::PrepareArchive(QString &szArchive)
 {
 	if (m_pLhaHandler != nullptr)
 	{
+		if (m_pLhaHandler->GetArchiveFileName() == szArchive)
+		{
+			// same archive already -> nothing to do?
+			m_pLhaHandler->SetConversionCodec(m_pTextCodec);
+			return;
+		}
+		
 		delete m_pLhaHandler;
 	}
 	
 	m_pLhaHandler = new CLhArchive(this, szArchive);
 	m_pLhaHandler->SetConversionCodec(m_pTextCodec);
 	
-	connect(m_pLhaHandler, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
-	connect(m_pLhaHandler, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
-	connect(m_pLhaHandler, SIGNAL(error(QString)), this, SIGNAL(error(QString)));
-	connect(m_pLhaHandler, SIGNAL(fatal_error(QString)), this, SIGNAL(fatal_error(QString)));
+	//connect(m_pLhaHandler, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
+	//connect(m_pLhaHandler, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
+	//connect(m_pLhaHandler, SIGNAL(error(QString)), this, SIGNAL(error(QString)));
+	//connect(m_pLhaHandler, SIGNAL(fatal_error(QString)), this, SIGNAL(fatal_error(QString)));
 }
 
 
@@ -78,11 +85,11 @@ bool QLhALib::Extract(QString &szExtractPath)
 	return false;
 }
 
-bool QLhALib::List()
+bool QLhALib::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
 	try
 	{
-		return m_pLhaHandler->List();
+		return m_pLhaHandler->List(lstArchiveInfo);
 	}
 	catch (std::exception &exp)
 	{
@@ -117,4 +124,28 @@ bool QLhALib::AddFiles(QStringList &lstFiles)
 	return false;
 }
 
+QString QLhALib::GetArchiveFileName()
+{
+	return m_pLhaHandler->GetArchiveFileName();
+}
+
+size_t QLhALib::GetArchiveFileSize()
+{
+	return m_pLhaHandler->GetArchiveFileSize();
+}
+
+unsigned long QLhALib::GetTotalSizeUnpacked() 
+{ 
+	return m_pLhaHandler->GetTotalSizeUnpacked(); 
+}
+
+unsigned long QLhALib::GetTotalSizePacked() 
+{ 
+	return m_pLhaHandler->GetTotalSizePacked(); 
+}
+
+unsigned long QLhALib::GetTotalFileCount() 
+{ 
+	return m_pLhaHandler->GetTotalFileCount(); 
+}
 

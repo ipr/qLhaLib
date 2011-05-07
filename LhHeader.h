@@ -23,6 +23,81 @@
 
 #define METHOD_TYPE_STORAGE     5
 
+// write open the bit-flags for in/out of library
+
+typedef struct MsdosFlags
+{
+	// constructor
+	MsdosFlags()
+	{
+		SetFromValue(0x20);
+	}
+	
+	// some shitty MS-DOS-style flags:
+	bool bRo;  // bit1  read only
+	bool bHid; // bit2  hidden
+	bool bSys; // bit3  system
+	bool bVol; // bit4  volume label
+	bool bDir; // bit5  directory
+	bool bArc; // bit6  archive bit (need to backup)
+	
+	void SetFromValue(unsigned char ucVal)
+	{
+		bRo = ((ucVal & 2) ? true : false);
+		bHid = ((ucVal & 4) ? true : false);
+		bSys = ((ucVal & 8) ? true : false);
+		bVol = ((ucVal & 16) ? true : false);
+		bDir = ((ucVal & 32) ? true : false);
+		bArc = ((ucVal & 64) ? true : false);
+	}
+	
+} MsdosFlags;
+
+
+enum tUnixFlags
+{
+	UNIX_FILE_TYPEMASK     = 0170000,
+	UNIX_FILE_REGULAR      = 0100000,
+	UNIX_FILE_DIRECTORY    = 0040000,
+	UNIX_FILE_SYMLINK      = 0120000,
+	UNIX_SETUID            = 0004000,
+	UNIX_SETGID            = 0002000,
+	UNIX_STICKYBIT         = 0001000,
+	UNIX_OWNER_READ_PERM   = 0000400,
+	UNIX_OWNER_WRITE_PERM  = 0000200,
+	UNIX_OWNER_EXEC_PERM   = 0000100,
+	UNIX_GROUP_READ_PERM   = 0000040,
+	UNIX_GROUP_WRITE_PERM  = 0000020,
+	UNIX_GROUP_EXEC_PERM   = 0000010,
+	UNIX_OTHER_READ_PERM   = 0000004,
+	UNIX_OTHER_WRITE_PERM  = 0000002,
+	UNIX_OTHER_EXEC_PERM   = 0000001,
+	UNIX_RW_RW_RW          = 0000666
+};
+
+typedef struct UnixModeFlags
+{
+	//tUnixFlags m_enFlags;
+	unsigned short  unix_mode;
+	
+	// constructor
+	UnixModeFlags()
+	{
+		// default: normal file with read+write for everyone
+		unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
+	}
+
+	// is file just symbolic link instead of actual file?
+	bool IsSymLink()
+	{
+		if ((unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK)
+		{
+			return true;
+		}
+		return false;
+	}
+
+} UnixModeFlags;
 
 typedef struct LzHeader 
 {
@@ -35,19 +110,15 @@ typedef struct LzHeader
 		
 		packed_size = 0;
 		original_size = 0;
-		attribute = GENERIC_ATTRIBUTE;
 		header_level = 0;
 		
 		crc = 0x0000;
 		extend_type = EXTEND_UNIX;
-	}
-	
-	//TODO:
-	//void init_header(FILE *pFile)
-	//void init_header(CAnsiFile &File)
-	void init_header()
-	{
-
+		
+		// defaults for these
+		//unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
+		unix_gid = 0;
+		unix_uid = 0;
 	}
 	
     size_t          header_size;
@@ -55,11 +126,14 @@ typedef struct LzHeader
     char            method[METHOD_TYPE_STORAGE];
     size_t          packed_size;
     size_t          original_size;
-    unsigned char   attribute;
     unsigned char   header_level;
 	QString         name;
 	QString         dirname;
 	QString         realname; // real name for symbolic link (unix)
+
+	// MS-DOS attribute-flags
+    MsdosFlags      MsDosAttributes;
+	
     unsigned int    crc;      /* file CRC */
     bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
@@ -70,7 +144,8 @@ typedef struct LzHeader
     time_t          unix_creation_stamp;
     time_t          unix_last_modified_stamp;
     time_t          unix_last_access_stamp;
-    unsigned short  unix_mode;
+	
+	UnixModeFlags   UnixMode;
     unsigned short  unix_uid;
     unsigned short  unix_gid;
 	
@@ -96,6 +171,26 @@ enum tHeaderIndices
 	I_LEVEL3_HEADER_SIZE   = 32
 };
 
+// extended header attributes:
+// used to parse attributes from archive-file
+enum tExtendedAttribs
+{
+	EXTH_CRC      = 0,
+	EXTH_FILENAME = 1,
+	EXTH_PATH     = 2,
+	
+	EXTH_COMMENT          = 0x3f, // file comment (Amiga-style?), uncompressed
+	EXTH_MSDOSATTRIBS     = 0x40,
+	EXTH_WINDOWSTIMES     = 0x41, // Windows timestamps of file
+	EXTH_LARGEFILE        = 0x42, // 64-bit filesize
+	EXTH_UNIXPERMISSIONS  = 0x50, // UNIX permission
+	EXTH_UNIXGIDUID       = 0x51, // UNIX gid and uid
+	EXTH_UNIXGROUP        = 0x52, // UNIX group name
+	EXTH_UNIXUSER         = 0x53, // UNIX user name
+	EXTH_UNIXLASTMODIFIED = 0x54, // UNIX last modified time 
+	
+	EXTH_RESERVED         = 0xFF // reservation for later
+};
 
 class CLhHeader : public QObject
 {
@@ -104,6 +199,15 @@ private:
 	// TODO: these buffer handlings REALLY need to be fixed..
 	// change methods later, move to buffer-class
 	//
+	// temp! buffer-descriptor
+	//
+	/*
+	typedef struct LhBuffer
+	{
+		
+	} LhBuffer;
+	*/
+	
 	char    *m_get_ptr;
 	char    *m_get_ptr_end;
 	
@@ -193,17 +297,13 @@ private:
 		return szVal;
 	}
 
+	/*
 	time_t generic_to_unix_stamp(long t)
 	{
 		CGenericTime Time(t);
 		return (time_t)Time;
 	}
-	
-	long unix_to_generic_stamp(time_t t)
-	{
-		CGenericTime Time(t);
-		return (long)Time;
-	}
+	*/
 	
 	unsigned long wintime_to_unix_stamp()
 	{
@@ -401,20 +501,8 @@ public:
 	
 	void ParseHeaders(CAnsiFile &ArchiveFile);
 
-	/*
-//signals:
-	//void message(QString);
-	//void warning(QString);
-	//void error(QString); // -> exception instead
-	//void fatal_error(QString); // -> exception instead
-	
-	// file-entry found in archive-file
-	//void FileLocated(LzHeader*);
-	 */
-
 	
 protected:
-	//ssize_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, CReadBuffer &Buffer, size_t header_size, unsigned int *hcrc);
 	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc);
 	
 	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader);
@@ -423,7 +511,8 @@ protected:
 	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	
 	void UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize);
-	//void init_header(LzHeader *pHeader);
+	
+	friend class CLhArchive;
 };
 
 

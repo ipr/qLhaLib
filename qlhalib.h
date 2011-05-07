@@ -72,8 +72,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
-
-//#include "LhaTypeDefs.h"
+#include <QList>
 
 
 // fwd. decl. class for entry point
@@ -90,10 +89,8 @@ private:
 	
 protected:
 	
-	
 	// operation flags and options
 	// TODO: see what should be supported..
-	
 	
 	//bool m_bVerbose; // v
 	//bool m_bNotExecute; // n 
@@ -130,6 +127,44 @@ public:
     QLhALib(QObject *parent = 0);
     virtual ~QLhALib();
 
+	// for each file entry in archive (for caller)
+	class CArchiveEntry
+	{
+	public:
+		CArchiveEntry(void)
+			: m_uiCrc(0)
+			, m_ulUnpackedSize(0)
+			, m_ulPackedSize(0)
+			, m_bPackedSizeAvailable(true)
+			, m_szFileName()
+			, m_szPathName()
+		{
+		}
+	
+		// CRC from archive (note: only 16-bit in LHa..),
+		// 32-bit on LZX
+		unsigned int m_uiCrc;
+		
+		// unpacked size of file
+		unsigned long m_ulUnpackedSize;
+	
+		// compressed size offile
+		unsigned long m_ulPackedSize;
+	
+		// packed-size is not available for merged files (LZX)
+		// -> not supported by LHa..
+		bool m_bPackedSizeAvailable;
+		
+		// name of entry from archive
+		QString m_szFileName;
+		
+		QString m_szPathName;
+	};
+	
+	// simplest way to list all files in archive for caller
+	typedef QList<CArchiveEntry> tArchiveEntryList;
+	
+	
 public slots:
 	// various operation flags and options accessible below
 	// TODO: see what should be supported..
@@ -161,7 +196,7 @@ public slots:
 	//////////////////	
 	// actual operations below
 	bool Extract(QString &szExtractPath);
-	bool List();
+	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
 	bool Test();
 
 	bool AddFiles(QStringList &lstFiles);
@@ -172,6 +207,16 @@ signals:
 	void warning(QString);
 	void error(QString);
 	void fatal_error(QString);
+
+public:
+	// information about archive file itself
+	QString GetArchiveFileName();
+	size_t GetArchiveFileSize();
+
+	// statistical information access to caller
+	unsigned long GetTotalSizeUnpacked();
+	unsigned long GetTotalSizePacked();
+	unsigned long GetTotalFileCount();
 	
 };
 

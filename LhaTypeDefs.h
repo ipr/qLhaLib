@@ -5,6 +5,7 @@
 
 // compression method/level
 // user selectable option enum
+// -> defuault to 7 ?
 enum tUserCompressionMethod
 {
 	COMPRESS_5 = 5,
@@ -13,7 +14,8 @@ enum tUserCompressionMethod
 };
 
 // header level (compatibility)
-// 0..2 are user selectable
+// 0..2 are user selectable on file creation
+// -> default to level 3?
 enum tHeaderLevel
 {
 	HEADERLEVEL_0 = 0,
@@ -23,13 +25,14 @@ enum tHeaderLevel
 };
 
 // for filename conversion
+// -> use QTextCodec instead if necessary
 enum tKanjiCodePage
 {
 	CODEPAGE_NONE  = 0,
 	CODEPAGE_EUC   = 1,
 	CODEPAGE_SJIS  = 2,
 	CODEPAGE_UTF8  = 3,
-	CODEPAGE_CAP   = 4    /* Columbia AppleTalk Program */
+	CODEPAGE_CAP   = 4    // Columbia AppleTalk Program 
 };
 
 // all compression methods
@@ -53,6 +56,7 @@ enum tCompressionMethod
 /* Added N.Watazaki ..^ */
 
 // huffman encoding dictionary bits
+//
 enum tHuffBits
 {
 	LZHUFF0_DICBIT          = 0,      /* no compress */
@@ -68,14 +72,13 @@ enum tHuffBits
 	LARC4_DICBIT            = 0,      /* no compress */
 							  
 #ifdef SUPPORT_LH7
-	 MAX_DICBIT         = LZHUFF7_DICBIT      /* lh7 use 16bits */
+	 MAX_DICBIT         = LZHUFF7_DICBIT,      /* lh7 use 16bits */
+#else
+	 MAX_DICBIT         = LZHUFF6_DICBIT,      /* lh6 use 15bits */
 #endif
-#ifndef SUPPORT_LH7
-	 MAX_DICBIT         = LZHUFF6_DICBIT      /* lh6 use 15bits */
-#endif
- };
-
-#define MAX_DICSIZ          (1L << MAX_DICBIT)
+						  
+	 MAX_DICSIZ          = (1L << MAX_DICBIT)
+};
 
 #define LZHUFF0_METHOD          "-lh0-"
 #define LZHUFF1_METHOD          "-lh1-"
@@ -104,15 +107,14 @@ enum tHuffBits
 #define EXTEND_RUNSER           'R'
 
 /* this OS type is not official */
-
 #define EXTEND_TOWNSOS          'T'
 #define EXTEND_XOSK             'X' /* OS-9 for X68000 (?) */
 #define EXTEND_JAVA             'J'
 
-#define GENERIC_ATTRIBUTE               0x20
-#define GENERIC_DIRECTORY_ATTRIBUTE     0x10
+//#define GENERIC_ATTRIBUTE               0x20
+//#define GENERIC_DIRECTORY_ATTRIBUTE     0x10
 
-#define CURRENT_UNIX_MINOR_VERSION      0x00
+//#define CURRENT_UNIX_MINOR_VERSION      0x00
 
 #define LHA_PATHSEP             0xff    /* path separator of the
                                            filename in lha header.
@@ -131,6 +133,7 @@ enum tHuffBits
 #define OSK_OWNER_WRITE_PERM    0000002
 #define OSK_OWNER_READ_PERM     0000001
 
+/*
 #define UNIX_FILE_TYPEMASK      0170000
 #define UNIX_FILE_REGULAR       0100000
 #define UNIX_FILE_DIRECTORY     0040000
@@ -148,6 +151,7 @@ enum tHuffBits
 #define UNIX_OTHER_WRITE_PERM   0000002
 #define UNIX_OTHER_EXEC_PERM    0000001
 #define UNIX_RW_RW_RW           0000666
+*/
 
 //#define LZHEADER_STORAGE        4096
 

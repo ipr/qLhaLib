@@ -17,6 +17,8 @@
 
 
 // some kinda shitty msdos-timestamp.. blah..
+// just convert it
+//
 class CGenericTime
 {
 protected:
@@ -44,6 +46,7 @@ protected:
 		return mktime(&tm);
 	}
 
+	/*
 	inline long unix_to_generic_stamp(const time_t t) const
 	{
 		struct tm *tm = localtime(&t);
@@ -58,6 +61,7 @@ protected:
 				(tm->tm_min  << 5) +
 				(tm->tm_sec / 2));
 	}
+	*/
 	
 	
 public:
@@ -67,16 +71,14 @@ public:
 	CGenericTime(const long lTime)
 		: m_lGenericTime(lTime)
 	{}
+	/*
 	CGenericTime(const time_t Time)
 		: m_lGenericTime(0)
 	{
 		m_lGenericTime = unix_to_generic_stamp(Time);
 	}
+	*/
 	
-	operator long () const
-	{
-		return m_lGenericTime;
-	}
 	operator time_t () const
 	{
 		return generic_to_unix_stamp(m_lGenericTime);

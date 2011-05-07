@@ -2,8 +2,28 @@
 //
 // structure and code for handling Lz-archive header
 //
+// partly rewritten from header.c in LHa for UNIX
+//
 // Ilkka Prusi 2011
 //
+// original copyrights:
+/* ------------------------------------------------------------------------ */
+/* LHa for UNIX                                                             */
+/*              header.c -- header manipulate functions                     */
+/*                                                                          */
+/*      Modified                Nobutaka Watazaki                           */
+/*                                                                          */
+/*  Original                                                Y.Tagawa        */
+/*  modified                                    1991.12.16  M.Oki           */
+/*  Ver. 1.10  Symbolic Link added              1993.10.01  N.Watazaki      */
+/*  Ver. 1.13b Symbolic Link Bug Fix            1994.08.22  N.Watazaki      */
+/*  Ver. 1.14  Source All chagned               1995.01.14  N.Watazaki      */
+/*  Ver. 1.14i bug fixed                        2000.10.06  t.okamoto       */
+/*  Ver. 1.14i Contributed UTF-8 convertion for Mac OS X                    */
+/*                                              2002.06.29  Hiroto Sakai    */
+/*  Ver. 1.14i autoconfiscated & rewritten      2003.02.23  Koji Arai       */
+/* ------------------------------------------------------------------------ */
+
 
 #include "LhHeader.h"
 
@@ -41,6 +61,8 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		}
 		
 		LzHeader *pHeader = new LzHeader();
+		m_HeaderList.push_back(pHeader);
+		
 		bool bRet = false;
 		switch (m_get_ptr[I_HEADER_LEVEL]) 
 		{
@@ -65,11 +87,11 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			throw ArcException("Failure reading header", "");
 		}
 
-		// correct fix path-names
+		// fix path-names
 		pHeader->name.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
 		
-		if ((pHeader->unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK) 
+		if (pHeader->UnixMode.IsSymLink() == true) 
 		{
 			/* hdr->name is symbolic link name */
 			/* hdr->realname is real name */
@@ -81,9 +103,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			}
 			pHeader->realname = pHeader->name.left(iPos +1);
 		}
-		m_HeaderList.push_back(pHeader);
 		
-		//emit FileLocated(pHeader);
 		
 		if (ArchiveFile.Seek(pHeader->packed_size, SEEK_CUR) == false)
 		{
@@ -91,24 +111,6 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		}
 	}
 }
-
-
-/* ------------------------------------------------------------------------ */
-/* LHa for UNIX                                                             */
-/*              header.c -- header manipulate functions                     */
-/*                                                                          */
-/*      Modified                Nobutaka Watazaki                           */
-/*                                                                          */
-/*  Original                                                Y.Tagawa        */
-/*  modified                                    1991.12.16  M.Oki           */
-/*  Ver. 1.10  Symbolic Link added              1993.10.01  N.Watazaki      */
-/*  Ver. 1.13b Symbolic Link Bug Fix            1994.08.22  N.Watazaki      */
-/*  Ver. 1.14  Source All chagned               1995.01.14  N.Watazaki      */
-/*  Ver. 1.14i bug fixed                        2000.10.06  t.okamoto       */
-/*  Ver. 1.14i Contributed UTF-8 convertion for Mac OS X                    */
-/*                                              2002.06.29  Hiroto Sakai    */
-/*  Ver. 1.14i autoconfiscated & rewritten      2003.02.23  Koji Arai       */
-/* ------------------------------------------------------------------------ */
 
 
 /*
@@ -148,6 +150,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	{
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
 		
+		// this only makes sense for "wrap-under" case of unsigned counter..
         if (m_pReadBuffer->GetSize() < header_size) 
 		{
 			throw ArcException("header size too large.", header_size);
@@ -160,67 +163,67 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 
 		unsigned char *pBuf = m_pReadBuffer->GetBegin();
 		
-        int ext_type = get_byte();
-        switch (ext_type) 
+		// TODO:
+        //tExtendedAttribs enExtType = (tExtendedAttribs)get_byte();
+        int iExtType = get_byte();
+        switch (iExtType) 
 		{
-        case 0:
+        case EXTH_CRC:
             /* header crc (CRC-16) */
             pHeader->header_crc = get_word();
             /* clear buffer for CRC calculation. */
             pBuf[1] = pBuf[2] = 0;
             skip_bytes(header_size - n - 2);
             break;
-        case 1:
+        case EXTH_FILENAME:
             /* filename */
             //name_length = get_bytes(pHeader->name, header_size-n, sizeof(pHeader->name)-1);
             pHeader->name = get_string(header_size-n);
             break;
-        case 2:
+        case EXTH_PATH:
             /* directory */
             //dir_length = get_bytes(dirname, header_size-n, sizeof(dirname)-1);
             pHeader->dirname = get_string(header_size-n);
             break;
-        case 0x40:
-            /* MS-DOS attribute */
-            pHeader->attribute = get_word();
+			
+        case EXTH_MSDOSATTRIBS:
+            /* MS-DOS attribute flags */
+            pHeader->MsDosAttributes.SetFromValue(get_word());
             break;
-        case 0x41:
+			
+        case EXTH_WINDOWSTIMES:
 			{
 				/* Windows time stamp (FILETIME structure) */
-				/* it is time in 100 nano seconds since 1601-01-01 00:00:00 */
+				/* time in 100 nanosecond-intervals since 1601-01-01 00:00:00 (UTC) */
 				
 				pHeader->unix_creation_stamp = wintime_to_unix_stamp();
-				time_t LastModifiedTime = wintime_to_unix_stamp();
+				pHeader->unix_last_modified_stamp = wintime_to_unix_stamp(); // already set ?
 				pHeader->unix_last_access_stamp = wintime_to_unix_stamp();
 				
-				/* set last modified time */
+				// last modified time
 				//if (pHeader->header_level >= 2)  /* time_t has been already set */
-				if (pHeader->header_level < 2)
-				{
-					pHeader->unix_last_modified_stamp = LastModifiedTime;
-				}
 			}
 			break;
-        case 0x50:
+        case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
-            pHeader->unix_mode = get_word();
+            pHeader->UnixMode.unix_mode = get_word();
             break;
-        case 0x51:
+        case EXTH_UNIXGIDUID:
             /* UNIX gid and uid */
             pHeader->unix_gid = get_word();
             pHeader->unix_uid = get_word();
             break;
-        case 0x52:
+        case EXTH_UNIXGROUP:
             /* UNIX group name */
             //i = get_bytes(pHeader->group, header_size-n, sizeof(pHeader->group)-1);
             pHeader->group = get_string(header_size-n);
             break;
-        case 0x53:
+        case EXTH_UNIXUSER:
             /* UNIX user name */
             //i = get_bytes(pHeader->user, header_size-n, sizeof(pHeader->user)-1);
             pHeader->user = get_string(header_size-n);
             break;
-        case 0x54:
+        case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
             pHeader->unix_last_modified_stamp = (time_t) get_longword();
             break;
@@ -321,10 +324,11 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
     size_t extend_size;
+	int checksum = 0;
 
     pHeader->size_field_length = 2; /* in bytes */
     pHeader->header_size = header_size = get_byte();
-    int checksum = get_byte();
+    checksum = get_byte();
 	
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 
@@ -342,16 +346,11 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = generic_to_unix_stamp(get_longword());
-    pHeader->attribute = get_byte(); /* MS-DOS attribute */
+    pHeader->unix_last_modified_stamp = (time_t)CGenericTime(get_longword());
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     int name_length = get_byte();
     pHeader->name = get_string(name_length);
-
-    /* defaults for other type */
-    pHeader->unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
-    pHeader->unix_gid = 0;
-    pHeader->unix_uid = 0;
 
     extend_size = header_size+2 - name_length - 24;
 
@@ -385,7 +384,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		{
             pHeader->minor_version = get_byte();
             pHeader->unix_last_modified_stamp = (time_t) get_longword();
-            pHeader->unix_mode = get_word();
+            pHeader->UnixMode.unix_mode = get_word();
             pHeader->unix_uid = get_word();
             pHeader->unix_gid = get_word();
             extend_size -= 11;
@@ -439,12 +438,11 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
-    size_t extend_size;
-    int checksum;
+	int checksum = 0;
 
     pHeader->size_field_length = 2; /* in bytes */
     pHeader->header_size = header_size = get_byte();
-    checksum = get_byte();
+	checksum = get_byte();
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
@@ -462,8 +460,8 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
-    pHeader->unix_last_modified_stamp = generic_to_unix_stamp(get_longword());
-    pHeader->attribute = get_byte(); /* 0x20 fixed */
+    pHeader->unix_last_modified_stamp = (time_t)CGenericTime(get_longword());
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
     pHeader->header_level = get_byte();
 
     int name_length = get_byte();
@@ -471,9 +469,6 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->name = get_string(name_length);
 
     /* defaults for other type */
-    pHeader->unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
-    pHeader->unix_gid = 0;
-    pHeader->unix_uid = 0;
     pHeader->has_crc = true;
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
@@ -484,7 +479,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
         skip_bytes(dummy); /* skip old style extend header */
 	}
 
-    extend_size = get_word();
+    size_t extend_size = get_word();
     extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, 0);
     if (extend_size == -1)
 	{
@@ -532,7 +527,6 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
-    size_t extend_size;
 
     pHeader->size_field_length = 2; /* in bytes */
     pHeader->header_size = header_size = get_word();
@@ -549,17 +543,15 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = get_longword();
-    pHeader->attribute = get_byte(); /* reserved */
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
-    pHeader->unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
-    pHeader->unix_gid = 0;
-    pHeader->unix_uid = 0;
     pHeader->has_crc = true;
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
-    extend_size = get_word();
+	
+    size_t extend_size = get_word();
 
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
@@ -611,7 +603,6 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     size_t header_size;
-    size_t extend_size;
 
     pHeader->size_field_length = get_word();
 
@@ -627,18 +618,16 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->unix_last_modified_stamp = get_longword();
-    pHeader->attribute = get_byte(); /* reserved */
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
-    pHeader->unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
-    pHeader->unix_gid = 0;
-    pHeader->unix_uid = 0;
     pHeader->has_crc = true;
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
     pHeader->header_size = header_size = get_longword();
-    extend_size = get_longword();
+	
+    size_t extend_size = get_longword();
 
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);

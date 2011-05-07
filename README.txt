@@ -13,3 +13,5 @@ Also: http://homepage1.nifty.com/dangan/en/Content/Program/Java/jLHA/Notes/Notes
 
 In progress..
 
+Viewing contents mostly done.
+

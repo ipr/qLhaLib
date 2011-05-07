@@ -1,26 +1,16 @@
 #include "LhArchive.h"
 
-#include "qlhalib.h"
-
-#include "AnsiFile.h"
-
-#include <QTextCodec>
-
 
 CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 	: QObject(pParent),
-	m_szCurrentArchive(szArchive),
-	m_nArchiveFileSize(0),
-	m_ulPackedSizeTotal(0),
-	m_ulUnpackedSizeTotal(0),
-	m_ulFileCountTotal(0),
+	m_szArchive(szArchive),
+	m_nFileSize(0),
+	m_ulTotalPacked(0),
+	m_ulTotalUnpacked(0),
+	m_ulTotalFiles(0),
 	m_pHeaders(nullptr)
 {
 	m_pHeaders = new CLhHeader(this);
-	
-	//connect(m_pHeaders, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
-	//connect(m_pHeaders, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
-	//connect(m_pHeaders, SIGNAL(FileLocated(LzHeader*)), this, SLOT(FileLocated(LzHeader*)));
 }
 
 CLhArchive::~CLhArchive(void)
@@ -54,11 +44,11 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 	
 	if (m_pHeaders->IsValidLha(Buffer) == false)
 	{
-		throw ArcException("No supported header in file", m_szCurrentArchive.toStdString());
+		throw ArcException("No supported header in file", m_szArchive.toStdString());
 	}
 	if (m_pHeaders->ParseBuffer(Buffer) == false)
 	{
-		throw ArcException("Failed to parse header", m_szCurrentArchive.toStdString());
+		throw ArcException("Failed to parse header", m_szArchive.toStdString());
 	}
 	
 	// just seek start.. 
@@ -71,61 +61,64 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 
 /////////////// public slots
 
-/*
-void CLhArchive::SetArchiveFile(QString szArchive)
-{
-	m_szCurrentArchive = szArchive;
-}
-*/
-
 void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 {
 	m_pHeaders->SetConversionCodec(pCodec);
 }
-
-/*
-void CLhArchive::FileLocated(LzHeader *pHeader)
-{
-	// TEMP!
-	// TESTING ONLY!
-	emit message(pHeader->name);
-}
-*/
 
 bool CLhArchive::Extract(QString &szExtractPath)
 {
 	return false;
 }
 
-bool CLhArchive::List()
+bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
+	// auto-close file (on leaving scope),
+	// wrap some handling
 	CAnsiFile ArchiveFile;
-	if (ArchiveFile.Open(m_szCurrentArchive.toStdString()) == false)
+	if (ArchiveFile.Open(m_szArchive.toStdString()) == false)
 	{
 		throw IOException("Failed opening archive");
-		
-		// alternate:
-		//emit fatal_error("Failed opening archive");
-		//return false;
 	}
-	m_nArchiveFileSize = ArchiveFile.GetSize();
+	m_nFileSize = ArchiveFile.GetSize();
 
 	// should have at least 16 bytes for a header to exist..
 	//
-	if (m_nArchiveFileSize < 16)
+	if (m_nFileSize < 16)
 	{
-		throw ArcException("File too small", m_szCurrentArchive.toStdString());
+		throw ArcException("File too small", m_szArchive.toStdString());
 	}
 	
 	// throws exception on failure:
 	// when no valid header or such
 	SeekHeader(ArchiveFile);
 
-	// emulate old style, read 4096 max. at a time
-	//CReadBuffer Buffer(4096);
-
 	// throws exception on error
 	m_pHeaders->ParseHeaders(ArchiveFile);
+
+	// information to caller
+	auto it = m_pHeaders->m_HeaderList.begin();
+	auto itEnd = m_pHeaders->m_HeaderList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		
+		lstArchiveInfo.push_back(QLhALib::CArchiveEntry());
+		
+		QLhALib::CArchiveEntry &Entry = lstArchiveInfo.back();
+		Entry.m_szFileName = pHeader->name;
+		Entry.m_szPathName = pHeader->dirname;
+		Entry.m_uiCrc = pHeader->crc;
+		Entry.m_ulPackedSize = pHeader->packed_size;
+		Entry.m_ulUnpackedSize = pHeader->original_size;
+		
+		// update archive statistics
+		m_ulTotalPacked += pHeader->packed_size;
+		m_ulTotalUnpacked += pHeader->original_size;
+		m_ulTotalFiles++;
+		
+		++it;
+	}
 	
 	return true;
 }
