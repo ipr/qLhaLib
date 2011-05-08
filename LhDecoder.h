@@ -91,7 +91,7 @@ public:
 };
 
 
-// interface class for decoding methods,
+// interface/base class for decoding methods,
 // must be abstract
 //
 class CLhDecoder
@@ -188,6 +188,11 @@ public:
 	}
 };
 
+//////// decoders
+
+// (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
+
+// -lh1-
 class CLhDecodeLh1 : public CLhDecoder
 {
 public:
@@ -198,16 +203,13 @@ public:
 	{}
 	
 	
-	/*
-	void DecodeStart()
-	{
-		m_OutBuf.PrepareBuffer(input * x); // prepare for largest possible?
-		CLhDecode::decode_0_start();
-	}
-	*/
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 	
 };
 
+// -lh2-
 class CLhDecodeLh2 : public CLhDecoder
 {
 public:
@@ -217,8 +219,13 @@ public:
 	virtual ~CLhDecodeLh2(void)
 	{}
 	
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
+	
 };
 
+// -lh3-
 class CLhDecodeLh3 : public CLhDecoder
 {
 public:
@@ -227,9 +234,15 @@ public:
 	{}
 	virtual ~CLhDecodeLh3(void)
 	{}
+
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 	
 };
 
+/*
+// -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh4 : public CLhDecoder
 {
 public:
@@ -241,6 +254,7 @@ public:
 	
 };
 
+// -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh5 : public CLhDecoder
 {
 public:
@@ -252,6 +266,7 @@ public:
 	
 };
 
+// -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh6 : public CLhDecoder
 {
 public:
@@ -260,9 +275,10 @@ public:
 	{}
 	virtual ~CLhDecodeLh6(void)
 	{}
-	
 };
+*/
 
+// -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh7 : public CLhDecoder
 {
 public:
@@ -272,8 +288,12 @@ public:
 	virtual ~CLhDecodeLh7(void)
 	{}
 	
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
+// -lzs-
 class CLhDecodeLzs : public CLhDecoder
 {
 protected:
@@ -295,6 +315,7 @@ public:
 	virtual unsigned short DecodeP();
 };
 
+// -lz5-
 class CLhDecodeLz5 : public CLhDecoder
 {
 protected:

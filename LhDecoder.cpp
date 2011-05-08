@@ -58,6 +58,72 @@ void BitIo::putcode(unsigned char n, unsigned short x)
 
 ////////////////////// decoders
 
+// (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
+
+// -lh1-
+// partially same as -lh2-
+// (dynamic huffman routine)
+
+void CLhDecodeLh1::DecodeStart()
+{
+}
+
+unsigned short CLhDecodeLh1::DecodeC()
+{
+}
+
+unsigned short CLhDecodeLh1::DecodeP()
+{
+}
+
+// -lh2-
+// partially same as -lh1-
+// (dynamic huffman routine)
+
+void CLhDecodeLh2::DecodeStart()
+{
+}
+
+unsigned short CLhDecodeLh2::DecodeC()
+{
+}
+
+unsigned short CLhDecodeLh2::DecodeP()
+{
+}
+
+// -lh3-
+// (static huffman routine 0)
+
+void CLhDecodeLh3::DecodeStart()
+{
+}
+
+unsigned short CLhDecodeLh3::DecodeC()
+{
+}
+
+unsigned short CLhDecodeLh3::DecodeP()
+{
+}
+
+// -lh4- .. -lh7-
+// -> same decoding (check virtual methods)
+// (static huffman routine 1)
+
+void CLhDecodeLh7::DecodeStart()
+{
+}
+
+unsigned short CLhDecodeLh7::DecodeC()
+{
+}
+
+unsigned short CLhDecodeLh7::DecodeP()
+{
+}
+
+
 // -lzs-
 
 void CLhDecodeLzs::DecodeStart()

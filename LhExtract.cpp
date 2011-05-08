@@ -14,41 +14,41 @@ void CLhExtract::CreateDecoders()
 {
 	CLhDecoder *pDecoder = nullptr;
 	
+	// (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
+	
+	// -lh1-
 	pDecoder = new CLhDecodeLh1();
 	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF1_METHOD_NUM, pDecoder);
 	
+	// -lh2-
 	pDecoder = new CLhDecodeLh2();
 	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF2_METHOD_NUM, pDecoder);
 	
+	// -lh3-
 	pDecoder = new CLhDecodeLh3();
 	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF3_METHOD_NUM, pDecoder);
-	
-	pDecoder = new CLhDecodeLh4();
-	pDecoder->CreateDecoder();
-	m_mapDecoders.insert(LZHUFF4_METHOD_NUM, pDecoder);
-	
-	pDecoder = new CLhDecodeLh5();
-	pDecoder->CreateDecoder();
-	m_mapDecoders.insert(LZHUFF5_METHOD_NUM, pDecoder);
-	
-	pDecoder = new CLhDecodeLh6();
-	pDecoder->CreateDecoder();
-	m_mapDecoders.insert(LZHUFF6_METHOD_NUM, pDecoder);
-	
+
+	// -lh4- .. -lh7- -> same decoding
 	pDecoder = new CLhDecodeLh7();
 	pDecoder->CreateDecoder();
+	m_mapDecoders.insert(LZHUFF4_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(LZHUFF5_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(LZHUFF6_METHOD_NUM, pDecoder);
 	m_mapDecoders.insert(LZHUFF7_METHOD_NUM, pDecoder);
 	
+	// -lzs-
 	pDecoder = new CLhDecodeLzs();
 	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LARC_METHOD_NUM, pDecoder);
 	
+	// -lz5-
 	pDecoder = new CLhDecodeLz5();
 	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LARC5_METHOD_NUM, pDecoder);
+	
 }
 
 CLhDecoder *CLhExtract::GetDecoder(const tCompressionMethod enMethod)
@@ -266,7 +266,7 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	*/
 }
 
-
+// -lh0- and -lhd- -> no compression
 void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	// no compression, just copy to output
