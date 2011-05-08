@@ -85,7 +85,9 @@ protected:
 	BitIo m_BitIo;
 
 public:
-    CHuffman();
+    CHuffman()
+		: m_BitIo()
+	{}
 	
 	void make_code(int nchar, 
 				   unsigned char  *bitlen, 
@@ -109,6 +111,15 @@ public:
 	
 };
 
+
+/* shuf.c */
+#define N1          286             /* alphabet size */
+#define N2          (2 * N1 - 1)    /* # of nodes in Huffman tree */
+#define EXTRABITS   8               /* >= log2(F-THRESHOLD+258-N1) */
+#define BUFBITS     16              /* >= log2(MAXBUF) */
+#define LENFIELD    4               /* bit size of length field for tree output */
+
+
 class CShuffleHuffman : public CHuffman
 {
 protected:
@@ -116,6 +127,9 @@ protected:
 	//const int ciNP2 = (ciNP * 2 - 1);
 
 	unsigned int np;
+	
+	// was static
+	unsigned short blocksize; /* decode */
 
 	int fixed[2][16] = {
 		{3, 0x01, 0x04, 0x0c, 0x18, 0x30, 0},   /* old compatible */
@@ -123,7 +137,11 @@ protected:
 	};
 	
 public:
-    CShuffleHuffman();
+    CShuffleHuffman()
+		: CHuffman()
+		, blocksize(0)
+	{
+	}
 	
 	void decode_start_st0( /*void*/ );
 	void encode_p_st0(unsigned short j);
@@ -173,7 +191,10 @@ protected:
 	unsigned int n_max;
 	
 public:
-    CDynamicHuffman();
+    CDynamicHuffman()
+		: CHuffman()
+	{
+	}
 	
 	void start_c_dyn( /* void */ );
 	void start_p_dyn( /* void */ );	
@@ -197,6 +218,7 @@ public:
 	
 };
 
+
 /* huf.c */
 #define NP          (MAX_DICBIT + 1)
 #define NT          (USHRT_BIT + 3)
@@ -208,12 +230,6 @@ public:
 
 /*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
 #define NPT         0x80
-
-/* huf.c */
-//unsigned short left[], right[];
-//unsigned char c_len[], pt_len[];
-//unsigned short c_freq[], c_table[], c_code[];
-//unsigned short p_freq[], pt_table[], pt_code[], t_freq[];
 
 
 class CStaticHuffman : public CHuffman
@@ -244,7 +260,11 @@ protected:
 	int np;
 	
 public:
-    CStaticHuffman();
+    CStaticHuffman()
+		: CHuffman()
+		, blocksize(0)
+	{
+	}
 	
 	void count_t_freq(/*void*/);
 	void write_pt_len(short n, short nbit, short i_special);

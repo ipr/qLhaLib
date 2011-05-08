@@ -116,7 +116,6 @@ enum tHuffBits
 //#define GENERIC_ATTRIBUTE               0x20
 //#define GENERIC_DIRECTORY_ATTRIBUTE     0x10
 
-//#define CURRENT_UNIX_MINOR_VERSION      0x00
 
 #define LHA_PATHSEP             0xff    /* path separator of the
                                            filename in lha header.
