@@ -16,13 +16,6 @@ protected:
 
 	void make_crctable();
 
-	/* useless
-	inline void InitializeCrc(unsigned int &crc)
-	{
-		crc = 0;
-	}
-	*/
-
 	inline unsigned int UPDATE_CRC(unsigned int crc, unsigned int c)
 	{
 		return m_crctable[((crc) ^ (c)) & 0xFF] ^ ((crc) >> CHAR_BIT);

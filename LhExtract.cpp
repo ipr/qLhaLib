@@ -107,11 +107,11 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	CLhDecoder *pDecoder = GetDecoder(m_Compression);
-	
-	// we do this above..
-    //decode_set = decode_define[interface->method - 1];
-	
-	pDecoder->SetBuffers(&m_ReadBuf, &m_WriteBuf);
+	if (pDecoder == nullptr)
+	{
+		// unknown/unsupported compression?
+		return;
+	}
 	
 	// prepare enough in buffers, zero them also
 	m_ReadBuf.PrepareBuffer(pHeader->packed_size, false);
@@ -122,13 +122,9 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		throw IOException("Failed reading input");
 	}
 
-	size_t nToRead = pHeader->packed_size;
-	size_t nToWrite = pHeader->original_size;
-
+	pDecoder->InitClear();
+	pDecoder->SetBuffers(&m_ReadBuf, &m_WriteBuf);
 	
-    unsigned int adjust = 0; // inline in decode() in slide.c
-    //unsigned int dicsiz1 = 0; // inline in decode() in slide.c..
-	//unsigned long dicsiz = 0; // static in slide.c
     unsigned long dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
 	
 	// out-buffer (dictionary-lookup result)? local only?
@@ -146,72 +142,26 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
     //decode_set.decode_start(); // initalize&set tables?
 	pDecoder->DecodeStart();
 	
-    unsigned int dicsiz1 = dicsiz - 1; // why separate?
-    adjust = 256 - THRESHOLD;
+    unsigned int dicsiz_1 = dicsiz - 1; // why separate?
+    unsigned int adjust = 256 - THRESHOLD;
     if (m_Compression == LARC_METHOD_NUM)
 	{
         adjust = 256 - 2;
 	}
 
-	// some more globals to locals..
-	// let's guess where these are used later..
+	pDecoder->SetDict(dicsiz, dtext, dicsiz_1, adjust);
+	pDecoder->SetLoc(0);
+	
 	size_t decode_count = 0;
-    //unsigned long loc = 0;
-	// -> pass loc to decoder ?
-	// -> moved to decoder
-
-
-    while (decode_count < origsize) 
+    while (decode_count < pHeader->original_size) 
 	{
-        //c = decode_set.decode_c();
-		c = pDecoder->DecodeC();
-        if (c < 256) 
-		{
-			unsigned long loc = pDecoder->GetLoc();
-            dtext[loc++] = c;
-            if (loc == dicsiz) 
-			{
-				m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
-				m_WriteBuf.Append(dtext, dicsiz);
-                loc = 0;
-            }
-			pDecoder->SetLoc(loc);
-            decode_count++;
-		}
-		else
-		{
-            //struct matchdata match; // given to some methods but in encoding only
-            //unsigned int matchpos; // also needed in decoder.. (-lzs- and -lz5- anyway)
-            //match.len = c - adjust;
-            //match.off = decode_set.decode_p() + 1;
-
-			// TODO: reduce these variables, see about reducing repeated stuff
-			//
-			int iMatchLen = c - adjust;
-            unsigned int uiMatchOff = pDecoder->DecodeP() + 1; // may modify loc?
-			unsigned long loc = pDecoder->GetLoc();
-            unsigned int matchpos = (loc - uiMatchOff) & dicsiz1;
-			
-            decode_count += iMatchLen;
-            for (i = 0; i < iMatchLen; i++) 
-			{
-                c = dtext[(matchpos + i) & dicsiz1];
-                dtext[loc++] = c;
-                if (loc == dicsiz) 
-				{
-					m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
-					m_WriteBuf.Append(dtext, dicsiz);
-                    loc = 0;
-                }
-			}
-			
-			pDecoder->SetLoc(loc);
-		}
+		pDecoder->Decode(decode_count);
 	}
 	
-    if (pDecoder->GetLoc() != 0) 
+	unsigned long loc = pDecoder->GetLoc();
+    if (loc != 0) 
 	{
-		unsigned long loc = pDecoder->GetLoc();
+		m_uiCrc = pDecoder->GetCrc();
 		m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, loc);
 		m_WriteBuf.Append(dtext, loc);
     }

@@ -85,7 +85,7 @@ void CHuffman::make_code(int nchar,
 	{
         int l = bitlen[c];
         code[c] = start[l];
-        start[i] += weight[l];
+        start[l] += weight[l];
     }
 }
 
@@ -100,6 +100,7 @@ void CHuffman::count_leaf(int node, /* call with node = root */
 	}
     else 
 	{
+		// uses those in static-huffman..
         count_leaf(left[node], nchar, leaf_num, depth + 1);
         count_leaf(right[node], nchar, leaf_num, depth + 1);
     }
@@ -258,6 +259,36 @@ short CHuffman::make_tree(int nchar, unsigned short *freq, unsigned char *bitlen
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
 
+// static member array initialization,
+// only used by ready_made()
+const int CShuffleHuffman::fixed[2][16] = {
+	{3, 0x01, 0x04, 0x0c, 0x18, 0x30, 0},   /* old compatible */
+	{2, 0x01, 0x01, 0x03, 0x06, 0x0D, 0x1F, 0x4E, 0}    /* 8K buf */
+};
+
+/* ------------------------------------------------------------------------ */
+void CShuffleHuffman::ready_made(int method)
+{
+    int *tbl = fixed[method];
+    int j = *tbl++;
+    unsigned int weight = 1 << (16 - j);
+    unsigned int code = 0;
+	
+    for (int i = 0; i < np; i++) 
+	{
+        while (*tbl == i) 
+		{
+            j++;
+            tbl++;
+            weight >>= 1;
+        }
+		// pt_len and pt_code in dynamic huffman??
+        pt_len[i] = j;
+        pt_code[i] = code;
+        code += weight;
+    }
+}
+
 /* ------------------------------------------------------------------------ */
 /* lh3 */
 void CShuffleHuffman::decode_start_st0( /*void*/ )
@@ -278,28 +309,6 @@ void CShuffleHuffman::encode_p_st0(unsigned short  j)
 }
 
 /* ------------------------------------------------------------------------ */
-void CShuffleHuffman::ready_made(int method)
-{
-    int *tbl = fixed[method];
-    int j = *tbl++;
-    unsigned int weight = 1 << (16 - j);
-    unsigned int code = 0;
-	
-    for (int i = 0; i < np; i++) 
-	{
-        while (*tbl == i) 
-		{
-            j++;
-            tbl++;
-            weight >>= 1;
-        }
-        pt_len[i] = j;
-        pt_code[i] = code;
-        code += weight;
-    }
-}
-
-/* ------------------------------------------------------------------------ */
 /* lh1 */
 void CShuffleHuffman::encode_start_fix( /*void*/ )
 {
@@ -317,12 +326,12 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
 {
 	/* read tree from file */
     int i = 0;
-    while (i < N1) 
+    while (i < SHUF_N1) 
 	{
 		unsigned short bit = m_BitIo.getbits(1);
         if (bit)
 		{
-            c_len[i] = m_BitIo.getbits(LENFIELD) + 1;
+            c_len[i] = m_BitIo.getbits(SHUF_LENFIELD) + 1;
 		}
         else
 		{
@@ -332,7 +341,7 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
         if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(CBIT);
-            for (i = 0; i < N1; i++)
+            for (i = 0; i < SHUF_N1; i++)
 			{
                 c_len[i] = 0;
 			}
@@ -343,7 +352,7 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
             return;
         }
     }
-    make_table(N1, c_len, 12, c_table);
+    make_table(SHUF_N1, c_len, 12, c_table);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -352,14 +361,14 @@ void CShuffleHuffman::read_tree_p(/*void*/)
 	/* read tree from file */
 
     int i = 0;
-    while (i < ciNP) 
+    while (i < SHUF_NP) 
 	{
-        pt_len[i] = m_BitIo.getbits(LENFIELD);
+        pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
 		
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
-            for (i = 0; i < ciNP; i++)
+            for (i = 0; i < SHUF_NP; i++)
 			{
                 pt_len[i] = 0;
 			}
@@ -392,7 +401,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
 {
     if (blocksize == 0)    /* read block head */
 	{
-        blocksize = m_BitIo.getbits(BUFBITS);   /* read block blocksize */
+        blocksize = m_BitIo.getbits(SHUF_BUFBITS);   /* read block blocksize */
         read_tree_c();
 		
 		unsigned short bit = m_BitIo.getbits(1);
@@ -404,13 +413,13 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
 		{
             ready_made(1);
         }
-        make_table(ciNP, pt_len, 8, pt_table);
+        make_table(SHUF_NP, pt_len, 8, pt_table);
     }
     blocksize--;
 	
 	unsigned short bit = m_BitIo.peekbits(12);
     int j = c_table[bit];
-    if (j < N1)
+    if (j < SHUF_N1)
 	{
         m_BitIo.fillbuf(c_len[j]);
 	}
@@ -429,12 +438,12 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
                 j = left[j];
 			}
             i <<= 1;
-        } while (j >= N1);
+        } while (j >= SHUF_N1);
         m_BitIo.fillbuf(c_len[j] - 12);
     }
-    if (j == N1 - 1)
+    if (j == SHUF_N1 - 1)
 	{
-        j += m_BitIo.getbits(EXTRABITS);
+        j += m_BitIo.getbits(SHUF_EXTRABITS);
 	}
     return j;
 }

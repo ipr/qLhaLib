@@ -112,63 +112,19 @@ public:
 };
 
 
-/* shuf.c */
-#define N1          286             /* alphabet size */
-#define N2          (2 * N1 - 1)    /* # of nodes in Huffman tree */
-#define EXTRABITS   8               /* >= log2(F-THRESHOLD+258-N1) */
-#define BUFBITS     16              /* >= log2(MAXBUF) */
-#define LENFIELD    4               /* bit size of length field for tree output */
-
-
-class CShuffleHuffman : public CHuffman
-{
-protected:
-	const int ciNP  = (8 * 1024 / 64);
-	//const int ciNP2 = (ciNP * 2 - 1);
-
-	unsigned int np;
-	
-	// was static
-	unsigned short blocksize; /* decode */
-
-	int fixed[2][16] = {
-		{3, 0x01, 0x04, 0x0c, 0x18, 0x30, 0},   /* old compatible */
-		{2, 0x01, 0x01, 0x03, 0x06, 0x0D, 0x1F, 0x4E, 0}    /* 8K buf */
-	};
-	
-public:
-    CShuffleHuffman()
-		: CHuffman()
-		, blocksize(0)
-	{
-	}
-	
-	void decode_start_st0( /*void*/ );
-	void encode_p_st0(unsigned short j);
-	void ready_made(int method);
-	void encode_start_fix( /*void*/ );
-	void read_tree_c( /*void*/ );
-	void read_tree_p(/*void*/);
-	
-	void decode_start_fix(/*void*/);
-	
-	unsigned short decode_c_st0(/*void*/);
-	unsigned short decode_p_st0(/*void*/);
-};
-
-
-/* dhuf.c */
-#define N_CHAR      (256 + 60 - THRESHOLD + 1)
-#define TREESIZE_C  (N_CHAR * 2)
-#define TREESIZE_P  (128 * 2)
-#define TREESIZE    (TREESIZE_C + TREESIZE_P)
-#define ROOT_C      0
-#define ROOT_P      TREESIZE_C
-
-
 class CDynamicHuffman : public CHuffman
 {
 protected:
+	// avoid name collisions
+	enum tDynamicHuffman
+	{
+		N_CHAR     = (256 + 60 - THRESHOLD + 1),
+		TREESIZE_C = (N_CHAR * 2),
+		TREESIZE_P = (128 * 2),
+		TREESIZE   = (TREESIZE_C + TREESIZE_P),
+		ROOT_C     = 0,
+		ROOT_P     = TREESIZE_C
+	};
 	
 	short    child[TREESIZE]; 
 	short    parent[TREESIZE];
@@ -219,22 +175,70 @@ public:
 };
 
 
-/* huf.c */
-#define NP          (MAX_DICBIT + 1)
-#define NT          (USHRT_BIT + 3)
-#define NC          (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD)
+class CShuffleHuffman : public CDynamicHuffman
+{
+protected:
+	// avoid name collisions
+	enum tShuffle
+	{
+		SHUF_NP  = (8 * 1024 / 64),
+		//SHUF_NP2 = (SHUF_NP * 2 - 1),
+		SHUF_N1  = 286,                     // alphabet size
+		//SHUF_N2  = (2 * SHUF_N1 - 1),     // # of nodes in Huffman tree 
+		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
+		SHUF_BUFBITS     = 16,              // >= log2(MAXBUF)
+		SHUF_LENFIELD    = 4                // bit size of length field for tree output
+	};
 
-#define PBIT        5       /* smallest integer such that (1 << PBIT) > * NP */
-#define TBIT        5       /* smallest integer such that (1 << TBIT) > * NT */
-#define CBIT        9       /* smallest integer such that (1 << CBIT) > * NC */
+	unsigned int np;
+	
+	// was static
+	unsigned short blocksize; /* decode */
 
-/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
-#define NPT         0x80
+	// only used by ready_made()..
+	static const int fixed[2][16];
+	
+public:
+    CShuffleHuffman()
+		: CDynamicHuffman()
+		, blocksize(0)
+	{
+	}
+	
+	void ready_made(int method);
+	
+	void decode_start_st0( /*void*/ );
+	void encode_p_st0(unsigned short j);
+	void encode_start_fix( /*void*/ );
+	void read_tree_c( /*void*/ );
+	void read_tree_p(/*void*/);
+	
+	void decode_start_fix(/*void*/);
+	
+	unsigned short decode_c_st0(/*void*/);
+	unsigned short decode_p_st0(/*void*/);
+};
 
 
 class CStaticHuffman : public CHuffman
 {
 protected:
+	// avoid name collisions
+	enum tStaticHuffman
+	{
+		NP         = (MAX_DICBIT + 1),
+		NT         = (USHRT_BIT + 3),
+		NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+		
+		PBIT       = 5,       /* smallest integer such that (1 << PBIT) > * NP */
+		TBIT       = 5,       /* smallest integer such that (1 << TBIT) > * NT */
+		CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
+		
+		/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
+		NPT        = 0x80
+	};
+	
+	
 	unsigned short left[2 * NC - 1];
 	unsigned short right[2 * NC - 1];
 	

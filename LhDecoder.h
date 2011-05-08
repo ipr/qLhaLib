@@ -36,117 +36,78 @@ private:
 
 	//// decode start
 	// -lh1- and -lh2- have specific cases
-	// with differences, dynamic huffman
-
-	/*
 	// -lh3-, static huffman (0)
-	void decode_start_st0();
-
 	// -lh4- .. -lh7-, static huffman (1)
-	void decode_start_st1();
-
 	//// decode C
 	// -lh1- and -lh2-, dynamic huffman
-	unsigned short decode_c_dyn_huf();
-
 	// -lh3-, static huffman (0)
-	unsigned short decode_c_st0_huf();
-
 	// -lh4- .. -lh7-, static huffman (1)
-	unsigned short decode_c_st1_huf();
-	
 	//// decode P
 	// -lh2-, dynamic huffman
-	unsigned short decode_p_dyn_huf();
-	
 	// -lh1- and -lh3-, static huffman (0)
-	unsigned short decode_p_st0_huf();
-	
 	// -lh4- .. -lh7-, static huffman (1)
-	unsigned short decode_p_st1_huf();
-	*/
 
 	
 protected:
-	//BitIo m_BitIo;
-
-	// decode-text
-	//unsigned char *m_pDecodeTable;
-	unsigned char *m_pText;
 	
-	// helper for accessing same data
-	// in decoder and extract-handling
-	CReadBuffer *m_pReadBuf;
-	CReadBuffer *m_pWriteBuf; // may grow
+	CCrcIo m_crcio;
+	unsigned int m_uiCrc;
 	
-	/*
-	// size of decoded output (should be smaller than buffer)
-	size_t m_nDecodedSize;
+	// dictionary-related
+	unsigned long m_dicsiz;
+	unsigned char *m_dtext;
+	unsigned int m_dicsiz_1;
+	unsigned int m_adjust;
 
-	// amount of packed data read
-	size_t m_nReadPackedSize;
-	*/
-
-	// was global..
+	// was global.. only actually used with -lzs- and -lz5-
     unsigned long m_loc;
 	
 public:
 	CLhDecoder(void)
-		//: m_BitIo()
-		: m_pText(nullptr)
-		//, m_pDecodeTable(nullptr)
-		, m_pReadBuf(nullptr)
-		, m_pWriteBuf(nullptr)
-		//, m_nDecodedSize(0)
-		//, m_nReadPackedSize(0)
+		: m_crcio()
+		, m_uiCrc(0)
+		, m_dicsiz(0)
+		, m_dtext(nullptr)
+		, m_dicsiz_1(0)
+		, m_adjust(0)
 		, m_loc(0)
 	{}
 	virtual ~CLhDecoder(void)
 	{}
 
-	// Create(): only called once by container
-	// (optional)
-	virtual void CreateDecoder()
+	// Create(): only called once by container (optional)
+	virtual void CreateDecoder() {};
+
+	// called before reusing
+	virtual void InitClear()
 	{
-		//m_pDecodeTable = new unsigned char[size];
+		m_uiCrc = 0;
+		m_dicsiz = 0;
+		m_dtext = nullptr;
+		m_dicsiz_1 = 0;
+		m_adjust = 0;
+		m_loc = 0;
+	}
+	virtual void SetDict(unsigned long dicsiz, unsigned char *dtext, unsigned int dicsiz_1, unsigned int adjust)
+	{
+		m_dicsiz = dicsiz;
+		m_dtext = dtext;
+		m_dicsiz_1 = dicsiz_1;
+		m_adjust = adjust;
 	}
 	
-	/* // both used by caller..
-	void SetTextDictBuf(unsigned char *pText, unsigned char *pDText = nullptr)
-	{
-		m_pText = pText;
-	}
-	*/
-	
-	void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		m_pReadBuf = pReadBuf;
-		m_pWriteBuf = pWriteBuf;
-		
-		// temp, make better later..
-		//m_BitIo.m_pReadBuf = pReadBuf;
-		//m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
+	// called on start of decode to set buffers
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf) = 0;
+
+	// may be used during decoding
+	virtual CReadBuffer *GetReadBuf() = 0;
+	virtual CReadBuffer *GetWriteBuf() = 0;
 	
 	virtual void DecodeStart() = 0;
 	virtual unsigned short DecodeC() = 0;
 	virtual unsigned short DecodeP() = 0;
 	
 
-	/*
-	size_t GetDecodedSize() const
-	{
-		// TODO:
-		return m_nDecodedSize;
-	}
-	
-	size_t GetReadPackedSize() const
-	{
-		// TODO:
-		return m_nReadPackedSize;
-	}
-	*/
-	
 	// was global..
 	// check if this is needed at all,
 	// for now, keep behind interface to track usage
@@ -158,6 +119,14 @@ public:
 	{
 		m_loc = ulLoc;
 	}
+	
+	unsigned int GetCrc() const
+	{
+		return m_uiCrc;
+	}
+	
+	// 
+	virtual void Decode(size_t &decode_count);
 };
 
 //////// decoders
@@ -166,16 +135,32 @@ public:
 
 // -lh1-
 // (dynamic huffman)
-class CLhDecodeLh1 : public CLhDecoder, protected CShuffleHuffman, protected CDynamicHuffman
+class CLhDecodeLh1 : public CLhDecoder, protected CShuffleHuffman
 {
 public:
 	CLhDecodeLh1(void)
 		: CLhDecoder()
 		, CShuffleHuffman()
-		, CDynamicHuffman()
 	{}
 	virtual ~CLhDecodeLh1(void)
 	{}
+
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
 	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
@@ -194,6 +179,23 @@ public:
 	{}
 	virtual ~CLhDecodeLh2(void)
 	{}
+
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
 	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
@@ -213,6 +215,23 @@ public:
 	virtual ~CLhDecodeLh3(void)
 	{}
 
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
+	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
@@ -239,6 +258,23 @@ public:
 	virtual ~CLhDecodeLh7(void)
 	{}
 
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
+	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
@@ -264,6 +300,23 @@ public:
 	virtual ~CLhDecodeLzs(void)
 	{}
 	
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
+	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
@@ -288,6 +341,23 @@ public:
 	{}
 	virtual ~CLhDecodeLz5(void)
 	{}
+	
+	virtual void CreateDecoder() {};
+	
+	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// set to where this was inherited from
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	virtual CReadBuffer *GetReadBuf()
+	{
+		return m_BitIo.m_pReadBuf;
+	}
+	virtual CReadBuffer *GetWriteBuf()
+	{
+		return m_BitIo.m_pWriteBuf;
+	}
 	
 	virtual void DecodeStart();
 	virtual unsigned short DecodeC();
