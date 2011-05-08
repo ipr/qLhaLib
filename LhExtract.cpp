@@ -109,13 +109,15 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
     dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
 	
 	// out-buffer? local only?
-    //unsigned char *dtext = (unsigned char *)xmalloc(dicsiz);
-	//memset(dtext, 0, dicsiz);
-	//memset(dtext, ' ', dicsiz);
+    unsigned char *dtext = (unsigned char *)malloc(dicsiz);
+	//memset(dtext, 0, dicsiz); // for broken archive only? why?
+	memset(dtext, ' ', dicsiz);
 	
     //decode_set.decode_start(); // initalize&set tables?
+	pDecoder->DecodeStart();
+	
     //dicsiz1 = dicsiz - 1; // why separate?
-    //adjust = 256 - THRESHOLD;
+    adjust = 256 - THRESHOLD;
     if (m_Compression == LARC_METHOD_NUM)
 	{
         adjust = 256 - 2;
@@ -124,8 +126,83 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	// some more globals to locals..
 	// let's guess where these are used later..
 	size_t decode_count = 0;
-    unsigned long loc = 0;
+    //unsigned long loc = 0;
+	// -> pass loc to decoder ?
+	// -> moved to decoder
 
+	// function pointers in struct:
+	//{decode_c, decode_p, decode_start}
+    /* lh1 */
+    //{decode_c_dyn, decode_p_st0, decode_start_fix},
+    /* lh2 */
+    //{decode_c_dyn, decode_p_dyn, decode_start_dyn},
+    /* lh3 */
+    //{decode_c_st0, decode_p_st0, decode_start_st0},
+    /* lh4 */
+    //{decode_c_st1, decode_p_st1, decode_start_st1},
+    /* lh5 */
+    //{decode_c_st1, decode_p_st1, decode_start_st1},
+    /* lh6 */
+    //{decode_c_st1, decode_p_st1, decode_start_st1},
+    /* lh7 */
+    //{decode_c_st1, decode_p_st1, decode_start_st1},
+    /* lzs */
+    //{decode_c_lzs, decode_p_lzs, decode_start_lzs},
+    /* lz5 */
+    //{decode_c_lz5, decode_p_lz5, decode_start_lz5}
+
+    while (decode_count < origsize) 
+	{
+        c = decode_set.decode_c();
+        if (c < 256) 
+		{
+            dtext[loc++] = c;
+            if (loc == dicsiz) 
+			{
+				m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
+				memcpy(m_pWriteBuffer + m_nWritePos, dtext, dicsiz);
+				m_nWritePos += dicsiz;
+                loc = 0;
+            }
+            decode_count++;
+		}
+		else
+		{
+            struct matchdata match;
+            unsigned int matchpos;
+
+            match.len = c - adjust;
+            match.off = decode_set.decode_p() + 1;
+            matchpos = (loc - match.off) & dicsiz1;
+            decode_count += match.len;
+            for (i = 0; i < match.len; i++) 
+			{
+                c = dtext[(matchpos + i) & dicsiz1];
+                dtext[loc++] = c;
+                if (loc == dicsiz) 
+				{
+					m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
+					memcpy(m_pWriteBuffer + m_nWritePos, dtext, dicsiz);
+					m_nWritePos += dicsiz;
+                    loc = 0;
+                }
+			}
+		}
+	}
+    if (loc != 0) 
+	{
+		m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, loc);
+		memcpy(m_pWriteBuffer + m_nWritePos, dtext, loc);
+		m_nWritePos += loc;
+    }
+
+    free(dtext);
+	
+    /* usually read size is interface->packed */
+    //interface->read_size = interface->packed - compsize;
+
+	//nToRead = pHeader->packed_size - compsize;
+    //return m_uiCrc;
 	
 	// below is best-guess what should be done,
 	// see decoding for how large changes may be needed..

@@ -110,9 +110,11 @@ protected:
 	//decode_0_start();
 
 	BitIo m_BitIo;
-	
-	unsigned char *m_pDecodeTable;
 
+	// decode-text
+	//unsigned char *m_pDecodeTable;
+	unsigned char *text;
+	
 	// for output, may grow
 	CReadBuffer m_OutBuf;
 	
@@ -121,24 +123,36 @@ protected:
 
 	// amount of packed data read
 	size_t m_nReadPackedSize;
+
+	// was global..
+    unsigned long m_loc;
 	
 public:
 	CLhDecoder(void)
 		: m_BitIo()
-		, m_pDecodeTable(nullptr)
+		, text(nullptr)
+		//, m_pDecodeTable(nullptr)
 		, m_OutBuf()
 		, m_nDecodedSize(0)
 		, m_nReadPackedSize(0)
+		, m_loc(0)
 	{}
 	virtual ~CLhDecoder(void)
 	{}
 
-	virtual void CreateDecoder() = 0; // only called once by container
+	// Create(): only called once by container
+	// (optional)
+	virtual void CreateDecoder()
+	{
+		//m_pDecodeTable = new unsigned char[size];
+	}
 	
-	//virtual void DecodeStart() = 0;
+	virtual void DecodeStart() = 0;
 	//virtual void DecodeStart(size_t nActualRead, CReadBuffer &InBuf) = 0;
-	
+	//virtual void DecodeCont() = 0;
 	//virtual void DecodeEnd() = 0;
+	virtual unsigned short DecodeC() = 0;
+	virtual unsigned short DecodeP() = 0;
 	
 	unsigned char *GetDecoded()
 	{
@@ -167,10 +181,6 @@ public:
 	virtual ~CLhDecodeLh1(void)
 	{}
 	
-	void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 	
 	/*
 	void DecodeStart()
@@ -181,6 +191,7 @@ public:
 	*/
 	
 };
+
 class CLhDecodeLh2 : public CLhDecoder
 {
 public:
@@ -190,11 +201,8 @@ public:
 	virtual ~CLhDecodeLh2(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLh3 : public CLhDecoder
 {
 public:
@@ -204,11 +212,8 @@ public:
 	virtual ~CLhDecodeLh3(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLh4 : public CLhDecoder
 {
 public:
@@ -218,11 +223,8 @@ public:
 	virtual ~CLhDecodeLh4(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLh5 : public CLhDecoder
 {
 public:
@@ -232,11 +234,8 @@ public:
 	virtual ~CLhDecodeLh5(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLh6 : public CLhDecoder
 {
 public:
@@ -246,11 +245,8 @@ public:
 	virtual ~CLhDecodeLh6(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLh7 : public CLhDecoder
 {
 public:
@@ -260,38 +256,48 @@ public:
 	virtual ~CLhDecodeLh7(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
 };
+
 class CLhDecodeLzs : public CLhDecoder
 {
+protected:
+	int flag, flagcnt;
+	int m_matchpos;
+	
 public:
 	CLhDecodeLzs(void)
 		: CLhDecoder()
+		, flag(0)
+		, flagcnt(0)
+		, m_matchpos(0)
 	{}
 	virtual ~CLhDecodeLzs(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
+
 class CLhDecodeLz5 : public CLhDecoder
 {
+protected:
+	int flag, flagcnt;
+	int m_matchpos;
+
 public:
 	CLhDecodeLz5(void)
 		: CLhDecoder()
+		, flag(0)
+		, flagcnt(0)
+		, m_matchpos(0)
 	{}
 	virtual ~CLhDecodeLz5(void)
 	{}
 	
-	virtual void CreateDecoder()
-	{
-		//m_pDecodeTable = new unsigned char[size];
-	}
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 

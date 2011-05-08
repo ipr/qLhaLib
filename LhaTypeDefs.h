@@ -135,5 +135,12 @@ enum tHuffBits
 #define OSK_OWNER_WRITE_PERM    0000002
 #define OSK_OWNER_READ_PERM     0000001
 
+#define MAXMATCH            256 /* formerly F (not more than UCHAR_MAX + 1) */
+#define THRESHOLD           3   /* choose optimal value */
+
+// -lzs- and -lz5- decoders
+#define MAGIC0      18
+#define MAGIC5      19
+
 
 #endif // LHATYPEDEFS_H
