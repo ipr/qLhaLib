@@ -198,6 +198,14 @@ public:
 		(*pBuf) = ucValue;
 		m_nCurrentPos++;
 	}
+	
+	// copy given, start at current
+	void Append(unsigned char *pData, size_t nSize)
+	{
+		unsigned char *pBuf = GetAt(m_nCurrentPos);
+		memcpy(pBuf, pData, nSize);
+		m_nCurrentPos += nSize;
+	}
 };
 
 

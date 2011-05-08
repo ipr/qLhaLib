@@ -95,7 +95,7 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 
 void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
-	CLhDecoder *pDecoder = GetDecoder(pHeader->GetMethod());
+	CLhDecoder *pDecoder = GetDecoder(m_Compression);
 	
 	// we do this above..
     //decode_set = decode_define[interface->method - 1];
@@ -155,50 +155,69 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 
     while (decode_count < origsize) 
 	{
-        c = decode_set.decode_c();
+        //c = decode_set.decode_c();
+		c = pDecoder->DecodeC();
         if (c < 256) 
 		{
+			unsigned long loc = pDecoder->GetLoc();
             dtext[loc++] = c;
             if (loc == dicsiz) 
 			{
 				m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
-				memcpy(m_pWriteBuffer + m_nWritePos, dtext, dicsiz);
-				m_nWritePos += dicsiz;
+				m_WriteBuf.Append(dtext, dicsiz);
                 loc = 0;
             }
+			pDecoder->SetLoc(loc);
             decode_count++;
 		}
 		else
 		{
             struct matchdata match;
-            unsigned int matchpos;
+            unsigned int matchpos; // also needed in decoder..
 
             match.len = c - adjust;
-            match.off = decode_set.decode_p() + 1;
+            //match.off = decode_set.decode_p() + 1;
+            match.off = pDecoder->DecodeP() + 1; // may modify loc?
+			
+			unsigned long loc = pDecoder->GetLoc();
             matchpos = (loc - match.off) & dicsiz1;
             decode_count += match.len;
             for (i = 0; i < match.len; i++) 
 			{
+				
                 c = dtext[(matchpos + i) & dicsiz1];
                 dtext[loc++] = c;
                 if (loc == dicsiz) 
 				{
 					m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, dicsiz);
-					memcpy(m_pWriteBuffer + m_nWritePos, dtext, dicsiz);
-					m_nWritePos += dicsiz;
+					m_WriteBuf.Append(dtext, dicsiz);
                     loc = 0;
                 }
 			}
+			
+			pDecoder->SetLoc(loc);
 		}
 	}
-    if (loc != 0) 
+	
+    if (pDecoder->GetLoc() != 0) 
 	{
+		unsigned long loc = pDecoder->GetLoc();
 		m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, loc);
-		memcpy(m_pWriteBuffer + m_nWritePos, dtext, loc);
-		m_nWritePos += loc;
+		m_WriteBuf.Append(dtext, loc);
     }
 
     free(dtext);
+	
+	// write to output upto what is collected in write-buffer
+	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
+	{
+		throw IOException("Failed writing output");
+	}
+	if (OutFile.Flush() == false)
+	{
+		throw IOException("Failed flushing output");
+	}
+	
 	
     /* usually read size is interface->packed */
     //interface->read_size = interface->packed - compsize;
@@ -209,6 +228,7 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	// below is best-guess what should be done,
 	// see decoding for how large changes may be needed..
 	//
+	/*
 	while (nToWrite > 0)
 	{
 		size_t read_size = nToWrite;
@@ -243,6 +263,7 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 			pReadBuf = pReadBuf + pDecoder->GetReadPackedSize();
 		}
 	}
+	*/
 }
 
 

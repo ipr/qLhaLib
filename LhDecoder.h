@@ -176,9 +176,15 @@ public:
 	*/
 	
 	// was global..
+	// check if this is needed at all,
+	// for now, keep behind interface to track usage
 	unsigned long GetLoc() const
 	{
 		return m_loc;
+	}
+	void SetLoc(const unsigned long ulLoc)
+	{
+		m_loc = ulLoc;
 	}
 };
 
