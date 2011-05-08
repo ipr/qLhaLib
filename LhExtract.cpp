@@ -100,9 +100,42 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 	return LZHUFF5_DICBIT; /* for backward compatibility */
 }
 
+/*
+// temp, try to get rid of another way of yet another way for same stuff..
+ // -> used while encoding only
+ // and was repurposed to decoding?
+ // -> removed
+struct matchdata {
+    int len;
+    unsigned int off;
+};
+*/
+
 // extract with decoding (compressed):
 // -lh1- .. -lh7-, -lzs-, -lz5-
 // -> different decoders and variations needed
+//
+// function pointers in struct (method lookup-table for decode):
+//{decode_c, decode_p, decode_start}
+//
+// -lh1- 
+//{decode_c_dyn, decode_p_st0, decode_start_fix},
+// -lh2- 
+//{decode_c_dyn, decode_p_dyn, decode_start_dyn},
+// -lh3- 
+//{decode_c_st0, decode_p_st0, decode_start_st0},
+// -lh4- 
+//{decode_c_st1, decode_p_st1, decode_start_st1},
+// -lh5- 
+//{decode_c_st1, decode_p_st1, decode_start_st1},
+// -lh6- 
+//{decode_c_st1, decode_p_st1, decode_start_st1},
+// -lh7-
+//{decode_c_st1, decode_p_st1, decode_start_st1},
+// -lzs- 
+//{decode_c_lzs, decode_p_lzs, decode_start_lzs},
+// -lz5-
+//{decode_c_lz5, decode_p_lz5, decode_start_lz5}
 //
 void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
@@ -118,10 +151,13 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	
     unsigned int adjust = 0; // inline in decode() in slide.c
     //unsigned int dicsiz1 = 0; // inline in decode() in slide.c..
-	unsigned long dicsiz = 0; // static in slide.c
-    dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
+	//unsigned long dicsiz = 0; // static in slide.c
+    unsigned long dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
 	
-	// out-buffer? local only?
+	// out-buffer (dictionary-lookup result)? local only?
+	// -> use our write-buffer for this?
+	// -> or move to decoder?
+	//
     unsigned char *dtext = (unsigned char *)malloc(dicsiz);
 	//memset(dtext, 0, dicsiz); // for broken archive only? why?
 	memset(dtext, ' ', dicsiz);
@@ -129,7 +165,7 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
     //decode_set.decode_start(); // initalize&set tables?
 	pDecoder->DecodeStart();
 	
-    //dicsiz1 = dicsiz - 1; // why separate?
+    unsigned int dicsiz1 = dicsiz - 1; // why separate?
     adjust = 256 - THRESHOLD;
     if (m_Compression == LARC_METHOD_NUM)
 	{
@@ -143,26 +179,6 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	// -> pass loc to decoder ?
 	// -> moved to decoder
 
-	// function pointers in struct:
-	//{decode_c, decode_p, decode_start}
-    /* lh1 */
-    //{decode_c_dyn, decode_p_st0, decode_start_fix},
-    /* lh2 */
-    //{decode_c_dyn, decode_p_dyn, decode_start_dyn},
-    /* lh3 */
-    //{decode_c_st0, decode_p_st0, decode_start_st0},
-    /* lh4 */
-    //{decode_c_st1, decode_p_st1, decode_start_st1},
-    /* lh5 */
-    //{decode_c_st1, decode_p_st1, decode_start_st1},
-    /* lh6 */
-    //{decode_c_st1, decode_p_st1, decode_start_st1},
-    /* lh7 */
-    //{decode_c_st1, decode_p_st1, decode_start_st1},
-    /* lzs */
-    //{decode_c_lzs, decode_p_lzs, decode_start_lzs},
-    /* lz5 */
-    //{decode_c_lz5, decode_p_lz5, decode_start_lz5}
 
     while (decode_count < origsize) 
 	{
@@ -183,19 +199,21 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		}
 		else
 		{
-            struct matchdata match;
-            unsigned int matchpos; // also needed in decoder..
-
-            match.len = c - adjust;
+            //struct matchdata match; // given to some methods but in encoding only
+            //unsigned int matchpos; // also needed in decoder.. (-lzs- and -lz5- anyway)
+            //match.len = c - adjust;
             //match.off = decode_set.decode_p() + 1;
-            match.off = pDecoder->DecodeP() + 1; // may modify loc?
-			
+
+			// TODO: reduce these variables, see about reducing repeated stuff
+			//
+			int iMatchLen = c - adjust;
+            unsigned int uiMatchOff = pDecoder->DecodeP() + 1; // may modify loc?
 			unsigned long loc = pDecoder->GetLoc();
-            matchpos = (loc - match.off) & dicsiz1;
-            decode_count += match.len;
-            for (i = 0; i < match.len; i++) 
+            unsigned int matchpos = (loc - uiMatchOff) & dicsiz1;
+			
+            decode_count += iMatchLen;
+            for (i = 0; i < iMatchLen; i++) 
 			{
-				
                 c = dtext[(matchpos + i) & dicsiz1];
                 dtext[loc++] = c;
                 if (loc == dicsiz) 

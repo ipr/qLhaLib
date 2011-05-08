@@ -70,7 +70,6 @@ public:
 		m_mapDecoders.clear();
 	};
 	
-	
 	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 };
 

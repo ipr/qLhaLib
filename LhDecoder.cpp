@@ -56,72 +56,142 @@ void BitIo::putcode(unsigned char n, unsigned short x)
     bitcount -= n;
 }
 
+////////////////////// decoder base
+
+//// decode start
+// -lh1-
+void CLhDecoder::decode_start_fix()
+{
+    n_max = 314;
+    maxmatch = 60;
+	
+    m_BitIo.init_getbits();
+    //init_code_cache(); // EUC<->SJIS
+	
+    np = 1 << (LZHUFF1_DICBIT - 6);
+	
+    start_c_dyn();
+	
+    ready_made(0);
+    make_table(np, pt_len, 8, pt_table);
+}
+
+// -lh2-
+void CLhDecoder::decode_start_dyn()
+{
+    n_max = 286;
+    maxmatch = MAXMATCH;
+	
+    m_BitIo.init_getbits();
+    //init_code_cache(); // EUC<->SJIS
+	
+    start_c_dyn();
+    start_p_dyn();
+}
+
+// -lh3-, static huffman (0)
+void CLhDecoder::decode_start_st0()
+{
+}
+
+// -lh4- .. -lh7-, static huffman (1)
+void CLhDecoder::decode_start_st1()
+{
+}
+
+//// decode C
+// -lh1- and -lh2-, dynamic huffman
+unsigned short CLhDecoder::decode_c_dyn_huf()
+{
+}
+
+// -lh3-, static huffman (0)
+unsigned short CLhDecoder::decode_c_st0_huf()
+{
+}
+
+// -lh4- .. -lh7-, static huffman (1)
+unsigned short CLhDecoder::decode_c_st1_huf()
+{
+}
+
+//// decode P
+// -lh2-, dynamic huffman
+unsigned short CLhDecoder::decode_p_dyn_huf()
+{
+}
+
+// -lh1- and -lh3-, static huffman (0)
+unsigned short CLhDecoder::decode_p_st0_huf()
+{
+}
+
+// -lh4- .. -lh7-, static huffman (1)
+unsigned short CLhDecoder::decode_p_st1_huf()
+{
+}
+
+
 ////////////////////// decoders
 
 // (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
 
 // -lh1-
-// partially same as -lh2-
-// (dynamic huffman routine)
 
 void CLhDecodeLh1::DecodeStart()
 {
+	// specific for this
+	CLhDecoder::decode_start_fix();
 }
 
-unsigned short CLhDecodeLh1::DecodeC()
-{
-}
-
-unsigned short CLhDecodeLh1::DecodeP()
-{
-}
 
 // -lh2-
-// partially same as -lh1-
-// (dynamic huffman routine)
 
 void CLhDecodeLh2::DecodeStart()
 {
+	// specific for this
+	CLhDecoder::decode_start_dyn();
 }
 
-unsigned short CLhDecodeLh2::DecodeC()
-{
-}
-
-unsigned short CLhDecodeLh2::DecodeP()
-{
-}
 
 // -lh3-
 // (static huffman routine 0)
-
+/*
 void CLhDecodeLh3::DecodeStart()
 {
+	CLhDecoder::decode_start_st0();
 }
 
 unsigned short CLhDecodeLh3::DecodeC()
 {
+	return CLhDecoder::decode_c_st0_huf();
 }
 
 unsigned short CLhDecodeLh3::DecodeP()
 {
+	return CLhDecoder::decode_p_st0_huf();
 }
+*/
 
 // -lh4- .. -lh7-
 // -> same decoding (check virtual methods)
 // (static huffman routine 1)
-
+/*
 void CLhDecodeLh7::DecodeStart()
 {
+	CLhDecoder::decode_start_st1();
 }
 
 unsigned short CLhDecodeLh7::DecodeC()
 {
+	return CLhDecoder::decode_c_st1_huf();
 }
 
 unsigned short CLhDecodeLh7::DecodeP()
 {
+	return CLhDecoder::decode_p_st1_huf();
 }
+*/
 
 
 // -lzs-

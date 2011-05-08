@@ -90,21 +90,56 @@ public:
 	
 };
 
+//////// decoder base
 
 // interface/base class for decoding methods,
 // must be abstract
 //
 class CLhDecoder
 {
-protected:
+private:
 	// actual implementations
-	//decode_0_start();
 
+	//// decode start
+	// -lh1-
+	void decode_start_fix();
+	
+	// -lh2-
+	void decode_start_dyn();
+
+	// -lh3-, static huffman (0)
+	void decode_start_st0();
+
+	// -lh4- .. -lh7-, static huffman (1)
+	void decode_start_st1();
+
+	//// decode C
+	// -lh1- and -lh2-, dynamic huffman
+	unsigned short decode_c_dyn_huf();
+
+	// -lh3-, static huffman (0)
+	unsigned short decode_c_st0_huf();
+
+	// -lh4- .. -lh7-, static huffman (1)
+	unsigned short decode_c_st1_huf();
+	
+	//// decode P
+	// -lh2-, dynamic huffman
+	unsigned short decode_p_dyn_huf();
+	
+	// -lh1- and -lh3-, static huffman (0)
+	unsigned short decode_p_st0_huf();
+	
+	// -lh4- .. -lh7-, static huffman (1)
+	unsigned short decode_p_st1_huf();
+
+	
+protected:
 	BitIo m_BitIo;
 
 	// decode-text
 	//unsigned char *m_pDecodeTable;
-	unsigned char *text;
+	unsigned char *m_pText;
 	
 	// helper for accessing same data
 	// in decoder and extract-handling
@@ -125,7 +160,7 @@ protected:
 public:
 	CLhDecoder(void)
 		: m_BitIo()
-		, text(nullptr)
+		, m_pText(nullptr)
 		//, m_pDecodeTable(nullptr)
 		, m_pReadBuf(nullptr)
 		, m_pWriteBuf(nullptr)
@@ -142,6 +177,13 @@ public:
 	{
 		//m_pDecodeTable = new unsigned char[size];
 	}
+	
+	/* // both used by caller..
+	void SetTextDictBuf(unsigned char *pText, unsigned char *pDText = nullptr)
+	{
+		m_pText = pText;
+	}
+	*/
 	
 	void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	{
@@ -202,11 +244,17 @@ public:
 	virtual ~CLhDecodeLh1(void)
 	{}
 	
-	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
 	
+	virtual unsigned short DecodeC()
+	{
+		return CLhDecoder::decode_c_dyn_huf();
+	}
+	virtual unsigned short DecodeP()
+	{
+		return CLhDecoder::decode_p_st0_huf();
+	}
+
 };
 
 // -lh2-
@@ -220,8 +268,15 @@ public:
 	{}
 	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	
+	virtual unsigned short DecodeC()
+	{
+		return CLhDecoder::decode_c_dyn_huf();
+	}
+	virtual unsigned short DecodeP()
+	{
+		return CLhDecoder::decode_p_dyn_huf();
+	}
 	
 };
 
@@ -235,9 +290,19 @@ public:
 	virtual ~CLhDecodeLh3(void)
 	{}
 
-	virtual void DecodeStart();
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	// uses static huffman (0)
+	virtual void DecodeStart()
+	{
+		CLhDecoder::decode_start_st0();
+	}
+	virtual unsigned short DecodeC()
+	{
+		return CLhDecoder::decode_c_st0_huf();
+	}
+	virtual unsigned short DecodeP()
+	{
+		return CLhDecoder::decode_p_st0_huf();
+	}
 	
 };
 
@@ -287,10 +352,20 @@ public:
 	{}
 	virtual ~CLhDecodeLh7(void)
 	{}
-	
-	virtual void DecodeStart();
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+
+	// uses static huffman (1)
+	virtual void DecodeStart()
+	{
+		CLhDecoder::decode_start_st1();
+	}
+	virtual unsigned short DecodeC()
+	{
+		return CLhDecoder::decode_c_st1_huf();
+	}
+	virtual unsigned short DecodeP()
+	{
+		return CLhDecoder::decode_p_st1_huf();
+	}
 };
 
 // -lzs-

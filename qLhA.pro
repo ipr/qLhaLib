@@ -20,7 +20,6 @@ SOURCES += qlhalib.cpp \
     LhExtract.cpp \
     LhDecoder.cpp
 
-# lhdir.cpp 
 # LzEncode.cpp 
 # Huffman.cpp
 
@@ -37,7 +36,6 @@ HEADERS += qlhalib.h\
     LhExtract.h \
     LhDecoder.h
 
-# lhdir.h 
 # LzEncode.h 
 # Huffman.h
 
