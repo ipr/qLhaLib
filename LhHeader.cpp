@@ -39,7 +39,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		// emulate old style, read 4096 max. at a time
 		m_pReadBuffer = new CReadBuffer(4096); // default bufsize
 	}
-	m_pReadBuffer->PrepareBuffer(4096);
+	m_pReadBuffer->PrepareBuffer(4096, false);
 
 	bool bIsEnd = false;
 	while (bIsEnd == false)
@@ -151,7 +151,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	}
 
 	// clear or allocate larger if necessary
-	m_pReadBuffer->PrepareBuffer(header_size);
+	m_pReadBuffer->PrepareBuffer(header_size, false);
 	
     while (header_size) 
 	{
@@ -668,7 +668,7 @@ void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, c
 {
 	// allocate enough for padding (zeroed)
 	// or just clear existing if enough
-	m_pReadBuffer->PrepareBuffer(lPadSize);
+	m_pReadBuffer->PrepareBuffer(lPadSize, false);
 
 	// check how much of file remains
 	long lPos = 0;

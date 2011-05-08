@@ -36,19 +36,12 @@ public:
 	size_t origsize;
 	size_t compsize;
 
-	
-	// TODO:?
-	//CReadBuffer *m_pReadBuf;
-	//CReadBuffer *m_pWriteBuf;
-	
-	// 
-	unsigned char *m_pReadBuffer;
-	unsigned char *m_pWriteBuffer;
 
-	size_t m_nReadPos;
-	size_t m_nWritePos;
+	// helper for accessing same data
+	// in decoder and extract-handling
+	CReadBuffer *m_pReadBuf;
+	CReadBuffer *m_pWriteBuf;
 	
-
 	unsigned short peekbits(unsigned char n)
 	{
 		return (bitbuf >> (sizeof(bitbuf)*8 - (n)));
@@ -89,10 +82,8 @@ public:
 	}
 	
     BitIo()
-		: m_pReadBuffer(nullptr)
-		, m_pWriteBuffer(nullptr)
-		, m_nReadPos(0)
-		, m_nWritePos(0)
+		: m_pReadBuf(nullptr)
+		, m_pWriteBuf(nullptr)
 		, bitbuf(0)
 		, subbitbuf(0)
 	{}
@@ -115,14 +106,18 @@ protected:
 	//unsigned char *m_pDecodeTable;
 	unsigned char *text;
 	
-	// for output, may grow
-	CReadBuffer m_OutBuf;
+	// helper for accessing same data
+	// in decoder and extract-handling
+	CReadBuffer *m_pReadBuf;
+	CReadBuffer *m_pWriteBuf; // may grow
 	
+	/*
 	// size of decoded output (should be smaller than buffer)
 	size_t m_nDecodedSize;
 
 	// amount of packed data read
 	size_t m_nReadPackedSize;
+	*/
 
 	// was global..
     unsigned long m_loc;
@@ -132,9 +127,10 @@ public:
 		: m_BitIo()
 		, text(nullptr)
 		//, m_pDecodeTable(nullptr)
-		, m_OutBuf()
-		, m_nDecodedSize(0)
-		, m_nReadPackedSize(0)
+		, m_pReadBuf(nullptr)
+		, m_pWriteBuf(nullptr)
+		//, m_nDecodedSize(0)
+		//, m_nReadPackedSize(0)
 		, m_loc(0)
 	{}
 	virtual ~CLhDecoder(void)
@@ -147,6 +143,16 @@ public:
 		//m_pDecodeTable = new unsigned char[size];
 	}
 	
+	void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		m_pReadBuf = pReadBuf;
+		m_pWriteBuf = pWriteBuf;
+		
+		// temp, make better later..
+		m_BitIo.m_pReadBuf = pReadBuf;
+		m_BitIo.m_pWriteBuf = pWriteBuf;
+	}
+	
 	virtual void DecodeStart() = 0;
 	//virtual void DecodeStart(size_t nActualRead, CReadBuffer &InBuf) = 0;
 	//virtual void DecodeCont() = 0;
@@ -154,11 +160,8 @@ public:
 	virtual unsigned short DecodeC() = 0;
 	virtual unsigned short DecodeP() = 0;
 	
-	unsigned char *GetDecoded()
-	{
-		return m_OutBuf.GetBegin();
-	}
 
+	/*
 	size_t GetDecodedSize() const
 	{
 		// TODO:
@@ -169,6 +172,13 @@ public:
 	{
 		// TODO:
 		return m_nReadPackedSize;
+	}
+	*/
+	
+	// was global..
+	unsigned long GetLoc() const
+	{
+		return m_loc;
 	}
 };
 

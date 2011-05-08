@@ -19,8 +19,7 @@ void BitIo::fillbuf(unsigned char n)
         if (compsize != 0) 
 		{
             compsize--;
-			subbitbuf = m_pReadBuffer[m_nReadPos++];
-            //subbitbuf = (unsigned char) getc(infile);
+			subbitbuf = m_pReadBuf->GetNext();
         }
         else
 		{
@@ -43,13 +42,7 @@ void BitIo::putcode(unsigned char n, unsigned short x)
         x <<= bitcount;
         if (compsize < origsize) 
 		{
-			m_pWriteBuffer[m_nWritePos++] = subbitbuf;
-			/*
-            if (fwrite(&subbitbuf, 1, 1, outfile) == 0) 
-			{
-                fatal_error("Write error in bitio.c(putcode)");
-            }
-			*/
+			m_pWriteBuf->SetNext(subbitbuf);
             compsize++;
         }
         else
@@ -123,20 +116,17 @@ unsigned short CLhDecodeLz5::DecodeC()
     if (flagcnt == 0) 
 	{
         flagcnt = 8;
-		flag = m_pReadBuffer[m_nReadPos++];
-        //flag = getc(infile);
+		flag = m_pReadBuf->GetNext();
     }
 	
     flagcnt--;
 	
-	c = m_pReadBuffer[m_nReadPos++];
-    //c = getc(infile);
+	c = m_pReadBuf->GetNext();
     if ((flag & 1) == 0) 
 	{
         m_matchpos = c;
-	
-		c = m_pReadBuffer[m_nReadPos++];
-        //c = getc(infile);
+
+		c = m_pReadBuf->GetNext();
 		
         m_matchpos += (c & 0xf0) << 4;
         c &= 0x0f;

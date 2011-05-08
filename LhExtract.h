@@ -30,7 +30,9 @@ private:
 	
 protected:
 	CCrcIo m_crcio;
-	CReadBuffer m_ReadBuf;
+	
+	CReadBuffer m_ReadBuf; // packed data from archive
+	CReadBuffer m_WriteBuf; // unpacked data for writing
 	
 	// kept and updated when extracting file
 	unsigned int m_uiCrc;
@@ -49,6 +51,7 @@ public:
 		: QObject(parent)
 		, m_mapDecoders()
 		, m_ReadBuf(4096) // emulated old buffering style
+		, m_WriteBuf(2* 4096)
 		, m_crcio()
 		, m_uiCrc(0)
 	{

@@ -99,6 +99,8 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	
 	// we do this above..
     //decode_set = decode_define[interface->method - 1];
+	
+	pDecoder->SetBuffers(&m_ReadBuf, &m_WriteBuf);
 
 	size_t nToRead = pHeader->packed_size;
 	size_t nToWrite = pHeader->original_size;

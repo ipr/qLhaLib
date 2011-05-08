@@ -71,12 +71,20 @@ private:
 		m_nReadBufferSize = nMinSize;
 		::memset(m_pReadBuffer, 0, m_nReadBufferSize);
 	}
+	
+protected:
+	// helpers for users:
+	// user-defined position in buffer
+	// (read/write position)
+	//
+	size_t m_nCurrentPos;
 
 public:
 	CReadBuffer(void) 
 		: m_pReadBuffer(nullptr)
 		, m_nReadBufferSize(0)
 		//, m_nMaxBufferSize(MAX_READ_BUFFER_SIZE)
+		, m_nCurrentPos(0)
 	{
 		CreateBuffer(INITIAL_READ_BUFFER_SIZE);
 	}
@@ -85,20 +93,10 @@ public:
 		: m_pReadBuffer(nullptr)
 		, m_nReadBufferSize(0)
 		//, m_nMaxBufferSize(MAX_READ_BUFFER_SIZE)
+		, m_nCurrentPos(0)
 	{
 		CreateBuffer(nMinsize);
 	}
-	
-	/*
-	CReadBuffer(const size_t nMinsize, 
-				const size_t nMaxsize) 
-		: m_pReadBuffer(nullptr)
-		, m_nReadBufferSize(0)
-		//, m_nMaxBufferSize(nMaxsize)
-	{
-		PrepareBuffer(nMinsize);
-	}
-	*/
 	
 	~CReadBuffer(void) 
 	{
@@ -109,11 +107,12 @@ public:
 	}
 
 	// allocate or grow if necessary
-	void PrepareBuffer(const size_t nMinSize)
+	void PrepareBuffer(const size_t nMinSize, bool bKeepData = true)
 	{
 		if (m_pReadBuffer == nullptr
 			|| m_nReadBufferSize == 0)
 		{
+			// must create new
 			CreateBuffer(nMinSize);
 			return;
 		}
@@ -129,15 +128,23 @@ public:
 				nNewSize = m_nMaxBufferSize;
 			}
 			*/
+			unsigned char *pNewBuf = new unsigned char[nNewSize];
+			if (bKeepData == true)
+			{
+				memcpy(pNewBuf, m_pReadBuffer, m_nReadBufferSize); // keep existing data
+			}
 			delete m_pReadBuffer; // destroy old smaller
-			
-			m_pReadBuffer = new unsigned char[nNewSize];
+
+			// keep new buffer
+			m_pReadBuffer = pNewBuf;
 			m_nReadBufferSize = nNewSize;
-			//return;
 		}
 
-		// otherwise just clear existing (keep existing)
-		::memset(m_pReadBuffer, 0, m_nReadBufferSize);
+		if (bKeepData == false)
+		{
+			// otherwise just clear existing (keep existing)
+			::memset(m_pReadBuffer, 0, m_nReadBufferSize);
+		}
 	}
 
 
@@ -166,6 +173,30 @@ public:
 	size_t GetSize() const
 	{
 		return m_nReadBufferSize;
+	}
+
+	// user-defined position in buffer
+	// (read/write position)
+	size_t GetCurrentPos() const
+	{
+		return m_nCurrentPos;
+	}
+	void SetCurrentPos(const size_t nCurrentPos)
+	{
+		m_nCurrentPos = nCurrentPos;
+	}
+	
+	// helpers for read/write single character:
+	// use instead of direct-IO
+	unsigned char GetNext()
+	{
+		return (*(GetAt(m_nCurrentPos++)));
+	}
+	void SetNext(const unsigned char ucValue)
+	{
+		unsigned char *pBuf = GetAt(m_nCurrentPos);
+		(*pBuf) = ucValue;
+		m_nCurrentPos++;
 	}
 };
 

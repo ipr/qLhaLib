@@ -20,19 +20,9 @@ SOURCES += qlhalib.cpp \
     LhExtract.cpp \
     LhDecoder.cpp
 
-# src/util.c 
-# src/lhlist.c 
-# src/lhext.c 
-# src/lhadd.c 
-# src/larc.c 
-# src/extract.c 
-# src/append.c 
-# src/lharc_main.c
-# bitio.cpp 
 # lhdir.cpp 
 # LzEncode.cpp 
 # Huffman.cpp
-# LzDecode.cpp 
 
 
 HEADERS += qlhalib.h\
@@ -47,10 +37,7 @@ HEADERS += qlhalib.h\
     LhExtract.h \
     LhDecoder.h
 
-# src/lha_macro.h 
-# src/lha_main.h 
-# bitio.h 
 # lhdir.h 
 # LzEncode.h 
 # Huffman.h
-# LzDecode.h 
+
