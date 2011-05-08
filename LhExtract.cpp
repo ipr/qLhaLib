@@ -63,13 +63,15 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
     switch (enMethod) 
 	{
     case LZHUFF0_METHOD_NUM:    /* -lh0- */
-        return LZHUFF0_DICBIT;
+        return LZHUFF0_DICBIT; // -> "store only", not compressed
+		
     case LZHUFF1_METHOD_NUM:    /* -lh1- */
         return LZHUFF1_DICBIT;
     case LZHUFF2_METHOD_NUM:    /* -lh2- */
         return LZHUFF2_DICBIT;
     case LZHUFF3_METHOD_NUM:    /* -lh2- */
         return LZHUFF3_DICBIT;
+		
     case LZHUFF4_METHOD_NUM:    /* -lh4- */
         return LZHUFF4_DICBIT;
     case LZHUFF5_METHOD_NUM:    /* -lh5- */
@@ -78,12 +80,17 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
         return LZHUFF6_DICBIT;
     case LZHUFF7_METHOD_NUM:    /* -lh7- */
         return LZHUFF7_DICBIT;
+		
     case LARC_METHOD_NUM:       /* -lzs- */
         return LARC_DICBIT;
     case LARC5_METHOD_NUM:      /* -lz5- */
         return LARC5_DICBIT;
+		
     case LARC4_METHOD_NUM:      /* -lz4- */
-        return LARC4_DICBIT;
+        return LARC4_DICBIT; // -> "store only", not compressed
+		
+	case LZHDIRS_METHOD_NUM:    /* -lhd- */
+        return LARC4_DICBIT; // -> "store only", not compressed
 		
     default:
 		break;
@@ -93,6 +100,10 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 	return LZHUFF5_DICBIT; /* for backward compatibility */
 }
 
+// extract with decoding (compressed):
+// -lh1- .. -lh7-, -lzs-, -lz5-
+// -> different decoders and variations needed
+//
 void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	CLhDecoder *pDecoder = GetDecoder(m_Compression);
@@ -266,7 +277,10 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	*/
 }
 
-// -lh0- and -lhd- -> no compression
+// extract "store only":
+// -lh0-, -lhd- and -lz4- 
+// -> no compression -> "as-is"
+//
 void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	// no compression, just copy to output
@@ -312,17 +326,26 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	
 	// determine decoding method
 	m_Compression = pHeader->GetMethod();
+	if (m_Compression == LZ_UNKNOWN)
+	{
+		// unknown/unsupported method
+		return;
+	}
+	
+	/*
 	if (m_Compression == LZHDIRS_METHOD_NUM)
 	{
 		// just make directories and no actual files ?
 		return;
 	}
+	*/
 
 	// huffman dictionary bits
 	m_HuffBits = GetDictionaryBits(m_Compression);
 	if ((int)m_HuffBits == 0)
 	{
 		// no compression, just copy to output
+		// (-lh0-, -lhd- and -lz4-)
 		
 		ExtractNoCompression(ArchiveFile, pHeader, OutFile);
 		
