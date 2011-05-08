@@ -89,6 +89,15 @@ public:
 		: m_BitIo()
 	{}
 	
+};
+
+
+class CHuffmanTree
+{
+public:
+    CHuffmanTree()
+	{}
+	
 	void make_code(int nchar, 
 				   unsigned char  *bitlen, 
 				   unsigned short *code,       /* table */
@@ -108,7 +117,6 @@ public:
 	void downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const;
 	
 	short make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code) const;
-	
 };
 
 
@@ -220,7 +228,7 @@ public:
 };
 
 
-class CStaticHuffman : public CHuffman
+class CStaticHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
 	// avoid name collisions
@@ -238,7 +246,7 @@ protected:
 		NPT        = 0x80
 	};
 	
-	
+	// these should be in CHuffmanTree, used by shuffling also..
 	unsigned short left[2 * NC - 1];
 	unsigned short right[2 * NC - 1];
 	
@@ -252,6 +260,7 @@ protected:
 	unsigned short p_freq[2 * NP - 1]; /* encode */
 	unsigned short t_freq[2 * NT - 1]; /* encode */
 	
+	// these used by the shuffling also..
 	unsigned char  c_len[NC];
 	unsigned char  pt_len[NPT];
 	
@@ -286,6 +295,9 @@ public:
 	void read_c_len( /* void */ );
 	unsigned short decode_c_st1( /*void*/ );
 	unsigned short decode_p_st1( /* void */ );
+	
+	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
+	
 	void decode_start_st1( /* void */ );
 	
 };

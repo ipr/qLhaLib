@@ -53,7 +53,8 @@ void BitIo::putcode(unsigned char n, unsigned short x)
     bitcount -= n;
 }
 
-/////////// CHuffman (base)
+
+/////////// CHuffmanTree
 
 
 /* ------------------------------------------------------------------------ */
@@ -65,7 +66,7 @@ void BitIo::putcode(unsigned char n, unsigned short x)
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
 
-void CHuffman::make_code(int nchar, 
+void CHuffmanTree::make_code(int nchar, 
 			   unsigned char  *bitlen, 
 			   unsigned short *code,       /* table */
 			   unsigned short *leaf_num) const
@@ -89,7 +90,7 @@ void CHuffman::make_code(int nchar,
     }
 }
 
-void CHuffman::count_leaf(int node, /* call with node = root */
+void CHuffmanTree::count_leaf(int node, /* call with node = root */
 						  int nchar, 
 						  unsigned short leaf_num[], 
 						  int depth) const
@@ -100,13 +101,12 @@ void CHuffman::count_leaf(int node, /* call with node = root */
 	}
     else 
 	{
-		// uses those in static-huffman..
         count_leaf(left[node], nchar, leaf_num, depth + 1);
         count_leaf(right[node], nchar, leaf_num, depth + 1);
     }
 }
 
-void CHuffman::make_len(int nchar, 
+void CHuffmanTree::make_len(int nchar, 
 			  unsigned char *bitlen,
 			  unsigned short *sort,       /* sorted characters */
 			  unsigned short *leaf_num) const
@@ -154,7 +154,7 @@ void CHuffman::make_len(int nchar,
 }
 
 /* priority queue; send i-th entry down heap */
-void CHuffman::downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const
+void CHuffmanTree::downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const
 {
     short j = 0;
     short k = heap[i];
@@ -175,7 +175,7 @@ void CHuffman::downheap(int i, short *heap, size_t heapsize, unsigned short *fre
 }
 
 /* make tree, calculate bitlen[], return root */
-short CHuffman::make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code) const
+short CHuffmanTree::make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code) const
 {
     short i, j, avail, root;
     unsigned short *sort;
@@ -269,7 +269,7 @@ const int CShuffleHuffman::fixed[2][16] = {
 /* ------------------------------------------------------------------------ */
 void CShuffleHuffman::ready_made(int method)
 {
-    int *tbl = fixed[method];
+    const int *tbl = fixed[method];
     int j = *tbl++;
     unsigned int weight = 1 << (16 - j);
     unsigned int code = 0;
@@ -296,7 +296,7 @@ void CShuffleHuffman::decode_start_st0( /*void*/ )
     n_max = 286;
     maxmatch = MAXMATCH;
     m_BitIo.init_getbits();
-    //init_code_cache();
+    //init_code_cache(); // EUC<->SJIS
     np = 1 << (LZHUFF3_DICBIT - 6);
 }
 
@@ -338,6 +338,7 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
             c_len[i] = 0;
 		}
 		
+		//const int nBitCount = CBIT;
         if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(CBIT);
@@ -365,6 +366,7 @@ void CShuffleHuffman::read_tree_p(/*void*/)
 	{
         pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
 		
+		//const int nBitCount = LZHUFF3_DICBIT - 6;
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
@@ -388,7 +390,7 @@ void CShuffleHuffman::decode_start_fix(/*void*/)
     n_max = 314;
     maxmatch = 60;
     m_BitIo.init_getbits();
-    //init_code_cache();
+    //init_code_cache(); // EUC<->SJIS
     np = 1 << (LZHUFF1_DICBIT - 6);
     start_c_dyn();
     ready_made(0);
@@ -559,25 +561,28 @@ void CDynamicHuffman::decode_start_dyn( /* void */ )
 /* ------------------------------------------------------------------------ */
 void CDynamicHuffman::reconst(int start, int end)
 {
-    int             i, j, k, l, b;
-    unsigned int    f, g;
+    int i, j;
+	int b;
 
     for (i = j = start; i < end; i++) 
 	{
-        if ((k = child[i]) < 0) 
+		int k = child[i];
+        if (k < 0) 
 		{
             freq[j] = (freq[i] + 1) / 2;
             child[j] = k;
             j++;
         }
-        if (edge[b = block[i]] == i) 
+		b = block[i];
+        if (edge[b] == i) 
 		{
             stock[--avail] = b;
         }
     }
     j--;
     i = end - 1;
-    l = end - 2;
+	
+    int l = end - 2;
 	
     while (i >= start) 
 	{
@@ -587,24 +592,27 @@ void CDynamicHuffman::reconst(int start, int end)
             child[i] = child[j];
             i--, j--;
         }
-        f = freq[l] + freq[l + 1];
-        for (k = start; f < freq[k]; k++);
+		
+        unsigned int f = freq[l] + freq[l + 1];
+        for (int k = start; f < freq[k]; k++);
         while (j >= k) 
 		{
             freq[i] = freq[j];
             child[i] = child[j];
             i--, j--;
         }
+		
         freq[i] = f;
         child[i] = l + 1;
         i--;
         l -= 2;
     }
 	
-    f = 0;
+    unsigned int f = 0;
     for (i = start; i < end; i++) 
 	{
-        if ((j = child[i]) < 0)
+		j = child[i];
+        if (j < 0)
 		{
             s_node[~j] = i;
 		}
@@ -612,13 +620,16 @@ void CDynamicHuffman::reconst(int start, int end)
 		{
             parent[j] = parent[j - 1] = i;
 		}
-        if ((g = freq[i]) == f) 
+		
+		unsigned int g = freq[i];
+        if (g == f) 
 		{
             block[i] = b;
         }
         else 
 		{
-            edge[b = block[i] = stock[avail++]] = i;
+			b = block[i] = stock[avail++];
+            edge[b] = i;
             f = g;
         }
     }
@@ -627,8 +638,6 @@ void CDynamicHuffman::reconst(int start, int end)
 /* ------------------------------------------------------------------------ */
 int CDynamicHuffman::swap_inc(int p)
 {
-    //int  r, s;
-
     int b = block[p];
 	int q = edge[b]; 
     if (q != p) /* swap for leader */
@@ -1126,14 +1135,20 @@ void CStaticHuffman::send_block( /* void */ )
 	
 	// why not use memset() here..
 	// it's not overlapping or anything..
+	memset(c_freq, 0, sizeof(unsigned short)*NC);
+	/*
     for (i = 0; i < NC; i++)
 	{
         c_freq[i] = 0;
 	}
+	*/
+	memset(p_freq, 0, sizeof(unsigned short)*np);
+	/*
     for (i = 0; i < np; i++)
 	{
         p_freq[i] = 0;
 	}
+	*/
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1408,19 +1423,8 @@ unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
     else 
 	{
         m_BitIo.fillbuf(12);
-        unsigned short mask = 1 << (16 - 1);
-        do 
-		{
-            if (m_BitIo.bitbuf & mask)
-			{
-                j = right[j];
-			}
-            else
-			{
-                j = left[j];
-			}
-            mask >>= 1;
-        } while (j >= NC);
+		
+		decode_st1_mask_bitbuf(j, NC);
 		
         m_BitIo.fillbuf(c_len[j] - 12);
     }
@@ -1440,19 +1444,8 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
     else 
 	{
         m_BitIo.fillbuf(8);
-        unsigned short mask = 1 << (16 - 1);
-        do 
-		{
-            if (m_BitIo.bitbuf & mask)
-			{
-                j = right[j];
-			}
-            else
-			{
-                j = left[j];
-			}
-            mask >>= 1;
-        } while (j >= np);
+		
+		decode_st1_mask_bitbuf(j, np);
 		
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
@@ -1463,6 +1456,25 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 	}
     return j;
 }
+
+// reduce duplication
+void CStaticHuffman::decode_st1_mask_bitbuf(unsigned short &j, const int nCount)
+{
+	unsigned short mask = 1 << (16 - 1);
+	do 
+	{
+		if (m_BitIo.bitbuf & mask)
+		{
+			j = right[j];
+		}
+		else
+		{
+			j = left[j];
+		}
+		mask >>= 1;
+	} while (j >= nCount);
+}
+
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */

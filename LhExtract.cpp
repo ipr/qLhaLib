@@ -18,22 +18,18 @@ void CLhExtract::CreateDecoders()
 	
 	// -lh1-
 	pDecoder = new CLhDecodeLh1();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF1_METHOD_NUM, pDecoder);
 	
 	// -lh2-
 	pDecoder = new CLhDecodeLh2();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF2_METHOD_NUM, pDecoder);
 	
 	// -lh3-
 	pDecoder = new CLhDecodeLh3();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF3_METHOD_NUM, pDecoder);
 
 	// -lh4- .. -lh7- -> same decoding
 	pDecoder = new CLhDecodeLh7();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LZHUFF4_METHOD_NUM, pDecoder);
 	m_mapDecoders.insert(LZHUFF5_METHOD_NUM, pDecoder);
 	m_mapDecoders.insert(LZHUFF6_METHOD_NUM, pDecoder);
@@ -41,18 +37,18 @@ void CLhExtract::CreateDecoders()
 	
 	// -lzs-
 	pDecoder = new CLhDecodeLzs();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LARC_METHOD_NUM, pDecoder);
 	
 	// -lz5-
 	pDecoder = new CLhDecodeLz5();
-	pDecoder->CreateDecoder();
 	m_mapDecoders.insert(LARC5_METHOD_NUM, pDecoder);
-	
 }
 
 CLhDecoder *CLhExtract::GetDecoder(const tCompressionMethod enMethod)
 {
+	// TODO: just create new instance every time decoding is needed?
+	// (would simplify resetting stuff..)
+	
 	return m_mapDecoders.value(enMethod, nullptr);
 }
 
@@ -122,9 +118,6 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		throw IOException("Failed reading input");
 	}
 
-	pDecoder->InitClear();
-	pDecoder->SetBuffers(&m_ReadBuf, &m_WriteBuf);
-	
     unsigned long dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
 	
 	// out-buffer (dictionary-lookup result)? local only?
@@ -138,17 +131,17 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	
 	//memset(dtext, 0, dicsiz); // for broken archive only? why?
 	memset(dtext, ' ', dicsiz);
-	
-    //decode_set.decode_start(); // initalize&set tables?
-	pDecoder->DecodeStart();
-	
+
     unsigned int dicsiz_1 = dicsiz - 1; // why separate?
     unsigned int adjust = 256 - THRESHOLD;
     if (m_Compression == LARC_METHOD_NUM)
 	{
         adjust = 256 - 2;
 	}
-
+	
+	pDecoder->InitClear();
+	pDecoder->DecodeStart(&m_ReadBuf, &m_WriteBuf);
+	
 	pDecoder->SetDict(dicsiz, dtext, dicsiz_1, adjust);
 	pDecoder->SetLoc(0);
 	

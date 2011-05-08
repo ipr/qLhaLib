@@ -75,9 +75,6 @@ public:
 	virtual ~CLhDecoder(void)
 	{}
 
-	// Create(): only called once by container (optional)
-	virtual void CreateDecoder() {};
-
 	// called before reusing
 	virtual void InitClear()
 	{
@@ -96,14 +93,11 @@ public:
 		m_adjust = adjust;
 	}
 	
-	// called on start of decode to set buffers
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf) = 0;
-
 	// may be used during decoding
 	virtual CReadBuffer *GetReadBuf() = 0;
 	virtual CReadBuffer *GetWriteBuf() = 0;
 	
-	virtual void DecodeStart() = 0;
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf) = 0;
 	virtual unsigned short DecodeC() = 0;
 	virtual unsigned short DecodeP() = 0;
 	
@@ -145,14 +139,6 @@ public:
 	virtual ~CLhDecodeLh1(void)
 	{}
 
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -162,7 +148,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 
@@ -180,14 +166,6 @@ public:
 	virtual ~CLhDecodeLh2(void)
 	{}
 
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -197,7 +175,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 	
@@ -215,14 +193,6 @@ public:
 	virtual ~CLhDecodeLh3(void)
 	{}
 
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -232,7 +202,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 };
@@ -258,14 +228,6 @@ public:
 	virtual ~CLhDecodeLh7(void)
 	{}
 
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -275,7 +237,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 };
@@ -300,14 +262,6 @@ public:
 	virtual ~CLhDecodeLzs(void)
 	{}
 	
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -317,7 +271,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 };
@@ -342,14 +296,6 @@ public:
 	virtual ~CLhDecodeLz5(void)
 	{}
 	
-	virtual void CreateDecoder() {};
-	
-	virtual void SetBuffers(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
-	{
-		// set to where this was inherited from
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
-	}
 	virtual CReadBuffer *GetReadBuf()
 	{
 		return m_BitIo.m_pReadBuf;
@@ -359,7 +305,7 @@ public:
 		return m_BitIo.m_pWriteBuf;
 	}
 	
-	virtual void DecodeStart();
+	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
 	virtual unsigned short DecodeC();
 	virtual unsigned short DecodeP();
 };

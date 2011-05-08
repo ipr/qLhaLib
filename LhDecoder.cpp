@@ -53,9 +53,13 @@ void CLhDecoder::Decode(size_t &decode_count)
 
 // -lh1-
 // (dynamic huffman, shuffle)
-void CLhDecodeLh1::DecodeStart()
+void CLhDecodeLh1::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	m_loc = 0; // not updated, caller might want though
+
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
 	// specific for this
 	CShuffleHuffman::decode_start_fix();
@@ -73,9 +77,13 @@ unsigned short CLhDecodeLh1::DecodeP()
 
 // -lh2-
 // (dynamic huffman)
-void CLhDecodeLh2::DecodeStart()
+void CLhDecodeLh2::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	m_loc = 0; // not updated, caller might want though
+	
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
 	// specific for this
 	CDynamicHuffman::decode_start_dyn();
@@ -93,9 +101,14 @@ unsigned short CLhDecodeLh2::DecodeP()
 
 // -lh3-
 // (static huffman routine 0, shuffle)
-void CLhDecodeLh3::DecodeStart()
+void CLhDecodeLh3::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	m_loc = 0; // not updated, caller might want though
+	
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
+	
 	CShuffleHuffman::decode_start_st0();
 }
 
@@ -111,9 +124,14 @@ unsigned short CLhDecodeLh3::DecodeP()
 
 // -lh4- .. -lh7- (same for each)
 // (static huffman routine 1)
-void CLhDecodeLh7::DecodeStart()
+void CLhDecodeLh7::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	m_loc = 0; // not updated, caller might want though
+
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
+	
 	CStaticHuffman::decode_start_st1();
 }
 
@@ -130,10 +148,15 @@ unsigned short CLhDecodeLh7::DecodeP()
 
 // -lzs-
 
-void CLhDecodeLzs::DecodeStart()
+void CLhDecodeLzs::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	//decode_start_lzs
 	m_loc = 0;
+
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
+	
     m_BitIo.init_getbits();
 }
 
@@ -160,11 +183,15 @@ unsigned short CLhDecodeLzs::DecodeP()
 
 // -lz5-
 
-void CLhDecodeLz5::DecodeStart()
+void CLhDecodeLz5::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 {
 	//decode_start_lz5
 	m_loc = 0;
     flagcnt = 0;
+
+	// set to where this was inherited from
+	m_BitIo.m_pReadBuf = pReadBuf;
+	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
 	/* no point in this since only encoding would use these??
     int i = 0;
