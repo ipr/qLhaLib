@@ -22,16 +22,29 @@
 // also must expect some features for C++ support
 // and must be able to build Qt..
 //
-// 3) better scoping
+// 3) keyword-changes
+// keywords that are not allowed,
+// for example, 'interface' is reserved by MS VC++
+//
+// 4) better scoping
 // trying to figure out all 
 // those external/global variables all over the place..
 //
-// 4) standard-library support
+// 5) reduction of static variables/methods
+// hard to follow AND dll-code really does not like statics
+// (consider case where multiple threads/processes uses same library..)
+//
+// 6) buffering/IO changes
+//
+// 7) standard-library support
 // C-style buffers replaces (in places)
 // by std::string, std::list and std::vector, for example.
 //
-// 5) removed console-output
+// 8) removed console-output
 // does not belong in a library-code, which is what this should become..
+//
+// 9) code-style changed as side-effect..
+// changed style while figuring out what code does..
 //
 //
 // Based on LhA source code: lha-1.14i-ac20040929

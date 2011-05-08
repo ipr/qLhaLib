@@ -18,7 +18,8 @@ SOURCES += qlhalib.cpp \
     crcio.cpp \
     LhHeader.cpp \
     LhExtract.cpp \
-    LhDecoder.cpp
+    LhDecoder.cpp \
+    Huffman.cpp
 
 # LzEncode.cpp 
 # Huffman.cpp
@@ -34,8 +35,8 @@ HEADERS += qlhalib.h\
     FiletimeHelper.h \
     LhHeader.h \
     LhExtract.h \
-    LhDecoder.h
+    LhDecoder.h \
+    Huffman.h
 
 # LzEncode.h 
 # Huffman.h
-

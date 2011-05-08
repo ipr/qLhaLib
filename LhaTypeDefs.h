@@ -138,6 +138,8 @@ enum tHuffBits
 #define MAXMATCH            256 /* formerly F (not more than UCHAR_MAX + 1) */
 #define THRESHOLD           3   /* choose optimal value */
 
+#define USHRT_BIT           16  /* (CHAR_BIT * sizeof(ushort)) */
+
 // -lzs- and -lz5- decoders
 #define MAGIC0      18
 #define MAGIC5      19

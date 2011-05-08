@@ -100,42 +100,9 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 	return LZHUFF5_DICBIT; /* for backward compatibility */
 }
 
-/*
-// temp, try to get rid of another way of yet another way for same stuff..
- // -> used while encoding only
- // and was repurposed to decoding?
- // -> removed
-struct matchdata {
-    int len;
-    unsigned int off;
-};
-*/
-
 // extract with decoding (compressed):
 // -lh1- .. -lh7-, -lzs-, -lz5-
 // -> different decoders and variations needed
-//
-// function pointers in struct (method lookup-table for decode):
-//{decode_c, decode_p, decode_start}
-//
-// -lh1- 
-//{decode_c_dyn, decode_p_st0, decode_start_fix},
-// -lh2- 
-//{decode_c_dyn, decode_p_dyn, decode_start_dyn},
-// -lh3- 
-//{decode_c_st0, decode_p_st0, decode_start_st0},
-// -lh4- 
-//{decode_c_st1, decode_p_st1, decode_start_st1},
-// -lh5- 
-//{decode_c_st1, decode_p_st1, decode_start_st1},
-// -lh6- 
-//{decode_c_st1, decode_p_st1, decode_start_st1},
-// -lh7-
-//{decode_c_st1, decode_p_st1, decode_start_st1},
-// -lzs- 
-//{decode_c_lzs, decode_p_lzs, decode_start_lzs},
-// -lz5-
-//{decode_c_lz5, decode_p_lz5, decode_start_lz5}
 //
 void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
@@ -145,9 +112,19 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
     //decode_set = decode_define[interface->method - 1];
 	
 	pDecoder->SetBuffers(&m_ReadBuf, &m_WriteBuf);
+	
+	// prepare enough in buffers, zero them also
+	m_ReadBuf.PrepareBuffer(pHeader->packed_size, false);
+	m_WriteBuf.PrepareBuffer(pHeader->original_size, false);
+	
+	if (ArchiveFile.Read(m_ReadBuf.GetBegin(), pHeader->packed_size) == false)
+	{
+		throw IOException("Failed reading input");
+	}
 
 	size_t nToRead = pHeader->packed_size;
 	size_t nToWrite = pHeader->original_size;
+
 	
     unsigned int adjust = 0; // inline in decode() in slide.c
     //unsigned int dicsiz1 = 0; // inline in decode() in slide.c..
@@ -158,7 +135,11 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	// -> use our write-buffer for this?
 	// -> or move to decoder?
 	//
-    unsigned char *dtext = (unsigned char *)malloc(dicsiz);
+	// use from stack for automatic cleanup on leaving scope
+	// (destructor called, exception or normal return)
+	CReadBuffer BufDictText(dicsiz);
+	unsigned char *dtext = BufDictText.GetBegin();
+	
 	//memset(dtext, 0, dicsiz); // for broken archive only? why?
 	memset(dtext, ' ', dicsiz);
 	
@@ -235,16 +216,10 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		m_WriteBuf.Append(dtext, loc);
     }
 
-    free(dtext);
-	
 	// write to output upto what is collected in write-buffer
 	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
 	{
 		throw IOException("Failed writing output");
-	}
-	if (OutFile.Flush() == false)
-	{
-		throw IOException("Failed flushing output");
 	}
 	
 	
@@ -303,6 +278,9 @@ void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 {
 	// no compression, just copy to output
 	
+	// check we have enough buffer for reading in chunks
+	m_ReadBuf.PrepareBuffer(4096, false);
+	
 	size_t nToWrite = pHeader->original_size;
 	while (nToWrite > 0)
 	{
@@ -317,7 +295,7 @@ void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			throw IOException("Failed reading data");
 		}
 		
-		// update crc (could make static instance..)
+		// update crc
 		m_uiCrc = m_crcio.calccrc(m_uiCrc, m_ReadBuf.GetBegin(), read_size);
 		
 		// write output
@@ -379,7 +357,10 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	}
 	
 	// flush to disk
-	OutFile.Flush();
+	if (OutFile.Flush() == false)
+	{
+		throw IOException("Failed flushing output");
+	}
 	
 	// verify CRC
 	if (pHeader->has_crc == true && pHeader->crc != m_uiCrc)

@@ -20,75 +20,9 @@
 #include "LhaTypeDefs.h"
 #include "LhHeader.h"
 #include "crcio.h"
-
-#define USHRT_BIT           16  /* (CHAR_BIT * sizeof(ushort)) */
-
-class BitIo
-{
-public:
-	unsigned short bitbuf;
-
-	unsigned char subbitbuf;
-	unsigned char bitcount;
-
-	/* slide.c */
-	int unpackable; // encoding only?
-	size_t origsize;
-	size_t compsize;
+#include "Huffman.h"
 
 
-	// helper for accessing same data
-	// in decoder and extract-handling
-	CReadBuffer *m_pReadBuf;
-	CReadBuffer *m_pWriteBuf;
-	
-	unsigned short peekbits(unsigned char n)
-	{
-		return (bitbuf >> (sizeof(bitbuf)*8 - (n)));
-	}
-
-	void fillbuf(unsigned char n);
-	
-	unsigned short getbits(unsigned char n)
-	{
-		unsigned short x;
-		x = bitbuf >> (2 * CHAR_BIT - n);
-		fillbuf(n);
-		return x;
-	}
-	
-	void putcode(unsigned char n, unsigned short x);
-	
-	/* Write rightmost n bits of x */
-	void putbits(unsigned char n, unsigned short x)
-	{
-		unsigned short y = x;
-		y <<= USHRT_BIT - n;
-		putcode(n, y);
-	}
-	
-	void init_getbits()
-	{
-		bitbuf = 0;
-		subbitbuf = 0;
-		bitcount = 0;
-		fillbuf(2 * CHAR_BIT);
-	}
-
-	void init_putbits()
-	{
-		bitcount = CHAR_BIT;
-		subbitbuf = 0;
-	}
-	
-    BitIo()
-		: m_pReadBuf(nullptr)
-		, m_pWriteBuf(nullptr)
-		, bitbuf(0)
-		, subbitbuf(0)
-	{}
-	
-};
 
 //////// decoder base
 
@@ -101,12 +35,10 @@ private:
 	// actual implementations
 
 	//// decode start
-	// -lh1-
-	void decode_start_fix();
-	
-	// -lh2-
-	void decode_start_dyn();
+	// -lh1- and -lh2- have specific cases
+	// with differences, dynamic huffman
 
+	/*
 	// -lh3-, static huffman (0)
 	void decode_start_st0();
 
@@ -132,10 +64,11 @@ private:
 	
 	// -lh4- .. -lh7-, static huffman (1)
 	unsigned short decode_p_st1_huf();
+	*/
 
 	
 protected:
-	BitIo m_BitIo;
+	//BitIo m_BitIo;
 
 	// decode-text
 	//unsigned char *m_pDecodeTable;
@@ -159,8 +92,8 @@ protected:
 	
 public:
 	CLhDecoder(void)
-		: m_BitIo()
-		, m_pText(nullptr)
+		//: m_BitIo()
+		: m_pText(nullptr)
 		//, m_pDecodeTable(nullptr)
 		, m_pReadBuf(nullptr)
 		, m_pWriteBuf(nullptr)
@@ -191,14 +124,11 @@ public:
 		m_pWriteBuf = pWriteBuf;
 		
 		// temp, make better later..
-		m_BitIo.m_pReadBuf = pReadBuf;
-		m_BitIo.m_pWriteBuf = pWriteBuf;
+		//m_BitIo.m_pReadBuf = pReadBuf;
+		//m_BitIo.m_pWriteBuf = pWriteBuf;
 	}
 	
 	virtual void DecodeStart() = 0;
-	//virtual void DecodeStart(size_t nActualRead, CReadBuffer &InBuf) = 0;
-	//virtual void DecodeCont() = 0;
-	//virtual void DecodeEnd() = 0;
 	virtual unsigned short DecodeC() = 0;
 	virtual unsigned short DecodeP() = 0;
 	
@@ -235,137 +165,83 @@ public:
 // (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
 
 // -lh1-
-class CLhDecodeLh1 : public CLhDecoder
+// (dynamic huffman)
+class CLhDecodeLh1 : public CLhDecoder, protected CShuffleHuffman, protected CDynamicHuffman
 {
 public:
 	CLhDecodeLh1(void)
 		: CLhDecoder()
+		, CShuffleHuffman()
+		, CDynamicHuffman()
 	{}
 	virtual ~CLhDecodeLh1(void)
 	{}
 	
 	virtual void DecodeStart();
-	
-	virtual unsigned short DecodeC()
-	{
-		return CLhDecoder::decode_c_dyn_huf();
-	}
-	virtual unsigned short DecodeP()
-	{
-		return CLhDecoder::decode_p_st0_huf();
-	}
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 
 };
 
 // -lh2-
-class CLhDecodeLh2 : public CLhDecoder
+// (dynamic huffman)
+class CLhDecodeLh2 : public CLhDecoder, protected CDynamicHuffman
 {
 public:
 	CLhDecodeLh2(void)
 		: CLhDecoder()
+		, CDynamicHuffman()
 	{}
 	virtual ~CLhDecodeLh2(void)
 	{}
 	
 	virtual void DecodeStart();
-	
-	virtual unsigned short DecodeC()
-	{
-		return CLhDecoder::decode_c_dyn_huf();
-	}
-	virtual unsigned short DecodeP()
-	{
-		return CLhDecoder::decode_p_dyn_huf();
-	}
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 	
 };
 
 // -lh3-
-class CLhDecodeLh3 : public CLhDecoder
+// (static huffman routine 0 -> shuffle)
+class CLhDecodeLh3 : public CLhDecoder, protected CShuffleHuffman
 {
 public:
 	CLhDecodeLh3(void)
 		: CLhDecoder()
+		, CShuffleHuffman()
 	{}
 	virtual ~CLhDecodeLh3(void)
 	{}
 
-	// uses static huffman (0)
-	virtual void DecodeStart()
-	{
-		CLhDecoder::decode_start_st0();
-	}
-	virtual unsigned short DecodeC()
-	{
-		return CLhDecoder::decode_c_st0_huf();
-	}
-	virtual unsigned short DecodeP()
-	{
-		return CLhDecoder::decode_p_st0_huf();
-	}
-	
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 /*
 // -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh4 : public CLhDecoder
-{
-public:
-	CLhDecodeLh4(void)
-		: CLhDecoder()
-	{}
-	virtual ~CLhDecodeLh4(void)
-	{}
-	
-};
-
 // -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh5 : public CLhDecoder
-{
-public:
-	CLhDecodeLh5(void)
-		: CLhDecoder()
-	{}
-	virtual ~CLhDecodeLh5(void)
-	{}
-	
-};
-
 // -lh4- .. -lh7- (check virtual methods)
 class CLhDecodeLh6 : public CLhDecoder
-{
-public:
-	CLhDecodeLh6(void)
-		: CLhDecoder()
-	{}
-	virtual ~CLhDecodeLh6(void)
-	{}
-};
 */
 
-// -lh4- .. -lh7- (check virtual methods)
-class CLhDecodeLh7 : public CLhDecoder
+// -lh4- .. -lh7- (same for each)
+// (static huffman routine 1)
+class CLhDecodeLh7 : public CLhDecoder, protected CStaticHuffman
 {
 public:
 	CLhDecodeLh7(void)
 		: CLhDecoder()
+		, CStaticHuffman()
 	{}
 	virtual ~CLhDecodeLh7(void)
 	{}
 
-	// uses static huffman (1)
-	virtual void DecodeStart()
-	{
-		CLhDecoder::decode_start_st1();
-	}
-	virtual unsigned short DecodeC()
-	{
-		return CLhDecoder::decode_c_st1_huf();
-	}
-	virtual unsigned short DecodeP()
-	{
-		return CLhDecoder::decode_p_st1_huf();
-	}
+	virtual void DecodeStart();
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 // -lzs-
@@ -375,12 +251,15 @@ protected:
 	int flag, flagcnt;
 	int m_matchpos;
 	
+	BitIo m_BitIo;
+	
 public:
 	CLhDecodeLzs(void)
 		: CLhDecoder()
 		, flag(0)
 		, flagcnt(0)
 		, m_matchpos(0)
+		, m_BitIo()
 	{}
 	virtual ~CLhDecodeLzs(void)
 	{}
@@ -397,12 +276,15 @@ protected:
 	int flag, flagcnt;
 	int m_matchpos;
 
+	BitIo m_BitIo;
+	
 public:
 	CLhDecodeLz5(void)
 		: CLhDecoder()
 		, flag(0)
 		, flagcnt(0)
 		, m_matchpos(0)
+		, m_BitIo()
 	{}
 	virtual ~CLhDecodeLz5(void)
 	{}
