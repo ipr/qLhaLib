@@ -18,6 +18,9 @@ CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 
 CLhArchive::~CLhArchive(void)
 {
+	// TODO: 
+	// don't destroy that which is destroyed by parent?
+	
 	if (m_pExtraction != nullptr)
 	{
 		delete m_pExtraction;

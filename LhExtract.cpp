@@ -12,36 +12,30 @@
 
 void CLhExtract::CreateDecoders()
 {
-	CLhDecoder *pDecoder = nullptr;
+	//CLhDecoder *pDecoder = nullptr;
 	
 	// (note: -lh0-, -lhd- and -lz4- are "store only", no compression)
 	
 	// -lh1-
-	pDecoder = new CLhDecodeLh1();
-	m_mapDecoders.insert(LZHUFF1_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF1_METHOD_NUM, new CLhDecodeLh1()));
 	
 	// -lh2-
-	pDecoder = new CLhDecodeLh2();
-	m_mapDecoders.insert(LZHUFF2_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF2_METHOD_NUM, new CLhDecodeLh2()));
 	
 	// -lh3-
-	pDecoder = new CLhDecodeLh3();
-	m_mapDecoders.insert(LZHUFF3_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF3_METHOD_NUM, new CLhDecodeLh3()));
 
-	// -lh4- .. -lh7- -> same decoding
-	pDecoder = new CLhDecodeLh7();
-	m_mapDecoders.insert(LZHUFF4_METHOD_NUM, pDecoder);
-	m_mapDecoders.insert(LZHUFF5_METHOD_NUM, pDecoder);
-	m_mapDecoders.insert(LZHUFF6_METHOD_NUM, pDecoder);
-	m_mapDecoders.insert(LZHUFF7_METHOD_NUM, pDecoder);
+	// -lh4- .. -lh7- -> same decoding (different instance)
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF4_METHOD_NUM, new CLhDecodeLh7()));
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF5_METHOD_NUM, new CLhDecodeLh7()));
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF6_METHOD_NUM, new CLhDecodeLh7()));
+	m_mapDecoders.insert(tDecorders::value_type(LZHUFF7_METHOD_NUM, new CLhDecodeLh7()));
 	
 	// -lzs-
-	pDecoder = new CLhDecodeLzs();
-	m_mapDecoders.insert(LARC_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(tDecorders::value_type(LARC_METHOD_NUM, new CLhDecodeLzs()));
 	
 	// -lz5-
-	pDecoder = new CLhDecodeLz5();
-	m_mapDecoders.insert(LARC5_METHOD_NUM, pDecoder);
+	m_mapDecoders.insert(tDecorders::value_type(LARC5_METHOD_NUM, new CLhDecodeLz5()));
 }
 
 CLhDecoder *CLhExtract::GetDecoder(const tCompressionMethod enMethod)
@@ -49,7 +43,12 @@ CLhDecoder *CLhExtract::GetDecoder(const tCompressionMethod enMethod)
 	// TODO: just create new instance every time decoding is needed?
 	// (would simplify resetting stuff..)
 	
-	return m_mapDecoders.value(enMethod, nullptr);
+	auto it = m_mapDecoders.find(enMethod);
+	if (it != m_mapDecoders.end())
+	{
+		return it->second;
+	}
+	return nullptr;
 }
 
 /////// protected methods
@@ -100,13 +99,12 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 // -lh1- .. -lh7-, -lzs-, -lz5-
 // -> different decoders and variations needed
 //
-void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
+unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	CLhDecoder *pDecoder = GetDecoder(m_Compression);
 	if (pDecoder == nullptr)
 	{
-		// unknown/unsupported compression?
-		return;
+		throw ArcException("Unknown/unsupported compression", m_Compression);
 	}
 	
 	// prepare enough in buffers, zero them also
@@ -131,73 +129,28 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	}
 	
 	pDecoder->DecodeFinish();
-	m_uiCrc = pDecoder->GetCrc();
 
 	// write to output upto what is collected in write-buffer
 	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
 	{
 		throw IOException("Failed writing output");
 	}
-	
-	
-    /* usually read size is interface->packed */
-    //interface->read_size = interface->packed - compsize;
 
-	//nToRead = pHeader->packed_size - compsize;
-    //return m_uiCrc;
-	
-	// below is best-guess what should be done,
-	// see decoding for how large changes may be needed..
-	//
-	/*
-	while (nToWrite > 0)
-	{
-		size_t read_size = nToWrite;
-		if (read_size > 4096)
-		{
-			read_size = 4096;
-		}
-		
-		// read chunk
-		if (ArchiveFile.Read(m_ReadBuf.GetBegin(), read_size) == false)
-		{
-			throw IOException("Failed reading data");
-		}
-		
-		unsigned char *pReadBuf = m_ReadBuf.GetBegin();
-		while (read_size > 0)
-		{
-			// decode
-			//pDecoder->Decode(pReadBuf, read_size);
-			
-			// update crc (could make static instance..)
-			//m_uiCrc = m_crcio.calccrc(m_uiCrc, pDecoder->GetDecoded(), pDecoder->GetDecodedSize());
-			
-			// write to output
-			if (OutFile.Write(pDecoder->GetDecoded(), pDecoder->GetDecodedSize()) == false)
-			{
-				throw IOException("Failed writing output");
-			}
-			
-			nToWrite -= pDecoder->GetDecodedSize();
-			read_size -= pDecoder->GetReadPackedSize();
-			pReadBuf = pReadBuf + pDecoder->GetReadPackedSize();
-		}
-	}
-	*/
+	return pDecoder->GetCrc();
 }
 
 // extract "store only":
 // -lh0-, -lhd- and -lz4- 
 // -> no compression -> "as-is"
 //
-void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
+unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
 	// no compression, just copy to output
 	
 	// check we have enough buffer for reading in chunks
 	m_ReadBuf.PrepareBuffer(4096, false);
 	
+	unsigned int uiFileCrc = 0;
 	size_t nToWrite = pHeader->original_size;
 	while (nToWrite > 0)
 	{
@@ -213,7 +166,7 @@ void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 		}
 		
 		// update crc
-		m_uiCrc = m_crcio.calccrc(m_uiCrc, m_ReadBuf.GetBegin(), read_size);
+		uiFileCrc = m_crcio.calccrc(uiFileCrc, m_ReadBuf.GetBegin(), read_size);
 		
 		// write output
 		if (OutFile.Write(m_ReadBuf.GetBegin(), read_size) == false)
@@ -224,6 +177,7 @@ void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	}
 	
 	// file done
+	return uiFileCrc;
 }
 
 
@@ -235,8 +189,6 @@ void CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 //
 void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
-	m_uiCrc = 0;
-	
 	// determine decoding method
 	m_Compression = pHeader->GetMethod();
 	if (m_Compression == LZ_UNKNOWN)
@@ -253,6 +205,8 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	}
 	*/
 
+	unsigned int uiFileCrc = 0;
+	
 	// huffman dictionary bits
 	m_HuffBits = GetDictionaryBits(m_Compression);
 	if ((int)m_HuffBits == 0)
@@ -260,7 +214,7 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 		// no compression, just copy to output
 		// (-lh0-, -lhd- and -lz4-)
 		
-		ExtractNoCompression(ArchiveFile, pHeader, OutFile);
+		uiFileCrc = ExtractNoCompression(ArchiveFile, pHeader, OutFile);
 		
 		// file done
 	}
@@ -268,21 +222,21 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	{
 		// LZ decoding: need decoder for the method
 		//
-		ExtractDecode(ArchiveFile, pHeader, OutFile);
+		uiFileCrc = ExtractDecode(ArchiveFile, pHeader, OutFile);
 
 		// file done
 	}
 	
-	// flush to disk
+	// flush to disk (whatever we may have..)
 	if (OutFile.Flush() == false)
 	{
 		throw IOException("Failed flushing output");
 	}
 	
-	// verify CRC
-	if (pHeader->has_crc == true && pHeader->crc != m_uiCrc)
+	// verify CRC: exception if not match (keep decoded anyway..)
+	if (pHeader->has_crc == true && pHeader->crc != uiFileCrc)
 	{
-		//throw ArcException("CRC error on extract", pHeader->filename.toStdString());
+		throw ArcException("CRC error on extract", pHeader->filename.toStdString());
 	}
 }
 

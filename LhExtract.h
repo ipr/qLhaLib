@@ -10,7 +10,8 @@
 
 #include <QObject>
 #include <QString>
-#include <QMap>
+
+#include <map>
 
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
@@ -23,7 +24,8 @@
 class CLhExtract : public QObject
 {
 private:
-	QMap<tCompressionMethod, CLhDecoder*> m_mapDecoders;
+	typedef std::map<tCompressionMethod, CLhDecoder*> tDecorders;
+	tDecorders m_mapDecoders;
 	void CreateDecoders();
 	
 	inline CLhDecoder *GetDecoder(const tCompressionMethod enMethod);
@@ -35,15 +37,15 @@ protected:
 	CReadBuffer m_WriteBuf; // unpacked data for writing
 	
 	// kept and updated when extracting file
-	unsigned int m_uiCrc;
+	//unsigned int m_uiCrc; // TODO: cumulative of all files? anywhere to check?
 	tCompressionMethod m_Compression;
 	tHuffBits m_HuffBits;
 	
 	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod) const;
 
-	void ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
+	unsigned int ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 	
-	void ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
+	unsigned int ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 
 	
 public:
@@ -53,22 +55,22 @@ public:
 		, m_ReadBuf(4096) // emulated old buffering style
 		, m_WriteBuf(2* 4096)
 		, m_crcio()
-		, m_uiCrc(0)
+		//, m_uiCrc(0)
 	{
 		CreateDecoders();
-	};
+	}
     ~CLhExtract()
 	{
 		auto it = m_mapDecoders.begin();
 		auto itEnd = m_mapDecoders.end();
 		while (it != itEnd)
 		{
-			CLhDecoder *pDec = it.value();
+			CLhDecoder *pDec = it->second;
 			delete pDec;
 			++it;
 		}
 		m_mapDecoders.clear();
-	};
+	}
 	
 	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 };
