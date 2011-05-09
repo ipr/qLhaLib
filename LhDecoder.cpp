@@ -13,7 +13,7 @@
 
 void CLhDecoder::Decode(size_t &decode_count)
 {
-	unsigned int c = DecodeC();
+	unsigned int c = DecodeC(decode_count);
 	if (c < 256) 
 	{
 		m_dtext[m_loc++] = c;
@@ -28,7 +28,7 @@ void CLhDecoder::Decode(size_t &decode_count)
 	else
 	{
 		int iMatchLen = c - m_adjust;
-		unsigned int uiMatchOff = DecodeP() + 1; // may modify loc?
+		unsigned int uiMatchOff = DecodeP(decode_count) + 1; // may modify loc?
 		unsigned int matchpos = (m_loc - uiMatchOff) & m_dicsiz_1;
 		
 		decode_count += iMatchLen;
@@ -61,19 +61,16 @@ void CLhDecodeLh1::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
 	// specific for this
 	CShuffleHuffman::decode_start_fix();
 }
 
-unsigned short CLhDecodeLh1::DecodeC()
+unsigned short CLhDecodeLh1::DecodeC(size_t &decode_count)
 {
 	return CDynamicHuffman::decode_c_dyn();
 }
 
-unsigned short CLhDecodeLh1::DecodeP()
+unsigned short CLhDecodeLh1::DecodeP(size_t &decode_count)
 {
 	return CShuffleHuffman::decode_p_st0();
 }
@@ -88,21 +85,18 @@ void CLhDecodeLh2::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
 	// specific for this
 	CDynamicHuffman::decode_start_dyn(m_enBit);
 }
 
-unsigned short CLhDecodeLh2::DecodeC()
+unsigned short CLhDecodeLh2::DecodeC(size_t &decode_count)
 {
 	return CDynamicHuffman::decode_c_dyn();
 }
 
-unsigned short CLhDecodeLh2::DecodeP()
+unsigned short CLhDecodeLh2::DecodeP(size_t &decode_count)
 {
-	return CDynamicHuffman::decode_p_dyn();
+	return CDynamicHuffman::decode_p_dyn(decode_count);
 }
 
 // -lh3-
@@ -115,18 +109,15 @@ void CLhDecodeLh3::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
 	CShuffleHuffman::decode_start_st0();
 }
 
-unsigned short CLhDecodeLh3::DecodeC()
+unsigned short CLhDecodeLh3::DecodeC(size_t &decode_count)
 {
 	return CShuffleHuffman::decode_c_st0();
 }
 
-unsigned short CLhDecodeLh3::DecodeP()
+unsigned short CLhDecodeLh3::DecodeP(size_t &decode_count)
 {
 	return CShuffleHuffman::decode_p_st0();
 }
@@ -141,18 +132,15 @@ void CLhDecodeLh7::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
-	CStaticHuffman::decode_start_st1();
+	CStaticHuffman::decode_start_st1(m_enBit);
 }
 
-unsigned short CLhDecodeLh7::DecodeC()
+unsigned short CLhDecodeLh7::DecodeC(size_t &decode_count)
 {
 	return CStaticHuffman::decode_c_st1();
 }
 
-unsigned short CLhDecodeLh7::DecodeP()
+unsigned short CLhDecodeLh7::DecodeP(size_t &decode_count)
 {
 	return CStaticHuffman::decode_p_st1();
 }
@@ -169,13 +157,10 @@ void CLhDecodeLzs::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
     m_BitIo.init_getbits();
 }
 
-unsigned short CLhDecodeLzs::DecodeC()
+unsigned short CLhDecodeLzs::DecodeC(size_t &decode_count)
 {
 	//decode_c_lzs
     if (m_BitIo.getbits(1)) 
@@ -189,10 +174,9 @@ unsigned short CLhDecodeLzs::DecodeC()
     }
 }
 
-unsigned short CLhDecodeLzs::DecodeP()
+unsigned short CLhDecodeLzs::DecodeP(size_t &decode_count)
 {
 	//decode_p_lzs
-	// fucking globals again
     return (m_loc - m_matchpos - MAGIC0) & 0x7ff;
 }
 
@@ -207,30 +191,9 @@ void CLhDecodeLz5::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	// set to where this was inherited from
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
-
-	// set to base
-	CHuffman::SetDictBit(m_enBit);
-	
-	/* no point in this since only encoding would use these??
-    int i = 0;
-    for (i = 0; i < 256; i++)
-	{
-        memset(&text[i * 13 + 18], i, 13);
-	}
-    for (i = 0; i < 256; i++)
-	{
-        text[256 * 13 + 18 + i] = i;
-	}
-    for (i = 0; i < 256; i++)
-	{
-        text[256 * 13 + 256 + 18 + i] = 255 - i;
-	}
-    memset(&text[256 * 13 + 512 + 18], 0, 128);
-    memset(&text[256 * 13 + 512 + 128 + 18], ' ', 128 - 18);
-	*/
 }
 
-unsigned short CLhDecodeLz5::DecodeC()
+unsigned short CLhDecodeLz5::DecodeC(size_t &decode_count)
 {
 	//decode_c_lz5
     int c = 0;
@@ -258,10 +221,9 @@ unsigned short CLhDecodeLz5::DecodeC()
     return c;
 }
 
-unsigned short CLhDecodeLz5::DecodeP()
+unsigned short CLhDecodeLz5::DecodeP(size_t &decode_count)
 {
 	//decode_p_lz5
-	// fucking globals again
     return (m_loc - m_matchpos - MAGIC5) & 0xfff;
 }
 

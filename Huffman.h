@@ -85,24 +85,53 @@ protected:
 	BitIo m_BitIo;
 	
 	// TODO: should use enum-type tHuffBits instead
-	//
-	unsigned short m_dicbit;
+	// mostly used by encoding?
+	// -> not currently
+	//unsigned short m_dicbit;
 
+	// mostly used by encoding?
+	unsigned short maxmatch;
+	
 public:
     CHuffman()
 		: m_BitIo()
-		, m_dicbit(0)
 	{}
-	void SetDictBit(const tHuffBits enBit)
-	{
-		int iBit = (int)enBit;
-		m_dicbit = (1 << iBit);
-	}
 };
 
 
 class CHuffmanTree
 {
+protected:
+	// avoid name collisions
+	enum tHuffmanTree
+	{
+		NP         = (MAX_DICBIT + 1),
+		NT         = (USHRT_BIT + 3),
+		NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+		
+		/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
+		NPT        = 0x80
+	};
+	
+	unsigned short left[2 * NC - 1];
+	unsigned short right[2 * NC - 1];
+	
+	unsigned short c_code[NC];      /* encode */
+	unsigned short pt_code[NPT];    /* encode */
+	
+	unsigned short c_table[4096];   /* decode */
+	unsigned short pt_table[256];   /* decode */
+	
+	unsigned short c_freq[2 * NC - 1]; /* encode */
+	unsigned short p_freq[2 * NP - 1]; /* encode */
+	unsigned short t_freq[2 * NT - 1]; /* encode */
+	
+	// these used by the shuffling also..
+	// should be in base?
+	//
+	unsigned char  c_len[NC];
+	unsigned char  pt_len[NPT];
+	
 public:
     CHuffmanTree()
 	{}
@@ -125,7 +154,9 @@ public:
 	
 	void downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const;
 	
-	short make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code) const;
+	short make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code);
+	
+	void make_table(short nchar, unsigned char bitlen[], short tablebits, unsigned short table[]);
 };
 
 
@@ -183,15 +214,18 @@ public:
 	
 	void encode_c_dyn(unsigned int c);
 	unsigned short decode_c_dyn( /* void */ );
-	unsigned short decode_p_dyn( /* void */ );
+	unsigned short decode_p_dyn(size_t &decode_count);
 	
 	void output_dyn(unsigned int code, unsigned int pos);
 	void encode_end_dyn( /* void */ );
-	
+
+	// should be in CShuffleHuffman but called from CDynamicHuffman..
+	// -> renamed encode_p_st0() to encode_p_dyn()
+	void encode_p_dyn(unsigned short j);
 };
 
 
-class CShuffleHuffman : public CDynamicHuffman
+class CShuffleHuffman : public CDynamicHuffman, public CHuffmanTree
 {
 protected:
 	// avoid name collisions
@@ -203,7 +237,11 @@ protected:
 		//SHUF_N2  = (2 * SHUF_N1 - 1),     // # of nodes in Huffman tree 
 		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
 		SHUF_BUFBITS     = 16,              // >= log2(MAXBUF)
-		SHUF_LENFIELD    = 4                // bit size of length field for tree output
+		SHUF_LENFIELD    = 4,               // bit size of length field for tree output
+						   
+		PBIT       = 5,       /* smallest integer such that (1 << PBIT) > * NP */
+		TBIT       = 5,       /* smallest integer such that (1 << TBIT) > * NT */
+		CBIT       = 9       /* smallest integer such that (1 << CBIT) > * NC */
 	};
 
 	unsigned int m_np;
@@ -217,6 +255,7 @@ protected:
 public:
     CShuffleHuffman()
 		: CDynamicHuffman()
+		, CHuffmanTree()
 		, m_blocksize(0)
 	{
 	}
@@ -224,7 +263,7 @@ public:
 	void ready_made(int method);
 	
 	void decode_start_st0( /*void*/ );
-	void encode_p_st0(unsigned short j);
+	//void encode_p_st0(unsigned short j);
 	void encode_start_fix( /*void*/ );
 	void read_tree_c( /*void*/ );
 	void read_tree_p(/*void*/);
@@ -242,35 +281,11 @@ protected:
 	// avoid name collisions
 	enum tStaticHuffman
 	{
-		NP         = (MAX_DICBIT + 1),
-		NT         = (USHRT_BIT + 3),
-		NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
-		
 		PBIT       = 5,       /* smallest integer such that (1 << PBIT) > * NP */
 		TBIT       = 5,       /* smallest integer such that (1 << TBIT) > * NT */
-		CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
-		
-		/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
-		NPT        = 0x80
+		CBIT       = 9       /* smallest integer such that (1 << CBIT) > * NC */
 	};
-	
-	// these should be in CHuffmanTree, used by shuffling also..
-	unsigned short left[2 * NC - 1];
-	unsigned short right[2 * NC - 1];
-	
-	unsigned short c_code[NC];      /* encode */
-	unsigned short pt_code[NPT];    /* encode */
-	
-	unsigned short c_table[4096];   /* decode */
-	unsigned short pt_table[256];   /* decode */
-	
-	unsigned short c_freq[2 * NC - 1]; /* encode */
-	unsigned short p_freq[2 * NP - 1]; /* encode */
-	unsigned short t_freq[2 * NT - 1]; /* encode */
-	
-	// these used by the shuffling also..
-	unsigned char  c_len[NC];
-	unsigned char  pt_len[NPT];
+
 	
 	unsigned char *buf;      /* encode */
 	unsigned int bufsiz;     /* encode */
@@ -286,6 +301,7 @@ protected:
 public:
     CStaticHuffman()
 		: CHuffman()
+		, CHuffmanTree()
 		, m_blocksize(0)
 	{
 	}

@@ -102,8 +102,8 @@ public:
 	virtual CReadBuffer *GetWriteBuf() = 0;
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf) = 0;
-	virtual unsigned short DecodeC() = 0;
-	virtual unsigned short DecodeP() = 0;
+	virtual unsigned short DecodeC(size_t &decode_count) = 0;
+	virtual unsigned short DecodeP(size_t &decode_count) = 0;
 	
 
 	// was global..
@@ -153,8 +153,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 
 };
 
@@ -180,8 +180,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 	
 };
 
@@ -207,8 +207,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 };
 
 /*
@@ -242,8 +242,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 };
 
 // -lzs-
@@ -276,8 +276,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 };
 
 // -lz5-
@@ -310,8 +310,8 @@ public:
 	}
 	
 	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
-	virtual unsigned short DecodeC();
-	virtual unsigned short DecodeP();
+	virtual unsigned short DecodeC(size_t &decode_count);
+	virtual unsigned short DecodeP(size_t &decode_count);
 };
 
 
