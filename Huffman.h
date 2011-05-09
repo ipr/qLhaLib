@@ -172,7 +172,7 @@ public:
 };
 
 
-class CDynamicHuffman : public CHuffman
+class CDynamicHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
 	// avoid name collisions
@@ -206,6 +206,7 @@ protected:
 public:
     CDynamicHuffman()
 		: CHuffman()
+		, CHuffmanTree()
 	{
 	}
 	
@@ -234,7 +235,7 @@ public:
 };
 
 
-class CShuffleHuffman : public CDynamicHuffman, public CHuffmanTree
+class CShuffleHuffman : public CDynamicHuffman
 {
 protected:
 	// avoid name collisions
@@ -264,7 +265,6 @@ protected:
 public:
     CShuffleHuffman()
 		: CDynamicHuffman()
-		, CHuffmanTree()
 		, m_blocksize(0)
 	{
 	}
@@ -295,10 +295,11 @@ protected:
 	};
 
 	
-	unsigned char *buf;      /* encode */
+	unsigned char *m_pBuf;      /* encode */
 	unsigned int bufsiz;     /* encode */
 	unsigned short m_blocksize; /* decode */
-	unsigned short output_pos, output_mask; /* encode */
+	unsigned short output_pos; /* encode */
+	unsigned short output_mask; /* encode */
 	
 	int m_pbit;
 	int m_np;
@@ -307,6 +308,8 @@ public:
     CStaticHuffman()
 		: CHuffman()
 		, CHuffmanTree()
+		, m_pBuf(nullptr) // only allocated when encoding?
+		, bufsiz(0)
 		, m_blocksize(0)
 	{
 	}
@@ -319,7 +322,6 @@ public:
 	void send_block( /* void */ );
 	
 	void output_st1(unsigned short  c, unsigned short  p);
-	unsigned char *alloc_buf( /* void */ );
 	
 	void encode_start_st1(const tHuffBits enBit);
 	void encode_end_st1( /* void */ );
@@ -336,7 +338,7 @@ protected:
 	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
 	
 	// used by decode_start_st1() and encode_start_st1()
-	bool SetByDictbit(const tHuffBits enBit);
+	bool SetBitsByDictbit(const tHuffBits enBit);
 	
 	// used by send_block() and encode_start_st1()
 	inline void clear_c_p_freq();

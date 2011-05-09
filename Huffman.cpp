@@ -533,6 +533,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
     if (m_blocksize == 0)    /* read block head */
 	{
         m_blocksize = m_BitIo.getbits(SHUF_BUFBITS);   /* read block blocksize */
+		
         read_tree_c();
 		
 		unsigned short bit = m_BitIo.getbits(1);
@@ -1244,7 +1245,7 @@ void CStaticHuffman::send_block( /* void */ )
 	{
         if (i % CHAR_BIT == 0)
 		{
-            flags = buf[pos++];
+            flags = m_pBuf[pos++];
 		}
         else
 		{
@@ -1252,14 +1253,14 @@ void CStaticHuffman::send_block( /* void */ )
 		}
         if (flags & (1 << (CHAR_BIT - 1))) 
 		{
-            encode_c(buf[pos++] + (1 << CHAR_BIT));
-            k = buf[pos++] << CHAR_BIT;
-            k += buf[pos++];
+            encode_c(m_pBuf[pos++] + (1 << CHAR_BIT));
+            k = m_pBuf[pos++] << CHAR_BIT;
+            k += m_pBuf[pos++];
             encode_p(k);
         } 
 		else
 		{
-            encode_c(buf[pos++]);
+            encode_c(m_pBuf[pos++]);
 		}
         if (m_BitIo.unpackable)
 		{
@@ -1275,8 +1276,7 @@ void CStaticHuffman::send_block( /* void */ )
 /* lh4, 5, 6, 7 */
 void CStaticHuffman::output_st1(unsigned short  c, unsigned short  p)
 {
-    unsigned short cpos;
-
+	unsigned short cpos;
     output_mask >>= 1;
     if (output_mask == 0) 
 	{
@@ -1291,16 +1291,16 @@ void CStaticHuffman::output_st1(unsigned short  c, unsigned short  p)
             output_pos = 0;
         }
         cpos = output_pos++;
-        buf[cpos] = 0;
+        m_pBuf[cpos] = 0;
     }
 	
-    buf[output_pos++] = (unsigned char) c;
+    m_pBuf[output_pos++] = (unsigned char) c;
     c_freq[c]++;
     if (c >= (1 << CHAR_BIT)) 
 	{
-        buf[cpos] |= output_mask;
-        buf[output_pos++] = (unsigned char) (p >> CHAR_BIT);
-        buf[output_pos++] = (unsigned char) p;
+        m_pBuf[cpos] |= output_mask;
+        m_pBuf[output_pos++] = (unsigned char) (p >> CHAR_BIT);
+        m_pBuf[output_pos++] = (unsigned char) p;
         c = 0;
         while (p) 
 		{
@@ -1312,30 +1312,11 @@ void CStaticHuffman::output_st1(unsigned short  c, unsigned short  p)
 }
 
 /* ------------------------------------------------------------------------ */
-// used by slide.c, defined in huf.c ..
-unsigned char *CStaticHuffman::alloc_buf( /* void */ )
-{
-    bufsiz = 16 * 1024 *2;  /* 65408U; */ /* t.okamoto */
-	
-	/* ugh.. if there's no 64K RAM we are dead anyway.. remove this.. */
-    while ((buf = (unsigned char *) malloc(bufsiz)) == NULL) 
-	{
-        bufsiz = (bufsiz / 10) * 9;
-        if (bufsiz < 4 * 1024)
-		{
-            //fatal_error("Not enough memory");
-			throw ArcException("Not enough memory", bufsiz);
-		}
-    }
-    return buf;
-}
-
-/* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
 void CStaticHuffman::encode_start_st1(const tHuffBits enBit)
 {
 	// same as decode_start_st1()
-	if (SetByDictbit(enBit) == false)
+	if (SetBitsByDictbit(enBit) == false)
 	{
 		throw ArcException("Cannot use dictionary bits", (int)enBit);
 	}
@@ -1346,7 +1327,7 @@ void CStaticHuffman::encode_start_st1(const tHuffBits enBit)
     output_pos = output_mask = 0;
     m_BitIo.init_putbits();
     //init_code_cache(); // EUC<->SJIS
-    buf[0] = 0;
+    m_pBuf[0] = 0; // should allocate this also.. (see old: alloc_buf())
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1557,7 +1538,7 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
 {
 	// same as encode_start_st1()
-	if (SetByDictbit(enBit) == false)
+	if (SetBitsByDictbit(enBit) == false)
 	{
 		throw ArcException("Cannot use dictionary bytes", (int)enBit);
 	}
@@ -1587,7 +1568,7 @@ void CStaticHuffman::decode_st1_mask_bitbuf(unsigned short &j, const int nCount)
 
 // used by decode_start_st1() and encode_start_st1(),
 // reduce duplication of stuff
-bool CStaticHuffman::SetByDictbit(const tHuffBits enBit)
+bool CStaticHuffman::SetBitsByDictbit(const tHuffBits enBit)
 {
 	bool bRet = false;
     switch (enBit) 
@@ -1611,7 +1592,7 @@ bool CStaticHuffman::SetByDictbit(const tHuffBits enBit)
 		bRet = true; // supported
 		break;
 		
-    default:
+    default: // unsupported dictionary, see other choices
 		break;
     }
 	return bRet;
