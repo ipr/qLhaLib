@@ -26,11 +26,10 @@ void QLhALib::PrepareArchive(QString &szArchive)
 	
 	m_pLhaHandler = new CLhArchive(this, szArchive);
 	m_pLhaHandler->SetConversionCodec(m_pTextCodec);
-	
-	//connect(m_pLhaHandler, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
-	//connect(m_pLhaHandler, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
-	//connect(m_pLhaHandler, SIGNAL(error(QString)), this, SIGNAL(error(QString)));
-	//connect(m_pLhaHandler, SIGNAL(fatal_error(QString)), this, SIGNAL(fatal_error(QString)));
+
+	// status display by signals, errors by exceptions
+	connect(m_pLhaHandler, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
+	connect(m_pLhaHandler, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
 }
 
 

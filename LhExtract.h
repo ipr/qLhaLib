@@ -23,6 +23,8 @@
 
 class CLhExtract : public QObject
 {
+	Q_OBJECT
+	
 private:
 	typedef std::map<tCompressionMethod, CLhDecoder*> tDecorders;
 	tDecorders m_mapDecoders;
@@ -41,7 +43,7 @@ protected:
 	tCompressionMethod m_Compression;
 	tHuffBits m_HuffBits;
 	
-	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod) const;
+	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod);
 
 	unsigned int ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 	
@@ -73,6 +75,11 @@ public:
 	}
 	
 	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
+	
+signals:
+	// progress-status by signals, errors by exceptions
+	void message(QString);
+	void warning(QString);
 };
 
 #endif // LHEXTRACT_H

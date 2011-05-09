@@ -52,6 +52,8 @@ protected:
 	CLhHeader *m_pHeaders;
 	CLhExtract *m_pExtraction;
 	
+	void Clear();
+	
 	void SeekHeader(CAnsiFile &ArchiveFile);
 	
 	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod) const;
@@ -70,13 +72,10 @@ public slots:
 	
 	bool AddFiles(QStringList &lstFiles);
 	
-	/*
 signals:
+	// progress-status by signals, errors by exceptions
 	void message(QString);
 	void warning(QString);
-	void error(QString);
-	void fatal_error(QString);
-	*/
 
 public:
 	// information about archive file itself

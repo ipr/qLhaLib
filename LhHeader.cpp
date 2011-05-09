@@ -116,6 +116,8 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		{
 			throw IOException("Failure seeking next header");
 		}
+		
+		emit message(QString("Header found: %1").arg(pHeader->filename));
 	}
 }
 
@@ -239,6 +241,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			// (32-bit time_t)
             pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
             break;
+			
         default:
             /* other headers */
             /* 0x39: multi-disk header
@@ -260,7 +263,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                0xff: extended attribute - permission, owner-id and timestamp
                      (level 3 on UNLHA32) */
             skip_bytes(header_size - n);
-			//emit warning(QString("unknown extended header %1").arg(ext_type));
+			emit warning(QString("unknown extended header %1").arg(iExtType));
             break;
         }
 
@@ -282,8 +285,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
     /* concatenate dirname and filename */
     if (pHeader->dirname.length() > 0) 
 	{
-		// bug? this was reversed..?
-		pHeader->filename += pHeader->dirname;
+		// we assume there is a path separator..
+		pHeader->filename.insert(0, pHeader->dirname);
     }
 
     return whole_size;

@@ -11,6 +11,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QByteArray>
 #include <QTextCodec>
 #include <QList>
 #include <QDateTime>
@@ -137,7 +138,10 @@ typedef struct LzHeader
 	
     size_t          header_size;
     int             size_field_length; // "size" variable may have different sizes??
+	
     char            method[METHOD_TYPE_STORAGE];
+	//QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
+	
     size_t          packed_size;
     size_t          original_size;
     unsigned char   header_level;
@@ -287,6 +291,8 @@ enum tExtendedAttribs
 
 class CLhHeader : public QObject
 {
+	Q_OBJECT
+
 private:
 	
 	// TODO: these buffer handlings REALLY need to be fixed..
@@ -387,6 +393,37 @@ private:
 	//
 	QString get_string(int len)
 	{
+		// if string if file/path
+		// and has LHA_PATHSEP
+		// -> convert to common '/' or '\\'
+		// note: not null-terminated..
+
+		/*		
+		QByteArray arr(m_get_ptr, len);
+		auto it = arr.begin();
+		auto itEnd = arr.end();
+		while (it != itEnd)
+		{
+			// note: force correct compare (char-to-char)
+			if ((*it) == (char)LHA_PATHSEP)
+			{
+				(*it) = '/';
+			}
+			++it;
+		}
+		return QString(arr);
+		*/
+		
+		// TODO: replace with above: may cause crc-errors..?
+		for (int i = 0; i < len; i++)
+		{
+			// note: force correct compare (char-to-char)
+			if (m_get_ptr[i] == (char)LHA_PATHSEP)
+			{
+				m_get_ptr[i] = '/';
+			}
+		}
+		
 		QString szVal;
 		if (m_pTextCodec == nullptr)
 		{
@@ -410,11 +447,6 @@ private:
 	}
 	
 
-	// TODO: make better way..
-	//size_t m_nReadOffset;
-	
-	
-	
 protected:
 	tHeaderLevel m_enHeaderLevel;
 	int m_iHeaderSize;
@@ -603,6 +635,10 @@ public:
 	
 	void ParseHeaders(CAnsiFile &ArchiveFile);
 
+signals:
+	// progress-status by signals, errors by exceptions
+	void message(QString);
+	void warning(QString);
 	
 protected:
 	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc);

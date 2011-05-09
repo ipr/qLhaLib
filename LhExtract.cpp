@@ -53,7 +53,7 @@ CLhDecoder *CLhExtract::GetDecoder(const tCompressionMethod enMethod)
 
 /////// protected methods
 
-tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
+tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod)
 {
     switch (enMethod) 
 	{
@@ -87,11 +87,11 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod) const
 	case LZHDIRS_METHOD_NUM:    /* -lhd- */
         return LARC4_DICBIT; // -> "store only", not compressed
 		
-    default:
+    default: // just to silence some compilers..
 		break;
     }
 
-	//warning("unknown method %d", method);
+	emit warning(QString("unknown method %1").arg((int)enMethod));
 	return LZHUFF5_DICBIT; /* for backward compatibility */
 }
 
@@ -189,6 +189,9 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 //
 void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
 {
+	QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
+	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
+	
 	// determine decoding method
 	m_Compression = pHeader->GetMethod();
 	if (m_Compression == LZ_UNKNOWN)
@@ -197,13 +200,13 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 		return;
 	}
 	
-	/*
 	if (m_Compression == LZHDIRS_METHOD_NUM)
 	{
-		// just make directories and no actual files ?
+		// just make directories and no actual files:
+		// -lhd- is just directory-entry in file-list
+		// and not actual file (make path only)
 		return;
 	}
-	*/
 
 	unsigned int uiFileCrc = 0;
 	

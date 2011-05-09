@@ -14,6 +14,12 @@ CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 {
 	m_pHeaders = new CLhHeader(this);
 	m_pExtraction = new CLhExtract(this);
+	
+	connect(m_pHeaders, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
+	connect(m_pHeaders, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
+	
+	connect(m_pExtraction, SIGNAL(message(QString)), this, SIGNAL(message(QString)));
+	connect(m_pExtraction, SIGNAL(warning(QString)), this, SIGNAL(warning(QString)));
 }
 
 CLhArchive::~CLhArchive(void)
@@ -32,6 +38,19 @@ CLhArchive::~CLhArchive(void)
 }
 
 /////////////// protected methods
+
+// in case same instance is used again (same or different archive)
+// -> clear some added data
+void CLhArchive::Clear()
+{
+	// same instance, called again?
+	// (TODO: add better checks if info exists and is correct..)
+	m_pHeaders->Clear();
+	m_ulTotalPacked = 0;
+	m_ulTotalUnpacked = 0;
+	m_ulTotalFiles = 0;
+	m_uiCrc = 0;
+}
 
 void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 {
@@ -90,7 +109,7 @@ bool CLhArchive::Extract(QString &szExtractPath)
 {
 	// same instance, called again?
 	// (TODO: add better checks if info exists and is correct..)
-	m_pHeaders->Clear();
+	Clear();
 
 	CAnsiFile ArchiveFile;
 	if (ArchiveFile.Open(m_szArchive.toStdString()) == false)
@@ -130,12 +149,25 @@ bool CLhArchive::Extract(QString &szExtractPath)
 		}
 		*/
 		
+		// TODO: there may be empty directory-only entries by -lhd- method
+		// in the "extended" header -> don't try to make files for those..
+		
+		emit message(QString("Extracting.. ").append(pHeader->filename));
+		
 		// this should have proper path-ending already..
 		QString szTempPath = szExtractPath;
 		szTempPath += pHeader->filename;
 		
 		// create path to file
 		CPathHelper::MakePathToFile(szTempPath.toStdString());
+
+		// if it's directory-entry -> nothing more to do here
+		if (pHeader->UnixMode.IsDirectory() == true)
+		{
+			++it;
+			continue;
+		}
+		
 		CAnsiFile OutFile;
 		if (OutFile.Open(szTempPath.toStdString(), true) == false)
 		{
@@ -163,7 +195,7 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
 	// same instance, called again?
 	// (TODO: add better checks if info exists and is correct..)
-	m_pHeaders->Clear();
+	Clear();
 	
 	// auto-close file (on leaving scope),
 	// wrap some handling
@@ -187,6 +219,13 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 	while (it != itEnd)
 	{
 		LzHeader *pHeader = (*it);
+		
+		// if it's directory-entry -> nothing more to do here
+		if (pHeader->UnixMode.IsDirectory() == true)
+		{
+			++it;
+			continue;
+		}
 		
 		lstArchiveInfo.push_back(QLhALib::CArchiveEntry());
 		
