@@ -61,6 +61,9 @@ void CLhDecodeLh1::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
+	
 	// specific for this
 	CShuffleHuffman::decode_start_fix();
 }
@@ -85,8 +88,11 @@ void CLhDecodeLh2::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
 	
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
+	
 	// specific for this
-	CDynamicHuffman::decode_start_dyn();
+	CDynamicHuffman::decode_start_dyn(m_enBit);
 }
 
 unsigned short CLhDecodeLh2::DecodeC()
@@ -108,6 +114,9 @@ void CLhDecodeLh3::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	// set to where this was inherited from
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
+
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
 	
 	CShuffleHuffman::decode_start_st0();
 }
@@ -131,6 +140,9 @@ void CLhDecodeLh7::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	// set to where this was inherited from
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
+
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
 	
 	CStaticHuffman::decode_start_st1();
 }
@@ -156,6 +168,9 @@ void CLhDecodeLzs::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	// set to where this was inherited from
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
+
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
 	
     m_BitIo.init_getbits();
 }
@@ -192,6 +207,9 @@ void CLhDecodeLz5::DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
 	// set to where this was inherited from
 	m_BitIo.m_pReadBuf = pReadBuf;
 	m_BitIo.m_pWriteBuf = pWriteBuf;
+
+	// set to base
+	CHuffman::SetDictBit(m_enBit);
 	
 	/* no point in this since only encoding would use these??
     int i = 0;

@@ -58,6 +58,7 @@ protected:
 	unsigned char *m_dtext;
 	unsigned int m_dicsiz_1;
 	unsigned int m_adjust;
+	tHuffBits m_enBit;
 
 	// was global.. only actually used with -lzs- and -lz5-
     unsigned long m_loc;
@@ -71,6 +72,7 @@ public:
 		, m_dicsiz_1(0)
 		, m_adjust(0)
 		, m_loc(0)
+		, m_enBit(LARC5_DICBIT) // default for backwards compatibility
 	{}
 	virtual ~CLhDecoder(void)
 	{}
@@ -84,13 +86,15 @@ public:
 		m_dicsiz_1 = 0;
 		m_adjust = 0;
 		m_loc = 0;
+		m_enBit = LARC5_DICBIT;
 	}
-	virtual void SetDict(unsigned long dicsiz, unsigned char *dtext, unsigned int dicsiz_1, unsigned int adjust)
+	virtual void SetDict(unsigned long dicsiz, unsigned char *dtext, unsigned int dicsiz_1, unsigned int adjust, tHuffBits enBit)
 	{
 		m_dicsiz = dicsiz;
 		m_dtext = dtext;
 		m_dicsiz_1 = dicsiz_1;
 		m_adjust = adjust;
+		m_enBit = enBit;
 	}
 	
 	// may be used during decoding

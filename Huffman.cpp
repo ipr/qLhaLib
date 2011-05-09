@@ -274,7 +274,7 @@ void CShuffleHuffman::ready_made(int method)
     unsigned int weight = 1 << (16 - j);
     unsigned int code = 0;
 	
-    for (int i = 0; i < np; i++) 
+    for (int i = 0; i < m_np; i++) 
 	{
         while (*tbl == i) 
 		{
@@ -297,7 +297,7 @@ void CShuffleHuffman::decode_start_st0( /*void*/ )
     maxmatch = MAXMATCH;
     m_BitIo.init_getbits();
     //init_code_cache(); // EUC<->SJIS
-    np = 1 << (LZHUFF3_DICBIT - 6);
+    m_np = 1 << (LZHUFF3_DICBIT - 6);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -314,7 +314,7 @@ void CShuffleHuffman::encode_start_fix( /*void*/ )
 {
     n_max = 314;
     maxmatch = 60;
-    np = 1 << (12 - 6);
+    m_np = 1 << (12 - 6);
     m_BitIo.init_putbits();
     //init_code_cache(); // EUC<->SJIS
     start_c_dyn();
@@ -391,19 +391,19 @@ void CShuffleHuffman::decode_start_fix(/*void*/)
     maxmatch = 60;
     m_BitIo.init_getbits();
     //init_code_cache(); // EUC<->SJIS
-    np = 1 << (LZHUFF1_DICBIT - 6);
+    m_np = 1 << (LZHUFF1_DICBIT - 6);
     start_c_dyn();
     ready_made(0);
-    make_table(np, pt_len, 8, pt_table);
+    make_table(m_np, pt_len, 8, pt_table);
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh3 */
 unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
 {
-    if (blocksize == 0)    /* read block head */
+    if (m_blocksize == 0)    /* read block head */
 	{
-        blocksize = m_BitIo.getbits(SHUF_BUFBITS);   /* read block blocksize */
+        m_blocksize = m_BitIo.getbits(SHUF_BUFBITS);   /* read block blocksize */
         read_tree_c();
 		
 		unsigned short bit = m_BitIo.getbits(1);
@@ -417,7 +417,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
         }
         make_table(SHUF_NP, pt_len, 8, pt_table);
     }
-    blocksize--;
+    m_blocksize--;
 	
 	unsigned short bit = m_BitIo.peekbits(12);
     int j = c_table[bit];
@@ -455,7 +455,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
 unsigned short CShuffleHuffman::decode_p_st0(/*void*/)
 {
     int j = pt_table[peekbits(8)];
-    if (j < np) 
+    if (j < m_np) 
 	{
         m_BitIo.fillbuf(pt_len[j]);
     }
@@ -473,7 +473,7 @@ unsigned short CShuffleHuffman::decode_p_st0(/*void*/)
                 j = left[j];
 			}
             i <<= 1;
-        } while (j >= np);
+        } while (j >= m_np);
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
     return (j << 6) + getbits(6);
@@ -534,28 +534,26 @@ void CDynamicHuffman::start_c_dyn( /* void */ )
 }
 
 /* ------------------------------------------------------------------------ */
-void CDynamicHuffman::start_p_dyn( /* void */ )
+/* lh2 */
+void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
 {
+	SetDictBit(enBit);
+	
+    n_max = 286;
+    maxmatch = MAXMATCH;
+    m_BitIo.init_getbits();
+    //init_code_cache(); // EUC<->SJIS
+	
+    start_c_dyn(); // shared with -lh1-
+	
     freq[ROOT_P] = 1;
     child[ROOT_P] = ~(N_CHAR);
     s_node[N_CHAR] = ROOT_P;
     edge[block[ROOT_P] = stock[avail++]] = ROOT_P;
     most_p = ROOT_P;
     total_p = 0;
-    nn = 1 << dicbit;
+    m_nn = m_dicbit;
     nextcount = 64;
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh2 */
-void CDynamicHuffman::decode_start_dyn( /* void */ )
-{
-    n_max = 286;
-    maxmatch = MAXMATCH;
-    m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
-    start_c_dyn();
-    start_p_dyn();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -829,7 +827,7 @@ unsigned short CDynamicHuffman::decode_p_dyn( /* void */ )
     while (decode_count > nextcount) 
 	{
         make_new_node(nextcount / 64);
-        if ((nextcount += 64) >= nn)
+        if ((nextcount += 64) >= m_nn)
 		{
             nextcount = 0xffffffff;
 		}
@@ -897,10 +895,7 @@ void CStaticHuffman::count_t_freq(/*void*/)
 {
     short           count;
 
-    for (short l = 0; l < NT; l++)
-	{
-        t_freq[l] = 0;
-	}
+	clear_t_freq();
 	
     short n = NC;
     while (n > 0 && c_len[n - 1] == 0)
@@ -1094,15 +1089,15 @@ void CStaticHuffman::send_block( /* void */ )
         m_BitIo.putbits(CBIT, root);
     }
 	
-    root = make_tree(np, p_freq, pt_len, pt_code);
-    if (root >= np) 
+    root = make_tree(m_np, p_freq, pt_len, pt_code);
+    if (root >= m_np) 
 	{
-        write_pt_len(np, pbit, -1);
+        write_pt_len(m_np, m_pbit, -1);
     }
     else 
 	{
-        m_BitIo.putbits(pbit, 0);
-        m_BitIo.putbits(pbit, root);
+        m_BitIo.putbits(m_pbit, 0);
+        m_BitIo.putbits(m_pbit, root);
     }
 	
     pos = 0;
@@ -1133,22 +1128,8 @@ void CStaticHuffman::send_block( /* void */ )
 		}
     }
 	
-	// why not use memset() here..
-	// it's not overlapping or anything..
-	memset(c_freq, 0, sizeof(unsigned short)*NC);
-	/*
-    for (i = 0; i < NC; i++)
-	{
-        c_freq[i] = 0;
-	}
-	*/
-	memset(p_freq, 0, sizeof(unsigned short)*np);
-	/*
-    for (i = 0; i < np; i++)
-	{
-        p_freq[i] = 0;
-	}
-	*/
+	// reduce duplication
+	clear_c_p_freq();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1212,41 +1193,17 @@ unsigned char *CStaticHuffman::alloc_buf( /* void */ )
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-void CStaticHuffman::encode_start_st1( /* void */ )
+void CStaticHuffman::encode_start_st1(const tHuffBits enBit)
 {
-	// same as decode_start_st1() ?
-	
-    switch (dicbit) 
+	// same as decode_start_st1()
+	SetDictBit(enBit);
+	if (SetByDictbit(enBit) == false)
 	{
-    case LZHUFF4_DICBIT:
-    case LZHUFF5_DICBIT: 
-		pbit = 4; 
-		np = LZHUFF5_DICBIT + 1; 
-		break;
-    case LZHUFF6_DICBIT: 
-		pbit = 5; 
-		np = LZHUFF6_DICBIT + 1; 
-		break;
-    case LZHUFF7_DICBIT: 
-		pbit = 5; 
-		np = LZHUFF7_DICBIT + 1; 
-		break;
-		
-    default:
-        //fatal_error("Cannot use %d bytes dictionary", 1 << dicbit);
-		throw ArcException("Cannot use dictionary bytes", 1 << dicbit);
-    }
+		throw ArcException("Cannot use dictionary bytes", m_dicbit);
+	}
 
-	// why not use memset() here?
-    int i = 0;
-    for (i = 0; i < NC; i++)
-	{
-        c_freq[i] = 0;
-	}
-    for (i = 0; i < np; i++)
-	{
-        p_freq[i] = 0;
-	}
+	// reduce duplication
+	clear_c_p_freq();
 	
     output_pos = output_mask = 0;
     m_BitIo.init_putbits();
@@ -1405,14 +1362,14 @@ void CStaticHuffman::read_c_len( /* void */ )
 /* lh4, 5, 6, 7 */
 unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
 {
-    if (blocksize == 0) 
+    if (m_blocksize == 0) 
 	{
-        blocksize = m_BitIo.getbits(16);
+        m_blocksize = m_BitIo.getbits(16);
         read_pt_len(NT, TBIT, 3);
         read_c_len();
-        read_pt_len(np, pbit, -1);
+        read_pt_len(m_np, m_pbit, -1);
     }
-    blocksize--;
+    m_blocksize--;
 	
 	unsigned short bit = m_BitIo.peekbits(12);
     unsigned short j = c_table[bit];
@@ -1437,7 +1394,7 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 {
 	unsigned short bit = m_BitIo.peekbits(8);
     unsigned short j = pt_table[bit];
-    if (j < np)
+    if (j < m_np)
 	{
         m_BitIo.fillbuf(pt_len[j]);
 	}
@@ -1445,7 +1402,7 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 	{
         m_BitIo.fillbuf(8);
 		
-		decode_st1_mask_bitbuf(j, np);
+		decode_st1_mask_bitbuf(j, m_np);
 		
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
@@ -1455,6 +1412,22 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
         j = (1 << (j - 1)) + m_BitIo.getbits(j - 1);
 	}
     return j;
+}
+
+/* ------------------------------------------------------------------------ */
+/* lh4, 5, 6, 7 */
+void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
+{
+	// same as encode_start_st1()
+	SetDictBit(enBit);
+	if (SetByDictbit(enBit) == false)
+	{
+		throw ArcException("Cannot use dictionary bytes", m_dicbit);
+	}
+	
+    m_BitIo.init_getbits();
+    //init_code_cache(); // EUC<->SJIS
+    m_blocksize = 0;
 }
 
 // reduce duplication
@@ -1475,33 +1448,80 @@ void CStaticHuffman::decode_st1_mask_bitbuf(unsigned short &j, const int nCount)
 	} while (j >= nCount);
 }
 
-
-/* ------------------------------------------------------------------------ */
-/* lh4, 5, 6, 7 */
-void CStaticHuffman::decode_start_st1( /* void */ )
+// used by decode_start_st1() and encode_start_st1(),
+// reduce duplication of stuff
+bool CStaticHuffman::SetByDictbit(const tHuffBits enBit)
 {
-	// same as encode_start_st1() ?
-    switch (dicbit) 
+	bool bRet = false;
+    switch (enBit) 
 	{
     case LZHUFF4_DICBIT:
     case LZHUFF5_DICBIT: 
-		pbit = 4; 
-		np = LZHUFF5_DICBIT + 1; 
+		m_pbit = 4; 
+		m_np = LZHUFF5_DICBIT + 1; 
+		bRet = true; // supported
 		break;
+		
     case LZHUFF6_DICBIT: 
-		pbit = 5; 
-		np = LZHUFF6_DICBIT + 1; 
+		m_pbit = 5; 
+		m_np = LZHUFF6_DICBIT + 1; 
+		bRet = true; // supported
 		break;
+		
     case LZHUFF7_DICBIT: 
-		pbit = 5; 
-		np = LZHUFF7_DICBIT + 1; 
+		m_pbit = 5; 
+		m_np = LZHUFF7_DICBIT + 1; 
+		bRet = true; // supported
 		break;
+		
     default:
-        //fatal_error("Cannot use %d bytes dictionary", 1 << dicbit);
-		throw ArcException("Cannot use dictionary bytes", 1 << dicbit);
+		break;
     }
-
-    m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
-    blocksize = 0;
+	return bRet;
 }
+
+// some reduction of duplication,
+// also replace zeroing-loop by simple memset()
+// (likely to be faster anyway)
+//
+void CStaticHuffman::clear_c_p_freq()
+{
+	// use memset(), likely to be faster
+	// and those arrays are not overlapping either..
+	memset(c_freq, 0, sizeof(unsigned short)*NC);
+	memset(p_freq, 0, sizeof(unsigned short)*m_np);
+
+	// note: old had bug in resetting part of arrays?
+	// (actual sizes (2 * NC - 1) and (2 * NP - 1))
+	
+	/*
+	// why not use memset() here?
+	// it's not overlapping or anything..
+	int i = 0;
+	for (i = 0; i < NC; i++)
+	{
+		c_freq[i] = 0;
+	}
+	for (i = 0; i < m_np; i++)
+	{
+		p_freq[i] = 0;
+	}
+	*/
+}
+	
+void CStaticHuffman::clear_t_freq()
+{
+	// use memset(), likely to be faster
+	memset(t_freq, 0, sizeof(unsigned short)*NT);
+
+	// note: old had bug in resetting part of array?
+	// (actual size (2 * NT - 1))	
+	
+	/*
+    for (short l = 0; l < NT; l++)
+	{
+        t_freq[l] = 0;
+	}
+	*/
+}
+

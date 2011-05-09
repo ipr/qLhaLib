@@ -83,12 +83,21 @@ class CHuffman
 {
 protected:
 	BitIo m_BitIo;
+	
+	// TODO: should use enum-type tHuffBits instead
+	//
+	unsigned short m_dicbit;
 
 public:
     CHuffman()
 		: m_BitIo()
+		, m_dicbit(0)
 	{}
-	
+	void SetDictBit(const tHuffBits enBit)
+	{
+		int iBit = (int)enBit;
+		m_dicbit = (1 << iBit);
+	}
 };
 
 
@@ -148,7 +157,7 @@ protected:
 	int      avail;
 	int      n1;
 	int      most_p;
-	int      nn;
+	int      m_nn;
 	unsigned long nextcount;
 
 	/* from dhuf.c */
@@ -161,9 +170,8 @@ public:
 	}
 	
 	void start_c_dyn( /* void */ );
-	void start_p_dyn( /* void */ );	
 
-	void decode_start_dyn( /* void */ );
+	void decode_start_dyn(const tHuffBits enBit);
 	void reconst(int start, int end);
 	int swap_inc(int p);
 	void swap_inc_Adjust(int &p, int &b);
@@ -198,10 +206,10 @@ protected:
 		SHUF_LENFIELD    = 4                // bit size of length field for tree output
 	};
 
-	unsigned int np;
+	unsigned int m_np;
 	
 	// was static
-	unsigned short blocksize; /* decode */
+	unsigned short m_blocksize; /* decode */
 
 	// only used by ready_made()..
 	static const int fixed[2][16];
@@ -209,7 +217,7 @@ protected:
 public:
     CShuffleHuffman()
 		: CDynamicHuffman()
-		, blocksize(0)
+		, m_blocksize(0)
 	{
 	}
 	
@@ -266,16 +274,19 @@ protected:
 	
 	unsigned char *buf;      /* encode */
 	unsigned int bufsiz;     /* encode */
-	unsigned short blocksize; /* decode */
+	unsigned short m_blocksize; /* decode */
 	unsigned short output_pos, output_mask; /* encode */
 	
-	int pbit;
-	int np;
+	int m_pbit;
+	int m_np;
+
+	// used by decode_start_st1() and encode_start_st1()
+	bool SetByDictbit(unsigned short dicbit);
 	
 public:
     CStaticHuffman()
 		: CHuffman()
-		, blocksize(0)
+		, m_blocksize(0)
 	{
 	}
 	
@@ -288,7 +299,8 @@ public:
 	
 	void output_st1(unsigned short  c, unsigned short  p);
 	unsigned char *alloc_buf( /* void */ );
-	void encode_start_st1( /* void */ );
+	
+	void encode_start_st1(const tHuffBits enBit);
 	void encode_end_st1( /* void */ );
 
 	void read_pt_len(short nn, short nbit, short i_special);
@@ -296,9 +308,20 @@ public:
 	unsigned short decode_c_st1( /*void*/ );
 	unsigned short decode_p_st1( /* void */ );
 	
+	void decode_start_st1(const tHuffBits enBit);
+
+protected:
+	// used by decode_c_st1() and decode_p_st1()
 	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
 	
-	void decode_start_st1( /* void */ );
+	// used by decode_start_st1() and encode_start_st1()
+	bool SetByDictbit(const tHuffBits enBit);
+	
+	// used by send_block() and encode_start_st1()
+	inline void clear_c_p_freq();
+
+	// used by count_t_freq()
+	inline void clear_t_freq();
 	
 };
 

@@ -142,7 +142,7 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 	pDecoder->InitClear();
 	pDecoder->DecodeStart(&m_ReadBuf, &m_WriteBuf);
 	
-	pDecoder->SetDict(dicsiz, dtext, dicsiz_1, adjust);
+	pDecoder->SetDict(dicsiz, dtext, dicsiz_1, adjust, m_HuffBits);
 	pDecoder->SetLoc(0);
 	
 	size_t decode_count = 0;
