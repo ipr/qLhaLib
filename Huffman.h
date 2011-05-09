@@ -18,8 +18,8 @@ public:
 
 	/* slide.c */
 	int unpackable; // encoding only?
-	size_t origsize;
-	size_t compsize;
+	size_t origsize; // (uncompressed) size of file
+	size_t compsize; // compressed size of file
 
 
 	// helper for accessing same data
@@ -87,15 +87,27 @@ protected:
 	// TODO: should use enum-type tHuffBits instead
 	// mostly used by encoding?
 	// -> not currently
+	// note: ambiguous name, should be: m_dictsize ?
 	//unsigned short m_dicbit;
 
 	// mostly used by encoding?
 	unsigned short maxmatch;
 	
+	/* from dhuf.c */
+	unsigned int n_max;
+	
 public:
     CHuffman()
 		: m_BitIo()
 	{}
+
+	// shared code called when starting decoding
+	// (used with: -lh1-, -lh2-, -lh3- only)
+	void init_decode_start(unsigned int num_max, unsigned short num_maxmatch);
+	
+	// shared code called when starting encoding
+	// (used with: -lh1- only)
+	void init_encode_start(unsigned int num_max, unsigned short num_maxmatch);
 };
 
 
@@ -190,9 +202,6 @@ protected:
 	int      most_p;
 	int      m_nn;
 	unsigned long nextcount;
-
-	/* from dhuf.c */
-	unsigned int n_max;
 	
 public:
     CDynamicHuffman()
@@ -263,7 +272,6 @@ public:
 	void ready_made(int method);
 	
 	void decode_start_st0( /*void*/ );
-	//void encode_p_st0(unsigned short j);
 	void encode_start_fix( /*void*/ );
 	void read_tree_c( /*void*/ );
 	void read_tree_p(/*void*/);
@@ -294,9 +302,6 @@ protected:
 	
 	int m_pbit;
 	int m_np;
-
-	// used by decode_start_st1() and encode_start_st1()
-	bool SetByDictbit(unsigned short dicbit);
 	
 public:
     CStaticHuffman()

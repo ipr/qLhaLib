@@ -52,6 +52,9 @@ protected:
 	
 	CCrcIo m_crcio;
 	unsigned int m_uiCrc;
+
+	// buffer for dictionary text
+	CReadBuffer m_DictionaryText;
 	
 	// dictionary-related
 	unsigned long m_dicsiz;
@@ -67,6 +70,7 @@ public:
 	CLhDecoder(void)
 		: m_crcio()
 		, m_uiCrc(0)
+		, m_DictionaryText(1024)
 		, m_dicsiz(0)
 		, m_dtext(nullptr)
 		, m_dicsiz_1(0)
@@ -78,7 +82,7 @@ public:
 	{}
 
 	// called before reusing
-	virtual void InitClear()
+	void InitClear()
 	{
 		m_uiCrc = 0;
 		m_dicsiz = 0;
@@ -88,36 +92,65 @@ public:
 		m_loc = 0;
 		m_enBit = LARC5_DICBIT;
 	}
-	virtual void SetDict(unsigned long dicsiz, unsigned char *dtext, unsigned int dicsiz_1, unsigned int adjust, tHuffBits enBit)
+	
+	void InitDictionary(const tCompressionMethod enCompression, const tHuffBits enHuffBit)
 	{
-		m_dicsiz = dicsiz;
-		m_dtext = dtext;
-		m_dicsiz_1 = dicsiz_1;
-		m_adjust = adjust;
-		m_enBit = enBit;
+		m_enBit = enHuffBit;
+		
+		m_dicsiz = (1L << (int)m_enBit); // 
+		
+		// verify allocation sufficient, zeroing entire buffer
+		m_DictionaryText.PrepareBuffer(m_dicsiz, false); // can remain larger, doesn't matter
+		
+		m_dtext = m_DictionaryText.GetBegin();
+
+		// clear dictionary
+		//memset(m_dtext, 0, m_dicsiz); // for broken archive only? why?
+		memset(m_dtext, ' ', m_dicsiz);
+		
+		m_dicsiz_1 = m_dicsiz - 1; // why is this separate?
+		
+		m_adjust = 256 - THRESHOLD;
+		if (enCompression == LARC_METHOD_NUM)
+		{
+			m_adjust = 256 - 2;
+		}
+	}
+	
+	// need to implement in inherited (bitio by inheritance..)
+	virtual void InitBitIo(const size_t nPackedSize, const size_t nOriginalSize, CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf)
+	{
+		// call implementation in inherited class
+		BitIo *pIo = GetBitIo();
+		
+		// set to inherited bitio-handler
+		pIo->compsize = nPackedSize;
+		pIo->origsize = nOriginalSize;
+		pIo->m_pReadBuf = pReadBuf;
+		pIo->m_pWriteBuf = pWriteBuf;
+	
+		// use this here, remove elsewhere..
+		//pIo->init_getbits();
 	}
 	
 	// may be used during decoding
 	virtual CReadBuffer *GetReadBuf() = 0;
 	virtual CReadBuffer *GetWriteBuf() = 0;
+	virtual BitIo *GetBitIo() = 0;
 	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf) = 0;
+	virtual void DecodeStart() = 0;
 	virtual unsigned short DecodeC(size_t &decode_count) = 0;
 	virtual unsigned short DecodeP(size_t &decode_count) = 0;
-	
 
-	// was global..
-	// check if this is needed at all,
-	// for now, keep behind interface to track usage
-	unsigned long GetLoc() const
+	virtual void DecodeFinish()
 	{
-		return m_loc;
+		if (m_loc != 0) 
+		{
+			m_uiCrc = m_crcio.calccrc(m_uiCrc, m_dtext, m_loc);
+			GetWriteBuf()->Append(m_dtext, m_loc);
+		}
 	}
-	void SetLoc(const unsigned long ulLoc)
-	{
-		m_loc = ulLoc;
-	}
-	
+
 	unsigned int GetCrc() const
 	{
 		return m_uiCrc;
@@ -151,8 +184,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
 	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 
@@ -178,8 +215,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
 	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 	
@@ -205,8 +246,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
 	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 };
@@ -240,8 +285,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
-	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
+
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 };
@@ -274,8 +323,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
-	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
+
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 };
@@ -308,8 +361,12 @@ public:
 	{
 		return m_BitIo.m_pWriteBuf;
 	}
+	virtual BitIo *GetBitIo()
+	{
+		return &m_BitIo;
+	}
 	
-	virtual void DecodeStart(CReadBuffer *pReadBuf, CReadBuffer *pWriteBuf);
+	virtual void DecodeStart();
 	virtual unsigned short DecodeC(size_t &decode_count);
 	virtual unsigned short DecodeP(size_t &decode_count);
 };

@@ -54,6 +54,28 @@ void BitIo::putcode(unsigned char n, unsigned short x)
 }
 
 
+/////////// CHuffman (base)
+
+
+// shared code called when starting decoding
+// (used with: -lh1-, -lh2-, -lh3- only)
+void CHuffman::init_decode_start(unsigned int num_max, unsigned short num_maxmatch)
+{
+	n_max = num_max;
+	maxmatch = num_maxmatch;
+	m_BitIo.init_getbits();
+}
+
+// shared code called when starting encoding
+// (used with: -lh1- only)
+void CHuffman::init_encode_start(unsigned int num_max, unsigned short num_maxmatch)
+{
+	n_max = num_max;
+	maxmatch = num_maxmatch;
+	m_BitIo.init_putbits();
+}
+
+
 /////////// CHuffmanTree
 
 
@@ -265,12 +287,9 @@ void CHuffmanTree::make_table(
     unsigned short  count[17];  /* count of bitlen */
     unsigned short  weight[17]; /* 0x10000ul >> bitlen */
     unsigned short  start[17];  /* first code of bitlen */
-    unsigned short  total;
-    unsigned int    i, l;
-    int             j, k, m, n, avail;
-    unsigned short *p;
+    unsigned int    i;
 
-    avail = nchar;
+    int avail = nchar;
 
     /* initialize */
     for (i = 1; i <= 16; i++) 
@@ -286,7 +305,7 @@ void CHuffmanTree::make_table(
 	}
 
     /* calculate first code */
-    total = 0;
+    unsigned short total = 0;
     for (i = 1; i <= 16; i++) 
 	{
         start[i] = total;
@@ -299,7 +318,7 @@ void CHuffmanTree::make_table(
 	}
 
     /* shift data for make table. */
-    m = 16 - tablebits;
+    int m = 16 - tablebits;
     for (i = 1; i <= tablebits; i++) 
 	{
         start[i] >>= m;
@@ -307,8 +326,8 @@ void CHuffmanTree::make_table(
     }
 
     /* initialize */
-    j = start[tablebits + 1] >> m;
-    k = 1 << tablebits;
+    int j = start[tablebits + 1] >> m;
+    int k = 1 << tablebits;
     if (j != 0)
 	{
         for (i = j; i < k; i++)
@@ -325,7 +344,8 @@ void CHuffmanTree::make_table(
 		{
             continue;
 		}
-        l = start[k] + weight[k];
+		
+        unsigned int l = start[k] + weight[k];
         if (k <= tablebits) 
 		{
             /* code in table */
@@ -337,9 +357,10 @@ void CHuffmanTree::make_table(
         else 
 		{
             /* code not in table */
-            p = &table[(i = start[k]) >> m];
+			i = start[k];
+            unsigned short *p = &table[i >> m];
             i <<= tablebits;
-            n = k - tablebits;
+            int n = k - tablebits;
             /* make tree (n length) */
             while (--n >= 0) 
 			{
@@ -411,31 +432,20 @@ void CShuffleHuffman::ready_made(int method)
 /* lh3 */
 void CShuffleHuffman::decode_start_st0( /*void*/ )
 {
-    n_max = 286;
-    maxmatch = MAXMATCH;
-    m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
+	// call to base-class
+	CHuffman::init_decode_start(286, MAXMATCH);
+	
     m_np = 1 << (LZHUFF3_DICBIT - 6);
 }
 
 /* ------------------------------------------------------------------------ */
-/*
-void CShuffleHuffman::encode_p_st0(unsigned short  j)
-{
-    unsigned short i = j >> 6;
-    m_BitIo.putcode(pt_len[i], pt_code[i]);
-    m_BitIo.putbits(6, j & 0x3f);
-}
-*/
-/* ------------------------------------------------------------------------ */
 /* lh1 */
 void CShuffleHuffman::encode_start_fix( /*void*/ )
 {
-    n_max = 314;
-    maxmatch = 60;
+	// call to base-class
+	CHuffman::init_encode_start(314, 60);
+	
     m_np = 1 << (12 - 6);
-    m_BitIo.init_putbits();
-    //init_code_cache(); // EUC<->SJIS
     start_c_dyn();
     ready_made(0);
 }
@@ -506,11 +516,11 @@ void CShuffleHuffman::read_tree_p(/*void*/)
 /* lh1 */
 void CShuffleHuffman::decode_start_fix(/*void*/)
 {
-    n_max = 314;
-    maxmatch = 60;
-    m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
+	// call to base-class
+	CHuffman::init_decode_start(314, 60);
+	
     m_np = 1 << (LZHUFF1_DICBIT - 6);
+	
     start_c_dyn();
     ready_made(0);
     make_table(m_np, pt_len, 8, pt_table);
@@ -657,10 +667,8 @@ void CDynamicHuffman::start_c_dyn( /* void */ )
 /* lh2 */
 void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
 {
-    n_max = 286;
-    maxmatch = MAXMATCH;
-    m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
+	// call to base-class
+	CHuffman::init_decode_start(286, MAXMATCH);
 	
     start_c_dyn(); // shared with -lh1-
 	

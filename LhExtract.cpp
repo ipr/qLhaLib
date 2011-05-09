@@ -118,32 +118,11 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		throw IOException("Failed reading input");
 	}
 
-    unsigned long dicsiz = (1L << (int)m_HuffBits); // yes, it's enum now..
-	
-	// out-buffer (dictionary-lookup result)? local only?
-	// -> use our write-buffer for this?
-	// -> or move to decoder?
-	//
-	// use from stack for automatic cleanup on leaving scope
-	// (destructor called, exception or normal return)
-	CReadBuffer BufDictText(dicsiz);
-	unsigned char *dtext = BufDictText.GetBegin();
-	
-	//memset(dtext, 0, dicsiz); // for broken archive only? why?
-	memset(dtext, ' ', dicsiz);
-
-    unsigned int dicsiz_1 = dicsiz - 1; // why separate?
-    unsigned int adjust = 256 - THRESHOLD;
-    if (m_Compression == LARC_METHOD_NUM)
-	{
-        adjust = 256 - 2;
-	}
-	
 	pDecoder->InitClear();
-	pDecoder->DecodeStart(&m_ReadBuf, &m_WriteBuf);
+	pDecoder->InitDictionary(m_Compression, m_HuffBits);
+	pDecoder->InitBitIo(pHeader->packed_size, pHeader->original_size, &m_ReadBuf, &m_WriteBuf);
 	
-	pDecoder->SetDict(dicsiz, dtext, dicsiz_1, adjust, m_HuffBits);
-	pDecoder->SetLoc(0);
+	pDecoder->DecodeStart();
 	
 	size_t decode_count = 0;
     while (decode_count < pHeader->original_size) 
@@ -151,13 +130,8 @@ void CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiF
 		pDecoder->Decode(decode_count);
 	}
 	
-	unsigned long loc = pDecoder->GetLoc();
-    if (loc != 0) 
-	{
-		m_uiCrc = pDecoder->GetCrc();
-		m_uiCrc = m_crcio.calccrc(m_uiCrc, dtext, loc);
-		m_WriteBuf.Append(dtext, loc);
-    }
+	pDecoder->DecodeFinish();
+	m_uiCrc = pDecoder->GetCrc();
 
 	// write to output upto what is collected in write-buffer
 	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
