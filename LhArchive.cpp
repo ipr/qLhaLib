@@ -94,24 +94,8 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 	}
 }
 
-
-/////////////// public slots
-
-void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
+void CLhArchive::SeekContents(CAnsiFile &ArchiveFile)
 {
-	m_pHeaders->SetConversionCodec(pCodec);
-}
-
-// TODO: also support for specific files to extract?
-//bool CLhArchive::Extract(QString &szExtractPath, QStringList &lstFiles)
-
-bool CLhArchive::Extract(QString &szExtractPath)
-{
-	// same instance, called again?
-	// (TODO: add better checks if info exists and is correct..)
-	Clear();
-
-	CAnsiFile ArchiveFile;
 	if (ArchiveFile.Open(m_szArchive.toStdString()) == false)
 	{
 		throw IOException("Failed opening archive");
@@ -123,6 +107,26 @@ bool CLhArchive::Extract(QString &szExtractPath)
 	//
 	SeekHeader(ArchiveFile);
 	m_pHeaders->ParseHeaders(ArchiveFile);
+}
+
+
+/////////////// public slots
+
+void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
+{
+	m_pHeaders->SetConversionCodec(pCodec);
+}
+
+bool CLhArchive::Extract(QString &szExtractPath)
+{
+	// lookup each entry of file
+	CAnsiFile ArchiveFile;
+	
+	// only seek if not listed already
+	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
+	{
+		SeekContents(ArchiveFile);
+	}
 
 	// make user-given path where to extract (may be empty)
 	CPathHelper::MakePath(szExtractPath.toStdString());
@@ -139,35 +143,26 @@ bool CLhArchive::Extract(QString &szExtractPath)
 	{
 		LzHeader *pHeader = (*it);
 
-		// TODO: if only specific files are extracted,
-		// check if this is listed (note: paths..)
-		/*
-		if (lstFiles.contains(pHeader->filename) == false)
-		{
-			++it;
-			continue;
-		}
-		*/
-		
-		// TODO: there may be empty directory-only entries by -lhd- method
-		// in the "extended" header -> don't try to make files for those..
-		
 		emit message(QString("Extracting.. ").append(pHeader->filename));
 		
 		// this should have proper path-ending already..
 		QString szTempPath = szExtractPath;
 		szTempPath += pHeader->filename;
 		
-		// create path to file
-		CPathHelper::MakePathToFile(szTempPath.toStdString());
-
 		// if it's directory-entry -> nothing more to do here
+		// (usually has -lhd- compression method for "store only"?)
 		if (pHeader->UnixMode.IsDirectory() == true)
 		{
+			// make directory only
+			CPathHelper::MakePath(szTempPath.toStdString());
+			
 			++it;
 			continue;
 		}
 		
+		// create path to file
+		CPathHelper::MakePathToFile(szTempPath.toStdString());
+
 		CAnsiFile OutFile;
 		if (OutFile.Open(szTempPath.toStdString(), true) == false)
 		{
@@ -191,28 +186,63 @@ bool CLhArchive::Extract(QString &szExtractPath)
 	return true;
 }
 
+// extract single file from archive to user-buffer
+bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray)
+{
+	// lookup each entry of file
+	CAnsiFile ArchiveFile;
+	
+	// only seek if not listed already
+	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
+	{
+		SeekContents(ArchiveFile);
+	}
+	
+	auto it = m_pHeaders->m_HeaderList.begin();
+	auto itEnd = m_pHeaders->m_HeaderList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		
+		if (pHeader->UnixMode.IsDirectory() == true)
+		{
+			if (pHeader->filename == szFileEntry)
+			{
+				emit warning(QString("Wanted file %1 is a directory").arg(szFileEntry));
+				return false;
+			}
+			++it;
+			continue;
+		}
+
+		/*
+		if (pHeader->filename == szFileEntry)
+		{
+			// extract to given buffer only
+			return ExtractToBuffer(ArchiveFile, pHeader, outArray);
+		}
+		*/
+		
+		++it;
+	}
+	
+	emit error(QString("file %1 was not found").arg(szFileEntry));
+	return false;
+}
+
 bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
-	// same instance, called again?
-	// (TODO: add better checks if info exists and is correct..)
+	// same instance, called again
 	Clear();
-	
+
 	// auto-close file (on leaving scope),
 	// wrap some handling
 	CAnsiFile ArchiveFile;
-	if (ArchiveFile.Open(m_szArchive.toStdString()) == false)
-	{
-		throw IOException("Failed opening archive");
-	}
-	m_nFileSize = ArchiveFile.GetSize();
-
-	// throws exception on failure:
-	// when no valid header or such
-	SeekHeader(ArchiveFile);
-
+	
+	// lookup each entry of file,
 	// throws exception on error
-	m_pHeaders->ParseHeaders(ArchiveFile);
-
+	SeekContents(ArchiveFile);
+	
 	// information to caller
 	auto it = m_pHeaders->m_HeaderList.begin();
 	auto itEnd = m_pHeaders->m_HeaderList.end();

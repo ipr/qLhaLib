@@ -56,20 +56,30 @@ protected:
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
 	
-	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod) const;
+	void SeekContents(CAnsiFile &ArchiveFile);
 	
-	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
-
 public slots:
 	
 	//void SetArchiveFile(QString szArchive);
 	void SetConversionCodec(QTextCodec *pCodec);
 	//void FileLocated(LzHeader *pHeader);
 
+	// extract all files to specified path
 	bool Extract(QString &szExtractPath);
-	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
-	bool Test();
+
+	// extract only specified files to specified path
+	//bool ExtractFiles(QString &szExtractPath, QStringList &lstFiles);
 	
+	// extract single file from archive to user-buffer
+	bool ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray);
+
+	// list contents in archive
+	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
+
+	// test archive integrity
+	bool Test();
+
+	// add files to new or existing archive (with compression..)
 	bool AddFiles(QStringList &lstFiles);
 	
 signals:
