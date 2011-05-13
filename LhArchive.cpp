@@ -102,19 +102,15 @@ void CLhArchive::SeekContents(CAnsiFile &ArchiveFile)
 	}
 	m_nFileSize = ArchiveFile.GetSize();
 
-	// only seek if not listed already
-	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
-	{
-		// check&parse archive info so we know 
-		// how to extract files..
-		//
-		SeekHeader(ArchiveFile);
-
-		// list file-headers (contents)
-		// from the archive-file
-		//
-		m_pHeaders->ParseHeaders(ArchiveFile);
-	}
+	// check&parse archive info so we know 
+	// how to extract files..
+	//
+	SeekHeader(ArchiveFile);
+	
+	// list file-headers (contents)
+	// from the archive-file
+	//
+	m_pHeaders->ParseHeaders(ArchiveFile);
 }
 
 
@@ -127,9 +123,14 @@ void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 
 bool CLhArchive::Extract(QString &szExtractPath)
 {
+	// same instance, called again
+	Clear();
+	
 	// lookup each entry of file
 	CAnsiFile ArchiveFile;
 
+	// TODO: need better way to check when reponing same (unchanged) file
+	
 	// open and list contents
 	SeekContents(ArchiveFile);
 
@@ -192,6 +193,7 @@ bool CLhArchive::Extract(QString &szExtractPath)
 }
 
 // extract single file from archive to user-buffer
+/*
 bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray)
 {
 	// lookup each entry of file
@@ -219,14 +221,6 @@ bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArra
 			++it;
 			continue;
 		}
-
-		/*
-		if (pHeader->filename == szFileEntry)
-		{
-			// extract to given buffer only
-			return ExtractToBuffer(ArchiveFile, pHeader, outArray);
-		}
-		*/
 		
 		++it;
 	}
@@ -235,6 +229,7 @@ bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArra
 	emit warning(QString("file %1 was not found").arg(szFileEntry));
 	return false;
 }
+*/
 
 bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
@@ -244,6 +239,8 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 	// auto-close file (on leaving scope),
 	// wrap some handling
 	CAnsiFile ArchiveFile;
+	
+	// TODO: need better way to check when reponing same (unchanged) file
 	
 	// lookup each entry of file,
 	// throws exception on error

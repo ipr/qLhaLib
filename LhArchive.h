@@ -71,7 +71,7 @@ public slots:
 	//bool ExtractFiles(QString &szExtractPath, QStringList &lstFiles);
 	
 	// extract single file from archive to user-buffer
-	bool ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray);
+	//bool ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray);
 
 	// list contents in archive
 	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
