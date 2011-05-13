@@ -76,8 +76,7 @@ public:
 	}
 	
 	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
-	//bool ExtractToBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray);
-	
+
 signals:
 	// progress-status by signals, errors by exceptions
 	void message(QString);

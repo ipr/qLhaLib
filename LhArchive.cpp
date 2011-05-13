@@ -102,11 +102,19 @@ void CLhArchive::SeekContents(CAnsiFile &ArchiveFile)
 	}
 	m_nFileSize = ArchiveFile.GetSize();
 
-	// check&parse archive info so we know 
-	// how to extract files..
-	//
-	SeekHeader(ArchiveFile);
-	m_pHeaders->ParseHeaders(ArchiveFile);
+	// only seek if not listed already
+	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
+	{
+		// check&parse archive info so we know 
+		// how to extract files..
+		//
+		SeekHeader(ArchiveFile);
+
+		// list file-headers (contents)
+		// from the archive-file
+		//
+		m_pHeaders->ParseHeaders(ArchiveFile);
+	}
 }
 
 
@@ -121,12 +129,9 @@ bool CLhArchive::Extract(QString &szExtractPath)
 {
 	// lookup each entry of file
 	CAnsiFile ArchiveFile;
-	
-	// only seek if not listed already
-	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
-	{
-		SeekContents(ArchiveFile);
-	}
+
+	// open and list contents
+	SeekContents(ArchiveFile);
 
 	// make user-given path where to extract (may be empty)
 	CPathHelper::MakePath(szExtractPath.toStdString());
@@ -226,7 +231,8 @@ bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArra
 		++it;
 	}
 	
-	emit error(QString("file %1 was not found").arg(szFileEntry));
+	// throw exception instead? (user-input was crap -> not our fault)
+	emit warning(QString("file %1 was not found").arg(szFileEntry));
 	return false;
 }
 

@@ -197,7 +197,8 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	if (m_Compression == LZ_UNKNOWN)
 	{
 		// unknown/unsupported method
-		emit error(QString("Unknown/unsupported compression, %1 method: ").arg(pHeader->filename).append(szMethod));
+		//emit error(QString("Unknown/unsupported compression, %1 method: ").arg(pHeader->filename).append(szMethod));
+		throw ArcException("Unknown/unsupported compression", szMethod.toStdString());
 		return;
 	}
 	
@@ -246,25 +247,6 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 
 // decode&extract single file from archive to user-buffer
 //
-bool CLhExtract::ExtractToBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
-{
-	QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
-	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
-	
-	// determine decoding method
-	m_Compression = pHeader->GetMethod();
-	if (m_Compression == LZ_UNKNOWN)
-	{
-		// unknown/unsupported method
-		emit error(QString("Unknown/unsupported compression, %1 method: ").arg(pHeader->filename).append(szMethod));
-		return false;
-	}
-	
-	if (m_Compression == LZHDIRS_METHOD_NUM)
-	{
-		// just make directories and no actual files:
-		// -lhd- is just directory-entry in file-list
-		// and not actual file (make path only)
-		return false;
-	}
-}
+/*
+//bool CLhExtract::ExtractToBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
+*/
