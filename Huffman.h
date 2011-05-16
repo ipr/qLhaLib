@@ -78,18 +78,12 @@ public:
 	
 };
 
-
-//class CSlide;
-//class CShuffle;
-
 class CHuffman
 {
 protected:
 	BitIo m_BitIo;
 	
 	unsigned short m_maxmatch;
-	
-	/* from dhuf.c */
 	unsigned int n_max;
 	
 public:
@@ -106,7 +100,6 @@ public:
 		n_max = num_max;
 		m_maxmatch = maxmatch;
 	}
-	
 };
 
 
@@ -114,16 +107,15 @@ class CHuffmanTree
 {
 protected:
 	
-	unsigned short left[2 * NC - 1];
-	unsigned short right[2 * NC - 1];
+	unsigned short left[2 * NC_LEN - 1];
+	unsigned short right[2 * NC_LEN - 1];
 	
 	unsigned short c_table[4096];   /* decode */
 	unsigned short pt_table[256];   /* decode */
 	
-	// these used by the shuffling also..
+	// used by the shuffling also..
 	// should be in base?
-	//
-	unsigned char  c_len[NC];
+	unsigned char  c_len[NC_LEN];
 	
 public:
     CHuffmanTree()
@@ -261,17 +253,18 @@ class CStaticHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
 
-	unsigned char  pt_len[PT_LEN_SIZE];
-	
 	unsigned short m_blocksize; /* decode */
 	
-	int m_pbit;
-	int m_np;
+	int m_dict_bit;
+	unsigned int m_np_dict; // depends on dict bit
+
+	unsigned char pt_len[PT_LEN_SIZE];
 	
 public:
     CStaticHuffman()
 		: CHuffman()
 		, CHuffmanTree()
+	    , m_blocksize(0)
 	{
 	}
 	
@@ -285,9 +278,6 @@ public:
 protected:
 	// used by decode_c_st1() and decode_p_st1()
 	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
-	
-	// used by decode_start_st1() and encode_start_st1()
-	bool SetBitsByDictbit(const tHuffBits enBit);
 	
 };
 

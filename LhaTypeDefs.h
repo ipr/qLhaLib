@@ -84,7 +84,7 @@ enum tHuffBits
                                            that is not '\xff', but 0xff. */
 
 
-// some various shit used everywhere..
+// some various decoding-values used everywhere..
 //
 enum tDecodingLimits
 {
@@ -93,10 +93,9 @@ enum tDecodingLimits
 
 	USHRT_BIT          = 16,  /* (CHAR_BIT * sizeof(ushort)) */
 	
-	// fucking great naming.. two chars?
-	NP         = (MAX_DICBIT + 1),
-	NT         = (USHRT_BIT + 3),
-	NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+	NP_LEN         = (MAX_DICBIT + 1),
+	NT_LEN         = (USHRT_BIT + 3),
+	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
 	
 	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
 	

@@ -129,7 +129,7 @@ short CHuffmanTree::make_tree(int nchar, unsigned short *freq, unsigned char *bi
     short i, j, avail, root;
     unsigned short *sort;
 
-    short heap[NC + 1];       /* NC >= nchar */
+    short heap[NC_LEN + 1];       /* NC >= nchar */
     size_t heapsize;
 
     avail = nchar;
@@ -973,14 +973,14 @@ void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
 }
 
 /* ------------------------------------------------------------------------ */
-void CStaticHuffman::read_c_len( /* void */ )
+void CStaticHuffman::read_c_len()
 {
     short n = m_BitIo.getbits(CBIT);
     if (n == 0) 
 	{
         short c = m_BitIo.getbits(CBIT);
 		short i = 0;
-        for (i = 0; i < NC; i++)
+        for (i = 0; i < NC_LEN; i++)
 		{
             c_len[i] = 0;
 		}
@@ -998,7 +998,7 @@ void CStaticHuffman::read_c_len( /* void */ )
 			unsigned short bit = m_BitIo.peekbits(8);
             c = pt_table[bit];
 			
-            if (c >= NT) 
+            if (c >= NT_LEN) 
 			{
                 unsigned short  mask = 1 << (16 - 9);
                 do 
@@ -1012,7 +1012,7 @@ void CStaticHuffman::read_c_len( /* void */ )
                         c = left[c];
 					}
                     mask >>= 1;
-                } while (c >= NT);
+                } while (c >= NT_LEN);
             }
 			
             m_BitIo.fillbuf(pt_len[c]);
@@ -1042,30 +1042,30 @@ void CStaticHuffman::read_c_len( /* void */ )
 			}
         }
 		
-        while (i < NC)
+        while (i < NC_LEN)
 		{
             c_len[i++] = 0;
 		}
-        make_table(NC, c_len, 12, c_table);
+        make_table(NC_LEN, c_len, 12, c_table);
     }
 }
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
+unsigned short CStaticHuffman::decode_c_st1()
 {
     if (m_blocksize == 0) 
 	{
         m_blocksize = m_BitIo.getbits(16);
-        read_pt_len(NT, 5, 3);
+        read_pt_len(NT_LEN, 5, 3);
         read_c_len();
-        read_pt_len(m_np, m_pbit, -1);
+        read_pt_len(m_np_dict, m_dict_bit, -1);
     }
     m_blocksize--;
 	
 	unsigned short bit = m_BitIo.peekbits(12);
     unsigned short j = c_table[bit];
-    if (j < NC)
+    if (j < NC_LEN)
 	{
         m_BitIo.fillbuf(c_len[j]);
 	}
@@ -1073,7 +1073,7 @@ unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
 	{
         m_BitIo.fillbuf(12);
 		
-		decode_st1_mask_bitbuf(j, NC);
+		decode_st1_mask_bitbuf(j, NC_LEN);
 		
         m_BitIo.fillbuf(c_len[j] - 12);
     }
@@ -1082,11 +1082,11 @@ unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-unsigned short CStaticHuffman::decode_p_st1( /* void */ )
+unsigned short CStaticHuffman::decode_p_st1()
 {
 	unsigned short bit = m_BitIo.peekbits(8);
     unsigned short j = pt_table[bit];
-    if (j < m_np)
+    if (j < m_np_dict)
 	{
         m_BitIo.fillbuf(pt_len[j]);
 	}
@@ -1094,7 +1094,7 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 	{
         m_BitIo.fillbuf(8);
 		
-		decode_st1_mask_bitbuf(j, m_np);
+		decode_st1_mask_bitbuf(j, m_np_dict);
 		
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
@@ -1110,7 +1110,34 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 /* lh4, 5, 6, 7 */
 void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
 {
-	if (SetBitsByDictbit(enBit) == false)
+	bool bRet = false;
+    switch (enBit) 
+	{
+    case LZHUFF4_DICBIT:
+    case LZHUFF5_DICBIT: 
+		m_dict_bit = 4; 
+		m_np_dict = LZHUFF5_DICBIT + 1; 
+		bRet = true; // supported
+		break;
+		
+    case LZHUFF6_DICBIT: 
+		m_dict_bit = 5; 
+		m_np_dict = LZHUFF6_DICBIT + 1; 
+		bRet = true; // supported
+		break;
+		
+    case LZHUFF7_DICBIT: 
+		m_dict_bit = 5; 
+		m_np_dict = LZHUFF7_DICBIT + 1; 
+		bRet = true; // supported
+		break;
+		
+	default: // silence some compilers
+		break;
+    }
+
+	// unknown/unsupport here
+	if (bRet == false)
 	{
 		throw ArcException("Cannot use dictionary bytes", (int)enBit);
 	}
@@ -1135,37 +1162,5 @@ void CStaticHuffman::decode_st1_mask_bitbuf(unsigned short &j, const int nCount)
 		}
 		mask >>= 1;
 	} while (j >= nCount);
-}
-
-// used by decode_start_st1() and encode_start_st1(),
-// reduce duplication of stuff
-bool CStaticHuffman::SetBitsByDictbit(const tHuffBits enBit)
-{
-	bool bRet = false;
-    switch (enBit) 
-	{
-    case LZHUFF4_DICBIT:
-    case LZHUFF5_DICBIT: 
-		m_pbit = 4; 
-		m_np = LZHUFF5_DICBIT + 1; 
-		bRet = true; // supported
-		break;
-		
-    case LZHUFF6_DICBIT: 
-		m_pbit = 5; 
-		m_np = LZHUFF6_DICBIT + 1; 
-		bRet = true; // supported
-		break;
-		
-    case LZHUFF7_DICBIT: 
-		m_pbit = 5; 
-		m_np = LZHUFF7_DICBIT + 1; 
-		bRet = true; // supported
-		break;
-		
-    default: // unsupported dictionary, see other choices
-		break;
-    }
-	return bRet;
 }
 
