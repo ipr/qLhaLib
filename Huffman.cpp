@@ -60,10 +60,8 @@ void CHuffmanTree::make_len(int nchar,
 			  unsigned short *sort,       /* sorted characters */
 			  unsigned short *leaf_num) const
 {
-    int i = 0;
-
     unsigned int cum = 0;
-    for (i = 16; i > 0; i--) 
+    for (int i = 16; i > 0; i--) 
 	{
         cum += leaf_num[i] << (16 - i);
     }
@@ -78,7 +76,7 @@ void CHuffmanTree::make_len(int nchar,
         leaf_num[16] -= cum; /* always leaf_num[16] > cum */
         do 
 		{
-            for (i = 15; i > 0; i--) 
+            for (int i = 15; i > 0; i--) 
 			{
                 if (leaf_num[i]) 
 				{
@@ -91,12 +89,13 @@ void CHuffmanTree::make_len(int nchar,
     }
 	
     /* make len */
-    for (i = 16; i > 0; i--) 
+    for (int i = 16; i > 0; i--) 
 	{
         int k = leaf_num[i];
         while (k > 0) 
 		{
-            bitlen[*sort++] = i;
+            bitlen[*sort] = i;
+			sort++;
             k--;
         }
     }
@@ -105,9 +104,9 @@ void CHuffmanTree::make_len(int nchar,
 /* priority queue; send i-th entry down heap */
 void CHuffmanTree::downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const
 {
-    short j = 0;
     short k = heap[i];
-    while ((j = 2 * i) <= heapsize) 
+    short j = 2 * i;
+    while (j <= heapsize) 
 	{
         if (j < heapsize && freq[heap[j]] > freq[heap[j + 1]])
 		{
@@ -119,6 +118,7 @@ void CHuffmanTree::downheap(int i, short *heap, size_t heapsize, unsigned short 
 		}
         heap[i] = heap[j];
         i = j;
+		j = 2 * i;
     }
     heap[i] = k;
 }
@@ -126,16 +126,14 @@ void CHuffmanTree::downheap(int i, short *heap, size_t heapsize, unsigned short 
 /* make tree, calculate bitlen[], return root */
 short CHuffmanTree::make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code)
 {
-    short i, j, avail, root;
-    unsigned short *sort;
+    short root;
 
     short heap[NC_LEN + 1];       /* NC >= nchar */
-    size_t heapsize;
-
-    avail = nchar;
-    heapsize = 0;
+    short avail = nchar;
+    size_t heapsize = 0;
     heap[1] = 0;
-    for (i = 0; i < nchar; i++) 
+	
+    for (short i = 0; i < nchar; i++) 
 	{
         bitlen[i] = 0;
         if (freq[i])
@@ -150,22 +148,26 @@ short CHuffmanTree::make_tree(int nchar, unsigned short *freq, unsigned char *bi
     }
 
     /* make priority queue */
-    for (i = heapsize / 2; i >= 1; i--)
+    for (short i = heapsize / 2; i >= 1; i--)
 	{
         downheap(i, heap, heapsize, freq);
 	}
 
     /* make huffman tree */
-    sort = code;
-    do {            /* while queue has at least two entries */
-        i = heap[1];    /* take out least-freq entry */
+    unsigned short *sort = code;
+
+	/* while queue has at least two entries */	
+    do 
+	{
+        short i = heap[1];    /* take out least-freq entry */
         if (i < nchar)
 		{
             *sort++ = i;
 		}
         heap[1] = heap[heapsize--];
         downheap(1, heap, heapsize, freq);
-        j = heap[1];    /* next least-freq entry */
+		
+        short j = heap[1];    /* next least-freq entry */
         if (j < nchar)
 		{
             *sort++ = j;
@@ -223,7 +225,6 @@ void CHuffmanTree::make_table(
 	::memset(count, 0, sizeof(unsigned short)*17);
     for (iCount = 1; iCount <= 16; iCount++) 
 	{
-        //count[iCount] = 0;
         weight[iCount] = 1 << (16 - iCount);
     }
 
@@ -296,28 +297,6 @@ void CHuffmanTree::make_table(
 			
             /* make tree (n length) */
 			make_table_tree(n, j, i, pTbl, avail);
-			
-            /* make tree (n length) */
-			/*
-            while (--n >= 0) 
-			{
-                if (*p == 0) 
-				{
-                    right[avail] = left[avail] = 0;
-                    *p = avail++;
-                }
-                if (i & 0x8000)
-				{
-                    p = &right[*p];
-				}
-                else
-				{
-                    p = &left[*p];
-				}
-                i <<= 1;
-            }
-            *p = j;
-			*/
         }
         start[k] = l;
     }

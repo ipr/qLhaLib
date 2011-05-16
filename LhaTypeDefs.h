@@ -103,10 +103,12 @@ enum tDecodingLimits
 	PT_LEN_SIZE        = 0x80
 };
 
-
 // -lzs- and -lz5- decoders
-#define MAGIC0      18
-#define MAGIC5      19
+enum tLzDecoderMagicNumbers
+{
+	MAGIC0     = 18,
+	MAGIC5     = 19
+}
 
 
 #endif // LHATYPEDEFS_H
