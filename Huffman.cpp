@@ -1,79 +1,6 @@
 #include "Huffman.h"
 
-#if HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif
 #include <stdlib.h>
-
-
-/* Shift bitbuf n bits left, read n bits */
-void BitIo::fillbuf(unsigned char n)
-{
-    while (n > bitcount) 
-	{
-        n -= bitcount;
-        bitbuf = (bitbuf << bitcount) + (subbitbuf >> (CHAR_BIT - bitcount));
-        if (compsize != 0) 
-		{
-            compsize--;
-			subbitbuf = m_pReadBuf->GetNext();
-        }
-        else
-		{
-            subbitbuf = 0;
-		}
-        bitcount = CHAR_BIT;
-    }
-    bitcount -= n;
-    bitbuf = (bitbuf << n) + (subbitbuf >> (CHAR_BIT - n));
-    subbitbuf <<= n;
-}
-
-/* Write leftmost n bits of x */
-void BitIo::putcode(unsigned char n, unsigned short x)
-{
-    while (n >= bitcount) 
-	{
-        n -= bitcount;
-        subbitbuf += x >> (USHRT_BIT - bitcount);
-        x <<= bitcount;
-        if (compsize < origsize) 
-		{
-			m_pWriteBuf->SetNext(subbitbuf);
-            compsize++;
-        }
-        else
-		{
-            unpackable = 1;
-		}
-        subbitbuf = 0;
-        bitcount = CHAR_BIT;
-    }
-    subbitbuf += x >> (USHRT_BIT - bitcount);
-    bitcount -= n;
-}
-
-
-/////////// CHuffman (base)
-
-
-// shared code called when starting decoding
-// (used with: -lh1-, -lh2-, -lh3- only)
-void CHuffman::init_decode_start(unsigned int num_max, unsigned short num_maxmatch)
-{
-	n_max = num_max;
-	maxmatch = num_maxmatch;
-	m_BitIo.init_getbits();
-}
-
-// shared code called when starting encoding
-// (used with: -lh1- only)
-void CHuffman::init_encode_start(unsigned int num_max, unsigned short num_maxmatch)
-{
-	n_max = num_max;
-	maxmatch = num_maxmatch;
-	m_BitIo.init_putbits();
-}
 
 
 /////////// CHuffmanTree
@@ -284,32 +211,34 @@ void CHuffmanTree::make_table(
     short           tablebits,
     unsigned short  table[])
 {
+	// note: loops below are 1..<=16 -> need 17 cells
     unsigned short  count[17];  /* count of bitlen */
     unsigned short  weight[17]; /* 0x10000ul >> bitlen */
     unsigned short  start[17];  /* first code of bitlen */
-    unsigned int    i;
+    unsigned int    iCount;
 
     int avail = nchar;
 
     /* initialize */
-    for (i = 1; i <= 16; i++) 
+	::memset(count, 0, sizeof(unsigned short)*17);
+    for (iCount = 1; iCount <= 16; iCount++) 
 	{
-        count[i] = 0;
-        weight[i] = 1 << (16 - i);
+        //count[iCount] = 0;
+        weight[iCount] = 1 << (16 - iCount);
     }
 
     /* count */
-    for (i = 0; i < nchar; i++)
+    for (iCount = 0; iCount < nchar; iCount++)
 	{
-        count[bitlen[i]]++;
+        count[bitlen[iCount]]++;
 	}
 
     /* calculate first code */
     unsigned short total = 0;
-    for (i = 1; i <= 16; i++) 
+    for (iCount = 1; iCount <= 16; iCount++) 
 	{
-        start[i] = total;
-        total += weight[i] * count[i];
+        start[iCount] = total;
+        total += weight[iCount] * count[iCount];
     }
     if ((total & 0xffff) != 0)
 	{
@@ -319,27 +248,28 @@ void CHuffmanTree::make_table(
 
     /* shift data for make table. */
     int m = 16 - tablebits;
-    for (i = 1; i <= tablebits; i++) 
+    for (iCount = 1; iCount <= tablebits; iCount++) 
 	{
-        start[i] >>= m;
-        weight[i] >>= m;
+        start[iCount] >>= m;
+        weight[iCount] >>= m;
     }
 
     /* initialize */
-    int j = start[tablebits + 1] >> m;
-    int k = 1 << tablebits;
-    if (j != 0)
+    int start_m = start[tablebits + 1] >> m;
+    if (start_m != 0)
 	{
-        for (i = j; i < k; i++)
+		int kEnd = 1 << tablebits;
+        for (int i = start_m; i < kEnd; i++)
 		{
             table[i] = 0;
 		}
 	}
 
     /* create table and tree */
-    for (j = 0; j < nchar; j++) 
+    for (int j = 0; j < nchar; j++) 
 	{
-        k = bitlen[j];
+		// unconditional set -> make scoped
+        int k = bitlen[j];
         if (k == 0)
 		{
             continue;
@@ -349,7 +279,7 @@ void CHuffmanTree::make_table(
         if (k <= tablebits) 
 		{
             /* code in table */
-            for (i = start[k]; i < l; i++)
+            for (unsigned int i = start[k]; i < l; i++)
 			{
                 table[i] = j;
 			}
@@ -357,11 +287,18 @@ void CHuffmanTree::make_table(
         else 
 		{
             /* code not in table */
-			i = start[k];
-            unsigned short *p = &table[i >> m];
+			unsigned int i = start[k];
+			
+            unsigned short *pTbl = &table[i >> m];
             i <<= tablebits;
+			
             int n = k - tablebits;
+			
             /* make tree (n length) */
+			make_table_tree(n, j, i, pTbl, avail);
+			
+            /* make tree (n length) */
+			/*
             while (--n >= 0) 
 			{
                 if (*p == 0) 
@@ -380,9 +317,36 @@ void CHuffmanTree::make_table(
                 i <<= 1;
             }
             *p = j;
+			*/
         }
         start[k] = l;
     }
+}
+
+// split from above: this is called in loop from make_table(),
+// only part in make_table() that uses left[] and right[] arrays
+//
+void CHuffmanTree::make_table_tree(int nLen, const int j, unsigned int &i, unsigned short *pTbl, int &avail)
+{
+	/* make tree (n length) */
+    while (--nLen >= 0) 
+	{
+        if ((*pTbl) == 0) 
+		{
+            right[avail] = left[avail] = 0;
+            (*pTbl) = avail++;
+        }
+        if (i & 0x8000)
+		{
+            pTbl = &right[(*pTbl)];
+		}
+        else
+		{
+            pTbl = &left[(*pTbl)];
+		}
+        i <<= 1;
+    }
+    (*pTbl) = j;
 }
 
 
@@ -398,60 +362,63 @@ void CHuffmanTree::make_table(
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
 
-// static member array initialization,
-// only used by ready_made()
-const int CShuffleHuffman::fixed[2][16] = {
-	{3, 0x01, 0x04, 0x0c, 0x18, 0x30, 0},   /* old compatible */
-	{2, 0x01, 0x01, 0x03, 0x06, 0x0D, 0x1F, 0x4E, 0}    /* 8K buf */
-};
 
-/* ------------------------------------------------------------------------ */
-void CShuffleHuffman::ready_made(int method)
+// these lookup-tables only used by -lh1- and -lh2-
+const int CShuffleHuffman::fixed_method_lh1[16] = {3, 0x01, 0x04, 0x0c, 0x18, 0x30, 0};   // old compatible 
+const int CShuffleHuffman::fixed_method_lh3[16] = {2, 0x01, 0x01, 0x03, 0x06, 0x0D, 0x1F, 0x4E, 0};    // 8K buf 
+
+
+void CShuffleHuffman::fixed_method_pt_len(const int *tbl)
 {
-    const int *tbl = fixed[method];
-    int j = *tbl++;
+    //const int *tbl = fixed[method];
+    int j = (*tbl);
+	tbl++;
+	
     unsigned int weight = 1 << (16 - j);
     unsigned int code = 0;
 	
     for (int i = 0; i < m_np; i++) 
 	{
-        while (*tbl == i) 
+        while ((*tbl) == i) 
 		{
             j++;
             tbl++;
             weight >>= 1;
         }
-		// pt_len and pt_code in dynamic huffman??
         pt_len[i] = j;
-        pt_code[i] = code;
         code += weight;
     }
 }
 
 /* ------------------------------------------------------------------------ */
+/* lh1 */
+void CShuffleHuffman::decode_start_fix()
+{
+	// call to base-class
+	CHuffman::init_decode_start(314, 60);
+	m_BitIo.init_getbits();
+	
+    m_np = 1 << (LZHUFF1_DICBIT - 6);
+	
+    start_c_dyn();
+
+    fixed_method_pt_len(fixed_method_lh1);
+    make_table(m_np, pt_len, 8, pt_table);
+}
+
+/* ------------------------------------------------------------------------ */
 /* lh3 */
-void CShuffleHuffman::decode_start_st0( /*void*/ )
+void CShuffleHuffman::decode_start_st0()
 {
 	// call to base-class
 	CHuffman::init_decode_start(286, MAXMATCH);
+	m_BitIo.init_getbits();
 	
     m_np = 1 << (LZHUFF3_DICBIT - 6);
 }
 
 /* ------------------------------------------------------------------------ */
-/* lh1 */
-void CShuffleHuffman::encode_start_fix( /*void*/ )
-{
-	// call to base-class
-	CHuffman::init_encode_start(314, 60);
-	
-    m_np = 1 << (12 - 6);
-    start_c_dyn();
-    ready_made(0);
-}
-
-/* ------------------------------------------------------------------------ */
-void CShuffleHuffman::read_tree_c( /*void*/ )
+void CShuffleHuffman::read_tree_c()
 {
 	/* read tree from file */
     int i = 0;
@@ -467,7 +434,6 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
             c_len[i] = 0;
 		}
 		
-		//const int nBitCount = CBIT;
         if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(CBIT);
@@ -486,7 +452,7 @@ void CShuffleHuffman::read_tree_c( /*void*/ )
 }
 
 /* ------------------------------------------------------------------------ */
-void CShuffleHuffman::read_tree_p(/*void*/)
+void CShuffleHuffman::read_tree_p()
 {
 	/* read tree from file */
 
@@ -495,7 +461,6 @@ void CShuffleHuffman::read_tree_p(/*void*/)
 	{
         pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
 		
-		//const int nBitCount = LZHUFF3_DICBIT - 6;
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
             int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
@@ -513,22 +478,8 @@ void CShuffleHuffman::read_tree_p(/*void*/)
 }
 
 /* ------------------------------------------------------------------------ */
-/* lh1 */
-void CShuffleHuffman::decode_start_fix(/*void*/)
-{
-	// call to base-class
-	CHuffman::init_decode_start(314, 60);
-	
-    m_np = 1 << (LZHUFF1_DICBIT - 6);
-	
-    start_c_dyn();
-    ready_made(0);
-    make_table(m_np, pt_len, 8, pt_table);
-}
-
-/* ------------------------------------------------------------------------ */
 /* lh3 */
-unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
+unsigned short CShuffleHuffman::decode_c_st0()
 {
     if (m_blocksize == 0)    /* read block head */
 	{
@@ -543,7 +494,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
         }
         else 
 		{
-            ready_made(1);
+		    fixed_method_pt_len(fixed_method_lh3);
         }
         make_table(SHUF_NP, pt_len, 8, pt_table);
     }
@@ -582,7 +533,7 @@ unsigned short CShuffleHuffman::decode_c_st0(/*void*/)
 
 /* ------------------------------------------------------------------------ */
 /* lh1, 3 */
-unsigned short CShuffleHuffman::decode_p_st0(/*void*/)
+unsigned short CShuffleHuffman::decode_p_st0()
 {
 	unsigned short bit = m_BitIo.peekbits(8);
     int j = pt_table[bit];
@@ -623,11 +574,11 @@ unsigned short CShuffleHuffman::decode_p_st0(/*void*/)
 
 /* ------------------------------------------------------------------------ */
 
-void CDynamicHuffman::start_c_dyn( /* void */ )
+void CDynamicHuffman::start_c_dyn()
 {
-    int             i, j, f;
+    int             i, j;
 
-    n1 = (n_max >= 256 + maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
+    n1 = (n_max >= 256 + m_maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
     for (i = 0; i < TREESIZE_C; i++) 
 	{
         stock[i] = i;
@@ -648,7 +599,7 @@ void CDynamicHuffman::start_c_dyn( /* void */ )
 	
     while (j >= 0) 
 	{
-        f = freq[j] = freq[i] + freq[i - 1];
+        int f = freq[j] = freq[i] + freq[i - 1];
         child[j] = i;
         parent[i] = parent[i - 1] = j;
         if (f == freq[j + 1]) 
@@ -670,6 +621,7 @@ void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
 {
 	// call to base-class
 	CHuffman::init_decode_start(286, MAXMATCH);
+	m_BitIo.init_getbits();
 	
     start_c_dyn(); // shared with -lh1-
 	
@@ -882,47 +834,8 @@ void CDynamicHuffman::make_new_node(int p)
 }
 
 /* ------------------------------------------------------------------------ */
-void CDynamicHuffman::encode_c_dyn(unsigned int c)
-{
-    int d = c - n1;
-    if (d >= 0) 
-	{
-        c = n1;
-    }
-	
-    unsigned int bits = 0;
-    int cnt = 0;
-    int p = s_node[c];
-    do 
-	{
-        bits >>= 1;
-        if (p & 1) 
-		{
-            bits |= 0x80000000L;
-        }
-        cnt++;
-    } while ((p = parent[p]) != ROOT_C);
-    
-	if (cnt <= 16) 
-	{
-        m_BitIo.putcode(cnt, bits >> 16);
-    } 
-	else 
-	{
-        m_BitIo.putcode(16, bits >> 16);
-        m_BitIo.putbits(cnt - 16, bits);
-    }
-	
-    if (d >= 0)
-	{
-        m_BitIo.putbits(8, d);
-	}
-    update_c(c);
-}
-
-/* ------------------------------------------------------------------------ */
 /* lh1, 2 */
-unsigned short CDynamicHuffman::decode_c_dyn( /* void */ )
+unsigned short CDynamicHuffman::decode_c_dyn()
 {
     int c = child[ROOT_C];
     short buf = m_BitIo.bitbuf;
@@ -987,34 +900,6 @@ unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
     return (c << 6) + m_BitIo.getbits(6);
 }
 
-/* ------------------------------------------------------------------------ */
-/* lh1 */
-void CDynamicHuffman::output_dyn(unsigned int code, unsigned int pos)
-{
-    encode_c_dyn(code);
-    if (code >= 0x100) 
-	{
-        encode_p_dyn(pos);
-    }
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh1 */
-void CDynamicHuffman::encode_end_dyn( /* void */ )
-{
-    m_BitIo.putcode(7, 0);
-}
-
-/* lh1 */
-// should be in CShuffleHuffman but called from CDynamicHuffman..
-// -> renamed encode_p_st0() to encode_p_dyn()
-void CDynamicHuffman::encode_p_dyn(unsigned short  j)
-{
-    unsigned short i = j >> 6;
-    m_BitIo.putcode(pt_len[i], pt_code[i]);
-    m_BitIo.putbits(6, j & 0x3f);
-}
-
 //// CStaticHuffman
 
 
@@ -1028,318 +913,6 @@ void CDynamicHuffman::encode_p_dyn(unsigned short  j)
 /*  Ver. 1.14i  Support LH7 & Bug Fixed         2000.10. 6  t.okamoto       */
 /* ------------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------------ */
-/*                              Encording                                   */
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::count_t_freq(/*void*/)
-{
-    short           count;
-
-	clear_t_freq();
-	
-    short n = NC;
-    while (n > 0 && c_len[n - 1] == 0)
-	{
-        n--;
-	}
-	
-    short i = 0;
-    while (i < n) 
-	{
-        short k = c_len[i++];
-        if (k == 0) 
-		{
-            count = 1;
-            while (i < n && c_len[i] == 0) 
-			{
-                i++;
-                count++;
-            }
-            if (count <= 2)
-			{
-                t_freq[0] += count;
-			}
-            else if (count <= 18)
-			{
-                t_freq[1]++;
-			}
-            else if (count == 19) 
-			{
-                t_freq[0]++;
-                t_freq[1]++;
-            }
-            else
-			{
-                t_freq[2]++;
-			}
-        } 
-		else
-		{
-            t_freq[k + 2]++;
-		}
-    }
-}
-
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::write_pt_len(short n, short nbit, short i_special)
-{
-    while (n > 0 && pt_len[n - 1] == 0)
-	{
-        n--;
-	}
-    m_BitIo.putbits(nbit, n);
-	
-    short i = 0;
-    while (i < n) 
-	{
-        short k = pt_len[i++];
-        if (k <= 6)
-		{
-            m_BitIo.putbits(3, k);
-		}
-        else
-		{
-            /* k=7 -> 1110  k=8 -> 11110  k=9 -> 111110 ... */
-            m_BitIo.putbits(k - 3, USHRT_MAX << 1);
-		}
-        if (i == i_special) 
-		{
-            while (i < 6 && pt_len[i] == 0)
-			{
-                i++;
-			}
-            m_BitIo.putbits(2, i - 3);
-        }
-    }
-}
-
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::write_c_len(/*void*/)
-{
-    short           count;
-
-    short n = NC;
-    while (n > 0 && c_len[n - 1] == 0)
-	{
-        n--;
-	}
-	
-    m_BitIo.putbits(CBIT, n);
-	
-    short i = 0;
-    while (i < n) 
-	{
-        short k = c_len[i++];
-        if (k == 0) 
-		{
-            count = 1;
-            while (i < n && c_len[i] == 0) 
-			{
-                i++;
-                count++;
-            }
-            if (count <= 2) 
-			{
-                for (k = 0; k < count; k++)
-				{
-                    m_BitIo.putcode(pt_len[0], pt_code[0]);
-				}
-            }
-            else if (count <= 18) 
-			{
-                m_BitIo.putcode(pt_len[1], pt_code[1]);
-                m_BitIo.putbits(4, count - 3);
-            }
-            else if (count == 19) 
-			{
-                m_BitIo.putcode(pt_len[0], pt_code[0]);
-                m_BitIo.putcode(pt_len[1], pt_code[1]);
-                m_BitIo.putbits(4, 15);
-            }
-            else 
-			{
-                m_BitIo.putcode(pt_len[2], pt_code[2]);
-                m_BitIo.putbits(CBIT, count - 20);
-            }
-        }
-        else
-		{
-            m_BitIo.putcode(pt_len[k + 2], pt_code[k + 2]);
-		}
-    }
-}
-
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::encode_c(short c)
-{
-    m_BitIo.putcode(c_len[c], c_code[c]);
-}
-
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::encode_p(unsigned short  p)
-{
-    unsigned short c = 0;
-    unsigned short q = p;
-	
-    while (q) 
-	{
-        q >>= 1;
-        c++;
-    }
-	
-    m_BitIo.putcode(pt_len[c], pt_code[c]);
-	
-    if (c > 1)
-	{
-        m_BitIo.putbits(c - 1, p);
-	}
-}
-
-/* ------------------------------------------------------------------------ */
-void CStaticHuffman::send_block( /* void */ )
-{
-    unsigned char   flags;
-    unsigned short  i, k, pos;
-
-    unsigned short root = make_tree(NC, c_freq, c_len, c_code);
-    unsigned short size = c_freq[root];
-	
-    m_BitIo.putbits(16, size);
-	
-    if (root >= NC) 
-	{
-        count_t_freq();
-        root = make_tree(NT, t_freq, pt_len, pt_code);
-        if (root >= NT) 
-		{
-            write_pt_len(NT, TBIT, 3);
-        } 
-		else 
-		{
-            m_BitIo.putbits(TBIT, 0);
-            m_BitIo.putbits(TBIT, root);
-        }
-        write_c_len();
-    } 
-	else 
-	{
-        m_BitIo.putbits(TBIT, 0);
-        m_BitIo.putbits(TBIT, 0);
-        m_BitIo.putbits(CBIT, 0);
-        m_BitIo.putbits(CBIT, root);
-    }
-	
-    root = make_tree(m_np, p_freq, pt_len, pt_code);
-    if (root >= m_np) 
-	{
-        write_pt_len(m_np, m_pbit, -1);
-    }
-    else 
-	{
-        m_BitIo.putbits(m_pbit, 0);
-        m_BitIo.putbits(m_pbit, root);
-    }
-	
-    pos = 0;
-    for (i = 0; i < size; i++) 
-	{
-        if (i % CHAR_BIT == 0)
-		{
-            flags = m_pBuf[pos++];
-		}
-        else
-		{
-            flags <<= 1;
-		}
-        if (flags & (1 << (CHAR_BIT - 1))) 
-		{
-            encode_c(m_pBuf[pos++] + (1 << CHAR_BIT));
-            k = m_pBuf[pos++] << CHAR_BIT;
-            k += m_pBuf[pos++];
-            encode_p(k);
-        } 
-		else
-		{
-            encode_c(m_pBuf[pos++]);
-		}
-        if (m_BitIo.unpackable)
-		{
-            return;
-		}
-    }
-	
-	// reduce duplication
-	clear_c_p_freq();
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh4, 5, 6, 7 */
-void CStaticHuffman::output_st1(unsigned short  c, unsigned short  p)
-{
-	unsigned short cpos;
-    output_mask >>= 1;
-    if (output_mask == 0) 
-	{
-        output_mask = 1 << (CHAR_BIT - 1);
-        if (output_pos >= bufsiz - 3 * CHAR_BIT) 
-		{
-            send_block();
-            if (m_BitIo.unpackable)
-			{
-                return;
-			}
-            output_pos = 0;
-        }
-        cpos = output_pos++;
-        m_pBuf[cpos] = 0;
-    }
-	
-    m_pBuf[output_pos++] = (unsigned char) c;
-    c_freq[c]++;
-    if (c >= (1 << CHAR_BIT)) 
-	{
-        m_pBuf[cpos] |= output_mask;
-        m_pBuf[output_pos++] = (unsigned char) (p >> CHAR_BIT);
-        m_pBuf[output_pos++] = (unsigned char) p;
-        c = 0;
-        while (p) 
-		{
-            p >>= 1;
-            c++;
-        }
-        p_freq[c]++;
-    }
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh4, 5, 6, 7 */
-void CStaticHuffman::encode_start_st1(const tHuffBits enBit)
-{
-	// same as decode_start_st1()
-	if (SetBitsByDictbit(enBit) == false)
-	{
-		throw ArcException("Cannot use dictionary bits", (int)enBit);
-	}
-
-	// reduce duplication
-	clear_c_p_freq();
-	
-    output_pos = output_mask = 0;
-    m_BitIo.init_putbits();
-    //init_code_cache(); // EUC<->SJIS
-    m_pBuf[0] = 0; // should allocate this also.. (see old: alloc_buf())
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh4, 5, 6, 7 */
-void CStaticHuffman::encode_end_st1( /* void */ )
-{
-    if (!m_BitIo.unpackable) 
-	{
-        send_block();
-        m_BitIo.putbits(CHAR_BIT - 1, 0);   /* flush remaining bits */
-    }
-}
 
 /* ------------------------------------------------------------------------ */
 /*                              decoding                                    */
@@ -1484,7 +1057,7 @@ unsigned short CStaticHuffman::decode_c_st1( /*void*/ )
     if (m_blocksize == 0) 
 	{
         m_blocksize = m_BitIo.getbits(16);
-        read_pt_len(NT, TBIT, 3);
+        read_pt_len(NT, 5, 3);
         read_c_len();
         read_pt_len(m_np, m_pbit, -1);
     }
@@ -1537,14 +1110,12 @@ unsigned short CStaticHuffman::decode_p_st1( /* void */ )
 /* lh4, 5, 6, 7 */
 void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
 {
-	// same as encode_start_st1()
 	if (SetBitsByDictbit(enBit) == false)
 	{
 		throw ArcException("Cannot use dictionary bytes", (int)enBit);
 	}
 	
     m_BitIo.init_getbits();
-    //init_code_cache(); // EUC<->SJIS
     m_blocksize = 0;
 }
 
@@ -1596,50 +1167,5 @@ bool CStaticHuffman::SetBitsByDictbit(const tHuffBits enBit)
 		break;
     }
 	return bRet;
-}
-
-// some reduction of duplication,
-// also replace zeroing-loop by simple memset()
-// (likely to be faster anyway)
-//
-void CStaticHuffman::clear_c_p_freq()
-{
-	// use memset(), likely to be faster
-	// and those arrays are not overlapping either..
-	memset(c_freq, 0, sizeof(unsigned short)*NC);
-	memset(p_freq, 0, sizeof(unsigned short)*m_np);
-
-	// note: old had bug in resetting part of arrays?
-	// (actual sizes (2 * NC - 1) and (2 * NP - 1))
-	
-	/*
-	// why not use memset() here?
-	// it's not overlapping or anything..
-	int i = 0;
-	for (i = 0; i < NC; i++)
-	{
-		c_freq[i] = 0;
-	}
-	for (i = 0; i < m_np; i++)
-	{
-		p_freq[i] = 0;
-	}
-	*/
-}
-	
-void CStaticHuffman::clear_t_freq()
-{
-	// use memset(), likely to be faster
-	memset(t_freq, 0, sizeof(unsigned short)*NT);
-
-	// note: old had bug in resetting part of array?
-	// (actual size (2 * NT - 1))	
-	
-	/*
-    for (short l = 0; l < NT; l++)
-	{
-        t_freq[l] = 0;
-	}
-	*/
 }
 

@@ -11,9 +11,9 @@
 ////////////////////// decoder base
 
 
-void CLhDecoder::Decode(size_t &decode_count)
+void CLhDecoder::Decode()
 {
-	unsigned int c = DecodeC(decode_count);
+	unsigned int c = DecodeC();
 	if (c < 256) 
 	{
 		m_dtext[m_loc++] = c;
@@ -23,15 +23,15 @@ void CLhDecoder::Decode(size_t &decode_count)
 			GetWriteBuf()->Append(m_dtext, m_dicsiz);
 			m_loc = 0;
 		}
-		decode_count++;
+		m_decode_count++;
 	}
 	else
 	{
 		int iMatchLen = c - m_adjust;
-		unsigned int uiMatchOff = DecodeP(decode_count) + 1; // may modify loc?
+		unsigned int uiMatchOff = DecodeP() + 1; // may modify loc?
 		unsigned int matchpos = (m_loc - uiMatchOff) & m_dicsiz_1;
 		
-		decode_count += iMatchLen;
+		m_decode_count += iMatchLen;
 		for (unsigned int i = 0; i < iMatchLen; i++) 
 		{
 			c = m_dtext[(matchpos + i) & m_dicsiz_1];
@@ -59,12 +59,12 @@ void CLhDecodeLh1::DecodeStart()
 	CShuffleHuffman::decode_start_fix();
 }
 
-unsigned short CLhDecodeLh1::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLh1::DecodeC()
 {
 	return CDynamicHuffman::decode_c_dyn();
 }
 
-unsigned short CLhDecodeLh1::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLh1::DecodeP()
 {
 	return CShuffleHuffman::decode_p_st0();
 }
@@ -77,14 +77,14 @@ void CLhDecodeLh2::DecodeStart()
 	CDynamicHuffman::decode_start_dyn(m_enBit);
 }
 
-unsigned short CLhDecodeLh2::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLh2::DecodeC()
 {
 	return CDynamicHuffman::decode_c_dyn();
 }
 
-unsigned short CLhDecodeLh2::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLh2::DecodeP()
 {
-	return CDynamicHuffman::decode_p_dyn(decode_count);
+	return CDynamicHuffman::decode_p_dyn(m_decode_count);
 }
 
 // -lh3-
@@ -94,12 +94,12 @@ void CLhDecodeLh3::DecodeStart()
 	CShuffleHuffman::decode_start_st0();
 }
 
-unsigned short CLhDecodeLh3::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLh3::DecodeC()
 {
 	return CShuffleHuffman::decode_c_st0();
 }
 
-unsigned short CLhDecodeLh3::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLh3::DecodeP()
 {
 	return CShuffleHuffman::decode_p_st0();
 }
@@ -111,12 +111,12 @@ void CLhDecodeLh7::DecodeStart()
 	CStaticHuffman::decode_start_st1(m_enBit);
 }
 
-unsigned short CLhDecodeLh7::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLh7::DecodeC()
 {
 	return CStaticHuffman::decode_c_st1();
 }
 
-unsigned short CLhDecodeLh7::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLh7::DecodeP()
 {
 	return CStaticHuffman::decode_p_st1();
 }
@@ -131,7 +131,7 @@ void CLhDecodeLzs::DecodeStart()
     m_BitIo.init_getbits();
 }
 
-unsigned short CLhDecodeLzs::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLzs::DecodeC()
 {
 	//decode_c_lzs
     if (m_BitIo.getbits(1)) 
@@ -145,7 +145,7 @@ unsigned short CLhDecodeLzs::DecodeC(size_t &decode_count)
     }
 }
 
-unsigned short CLhDecodeLzs::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLzs::DecodeP()
 {
 	//decode_p_lzs
     return (m_loc - m_matchpos - MAGIC0) & 0x7ff;
@@ -161,7 +161,7 @@ void CLhDecodeLz5::DecodeStart()
     m_BitIo.init_getbits();
 }
 
-unsigned short CLhDecodeLz5::DecodeC(size_t &decode_count)
+unsigned short CLhDecodeLz5::DecodeC()
 {
 	//decode_c_lz5
     int c = 0;
@@ -189,7 +189,7 @@ unsigned short CLhDecodeLz5::DecodeC(size_t &decode_count)
     return c;
 }
 
-unsigned short CLhDecodeLz5::DecodeP(size_t &decode_count)
+unsigned short CLhDecodeLz5::DecodeP()
 {
 	//decode_p_lz5
     return (m_loc - m_matchpos - MAGIC5) & 0xfff;

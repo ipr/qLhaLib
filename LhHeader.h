@@ -405,7 +405,7 @@ private:
 		while (it != itEnd)
 		{
 			// note: force correct compare (char-to-char)
-			if ((*it) == (char)LHA_PATHSEP)
+			if ((*it) == LHA_PATHSEP)
 			{
 				(*it) = '/';
 			}
@@ -418,7 +418,7 @@ private:
 		for (int i = 0; i < len; i++)
 		{
 			// note: force correct compare (char-to-char)
-			if (m_get_ptr[i] == (char)LHA_PATHSEP)
+			if (m_get_ptr[i] == LHA_PATHSEP)
 			{
 				m_get_ptr[i] = '/';
 			}
@@ -448,8 +448,6 @@ private:
 	
 
 protected:
-	tHeaderLevel m_enHeaderLevel;
-	int m_iHeaderSize;
 	
 	typedef QList<LzHeader*> tFileList;
 	tFileList m_HeaderList;
@@ -473,8 +471,6 @@ protected:
 public:
 	CLhHeader(QObject *parent = 0)
 		: QObject(parent)
-		, m_iHeaderSize(0)
-		//, m_nReadOffset(0)
 		, m_get_ptr(nullptr)
 		, m_get_ptr_end(nullptr)
 		, m_HeaderList()
@@ -619,20 +615,6 @@ public:
 		return bHeaderValid;
 	}
 
-	// parse archive-header from buffer
-	// (keep necessary values for later)
-	//
-	bool ParseBuffer(CReadBuffer &Buffer)
-	{
-		unsigned char *p = Buffer.GetBegin();
-		//unsigned char *pEnd = Buffer.GetEnd();
-		
-		m_enHeaderLevel = (tHeaderLevel)(p[I_HEADER_LEVEL]);
-		m_iHeaderSize = p[I_HEADER_SIZE];
-		
-		return true;
-	}
-	
 	void ParseHeaders(CAnsiFile &ArchiveFile);
 
 signals:

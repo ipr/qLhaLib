@@ -106,38 +106,6 @@ private:
 	
 protected:
 	
-	// operation flags and options
-	// TODO: see what should be supported..
-	
-	//bool m_bVerbose; // v
-	//bool m_bNotExecute; // n 
-	//bool m_bForceOverwrite; // f
-	//bool m_bTextMode; // t
-		
-	//bool m_bDeleteAfter; // d
-	//bool m_bNoFileCompress; // z
-	//bool m_bGenericFormat; // g
-	//bool m_bEucTextConversion; // e
-
-	//int m_iQuietMode; // q
-	//tCompressionMethod m_enCompressionMethod;
-	//tHeaderLevel m_enHeaderLevel;
-	
-	// archive-file (always necessary)
-	// ->moved
-	//QString m_szArchive;
-	
-	// extraction path (when necessary)
-	//QString m_szExtractPath; // w
-
-	// exclude files by pattern
-	//QString m_szExcludePattern; // x
-
-	//QString m_szIgnorePath; // i
-	
-	// work/temp folder path to use (if necessary)
-	//QString m_szWorkPath;
-	
 	void PrepareArchive(QString &szArchive);
 	
 public:
@@ -198,27 +166,8 @@ public:
 	
 public slots:
 	// various operation flags and options accessible below
-	// TODO: see what should be supported..
-	
-	//void SetQuiet(int iMode) {};
-	//void SetCompression(int iMode) {};
-	//void SetHeaderLevel(int iLevel) {};
-	//void SetVerbose(bool bStatus);
-	//void SetNoExecute(bool bStatus);
-	//void SetForceOverwrite(bool bStatus);
-	//void SetTextMode(bool bStatus);
-	//void SetDeleteAfter(bool bStatus);
-	//void SetNoCompress(bool bStatus);
-	//void SetGenericFormat(bool bStatus);
-	//void SetEucTextConversion(bool bStatus);
 
 	void SetArchive(QString szArchive);
-	//void SetExtractPath(QString szPath);
-	
-	//void SetExcludePattern(QString szPattern);
-	//void SetIgnorePath(QString szPath);
-	
-	//void SetWorkPath(QString szPath);
 
 	// helper for user of library:
 	// convert filenames from given codepage to unicode
@@ -230,13 +179,11 @@ public slots:
 	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
 	bool Test();
 
-	bool AddFiles(QStringList &lstFiles);
-	//bool Update();
-	
 signals:
 	void message(QString);
 	void warning(QString);
-	void error(QString);
+	
+	// info to caller on exception
 	void fatal_error(QString);
 
 public:

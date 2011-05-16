@@ -73,19 +73,10 @@ void QLhALib::SetConversionCodec(QTextCodec *pCodec)
 
 bool QLhALib::Extract(QString &szExtractPath)
 {
-	// fix path name if MSDOS-style..
-	// check ending too
-	//
-	QString szTempPath = szExtractPath;
-	szTempPath.replace('\\', "/");
-	if (szTempPath.at(szTempPath.length() -1) != '/')
-	{
-		szTempPath += "/";
-	}
-	
 	try
 	{
-		return m_pLhaHandler->Extract(szTempPath);
+		m_pLhaHandler->SetExtractPath(szExtractPath);
+		return m_pLhaHandler->Extract();
 	}
 	catch (std::exception &exp)
 	{
@@ -112,19 +103,6 @@ bool QLhALib::Test()
 	try
 	{
 		return m_pLhaHandler->Test();
-	}
-	catch (std::exception &exp)
-	{
-		emit fatal_error(exp.what());
-	}
-	return false;
-}
-
-bool QLhALib::AddFiles(QStringList &lstFiles)
-{
-	try
-	{
-		return m_pLhaHandler->AddFiles(lstFiles);
 	}
 	catch (std::exception &exp)
 	{

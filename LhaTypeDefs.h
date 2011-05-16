@@ -1,39 +1,6 @@
 #ifndef LHATYPEDEFS_H
 #define LHATYPEDEFS_H
 
-// ** user options **
-
-// compression method/level
-// user selectable option enum
-// -> defuault to 7 ?
-enum tUserCompressionMethod
-{
-	COMPRESS_5 = 5,
-	COMPRESS_6 = 6,
-	COMPRESS_7 = 7
-};
-
-// header level (compatibility)
-// 0..2 are user selectable on file creation
-// -> default to level 3?
-enum tHeaderLevel
-{
-	HEADERLEVEL_0 = 0,
-	HEADERLEVEL_1 = 1,
-	HEADERLEVEL_2 = 2,
-	HEADERLEVEL_3 = 3 // 
-};
-
-// for filename conversion
-// -> use QTextCodec instead if necessary
-enum tKanjiCodePage
-{
-	CODEPAGE_NONE  = 0,
-	CODEPAGE_EUC   = 1,
-	CODEPAGE_SJIS  = 2,
-	CODEPAGE_UTF8  = 3,
-	CODEPAGE_CAP   = 4    // Columbia AppleTalk Program 
-};
 
 // all compression methods
 // define -> enum by IPr
@@ -73,11 +40,7 @@ enum tHuffBits
 	LARC5_DICBIT            = 12,      /* 2^12 =  4KB sliding dictionary */
 	LARC4_DICBIT            = 0,      /* no compress */
 							  
-#ifdef SUPPORT_LH7
-	 MAX_DICBIT         = LZHUFF7_DICBIT,      /* lh7 use 16bits */
-#else
-	 MAX_DICBIT         = LZHUFF6_DICBIT,      /* lh6 use 15bits */
-#endif
+	 MAX_DICBIT          = LZHUFF7_DICBIT,      /* lh7 use 16bits */
 						  
 	 MAX_DICSIZ          = (1L << MAX_DICBIT)
 };
@@ -113,31 +76,34 @@ enum tHuffBits
 #define EXTEND_XOSK             'X' /* OS-9 for X68000 (?) */
 #define EXTEND_JAVA             'J'
 
-//#define GENERIC_ATTRIBUTE               0x20
-//#define GENERIC_DIRECTORY_ATTRIBUTE     0x10
 
-
-#define LHA_PATHSEP             0xff    /* path separator of the
+#define LHA_PATHSEP       ((char)0xff)   /* path separator of the
                                            filename in lha header.
                                            it should compare with
                                            `unsigned char' or `int',
                                            that is not '\xff', but 0xff. */
 
-#define OSK_RW_RW_RW            0000033
-#define OSK_FILE_REGULAR        0000000
-#define OSK_DIRECTORY_PERM      0000200
-#define OSK_SHARED_PERM         0000100
-#define OSK_OTHER_EXEC_PERM     0000040
-#define OSK_OTHER_WRITE_PERM    0000020
-#define OSK_OTHER_READ_PERM     0000010
-#define OSK_OWNER_EXEC_PERM     0000004
-#define OSK_OWNER_WRITE_PERM    0000002
-#define OSK_OWNER_READ_PERM     0000001
 
-#define MAXMATCH            256 /* formerly F (not more than UCHAR_MAX + 1) */
-#define THRESHOLD           3   /* choose optimal value */
+// some various shit used everywhere..
+//
+enum tDecodingLimits
+{
+	MAXMATCH           = 256, /* formerly F (not more than UCHAR_MAX + 1) */
+	THRESHOLD          = 3,   /* choose optimal value */
 
-#define USHRT_BIT           16  /* (CHAR_BIT * sizeof(ushort)) */
+	USHRT_BIT          = 16,  /* (CHAR_BIT * sizeof(ushort)) */
+	
+	// fucking great naming.. two chars?
+	NP         = (MAX_DICBIT + 1),
+	NT         = (USHRT_BIT + 3),
+	NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+	
+	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
+	
+	/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
+	PT_LEN_SIZE        = 0x80
+};
+
 
 // -lzs- and -lz5- decoders
 #define MAGIC0      18

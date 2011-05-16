@@ -12,12 +12,9 @@ class BitIo
 {
 public:
 	unsigned short bitbuf;
-
 	unsigned char subbitbuf;
 	unsigned char bitcount;
 
-	/* slide.c */
-	int unpackable; // encoding only?
 	size_t origsize; // (uncompressed) size of file
 	size_t compsize; // compressed size of file
 
@@ -32,7 +29,28 @@ public:
 		return (bitbuf >> (sizeof(bitbuf)*8 - (n)));
 	}
 
-	void fillbuf(unsigned char n);
+	/* Shift bitbuf n bits left, read n bits */
+	void fillbuf(unsigned char n)
+	{
+		while (n > bitcount) 
+		{
+	        n -= bitcount;
+	        bitbuf = (bitbuf << bitcount) + (subbitbuf >> (CHAR_BIT - bitcount));
+	        if (compsize != 0) 
+			{
+	            compsize--;
+				subbitbuf = m_pReadBuf->GetNext();
+	        }
+	        else
+			{
+	            subbitbuf = 0;
+			}
+	        bitcount = CHAR_BIT;
+	    }
+	    bitcount -= n;
+	    bitbuf = (bitbuf << n) + (subbitbuf >> (CHAR_BIT - n));
+	    subbitbuf <<= n;
+	}
 	
 	unsigned short getbits(unsigned char n)
 	{
@@ -40,16 +58,6 @@ public:
 		x = bitbuf >> (2 * CHAR_BIT - n);
 		fillbuf(n);
 		return x;
-	}
-	
-	void putcode(unsigned char n, unsigned short x);
-	
-	/* Write rightmost n bits of x */
-	void putbits(unsigned char n, unsigned short x)
-	{
-		unsigned short y = x;
-		y <<= USHRT_BIT - n;
-		putcode(n, y);
 	}
 	
 	void init_getbits()
@@ -60,12 +68,7 @@ public:
 		fillbuf(2 * CHAR_BIT);
 	}
 
-	void init_putbits()
-	{
-		bitcount = CHAR_BIT;
-		subbitbuf = 0;
-	}
-	
+public:
     BitIo()
 		: m_pReadBuf(nullptr)
 		, m_pWriteBuf(nullptr)
@@ -84,14 +87,7 @@ class CHuffman
 protected:
 	BitIo m_BitIo;
 	
-	// TODO: should use enum-type tHuffBits instead
-	// mostly used by encoding?
-	// -> not currently
-	// note: ambiguous name, should be: m_dictsize ?
-	//unsigned short m_dicbit;
-
-	// mostly used by encoding?
-	unsigned short maxmatch;
+	unsigned short m_maxmatch;
 	
 	/* from dhuf.c */
 	unsigned int n_max;
@@ -99,50 +95,35 @@ protected:
 public:
     CHuffman()
 		: m_BitIo()
+	    , m_maxmatch(0)
+	    , n_max(0)
 	{}
 
 	// shared code called when starting decoding
 	// (used with: -lh1-, -lh2-, -lh3- only)
-	void init_decode_start(unsigned int num_max, unsigned short num_maxmatch);
+	void init_decode_start(unsigned int num_max, unsigned short maxmatch)
+	{
+		n_max = num_max;
+		m_maxmatch = maxmatch;
+	}
 	
-	// shared code called when starting encoding
-	// (used with: -lh1- only)
-	void init_encode_start(unsigned int num_max, unsigned short num_maxmatch);
 };
 
 
 class CHuffmanTree
 {
 protected:
-	// avoid name collisions
-	enum tHuffmanTree
-	{
-		NP         = (MAX_DICBIT + 1),
-		NT         = (USHRT_BIT + 3),
-		NC         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
-		
-		/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
-		NPT        = 0x80
-	};
 	
 	unsigned short left[2 * NC - 1];
 	unsigned short right[2 * NC - 1];
 	
-	unsigned short c_code[NC];      /* encode */
-	unsigned short pt_code[NPT];    /* encode */
-	
 	unsigned short c_table[4096];   /* decode */
 	unsigned short pt_table[256];   /* decode */
-	
-	unsigned short c_freq[2 * NC - 1]; /* encode */
-	unsigned short p_freq[2 * NP - 1]; /* encode */
-	unsigned short t_freq[2 * NT - 1]; /* encode */
 	
 	// these used by the shuffling also..
 	// should be in base?
 	//
 	unsigned char  c_len[NC];
-	unsigned char  pt_len[NPT];
 	
 public:
     CHuffmanTree()
@@ -169,6 +150,9 @@ public:
 	short make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code);
 	
 	void make_table(short nchar, unsigned char bitlen[], short tablebits, unsigned short table[]);
+
+protected:
+	inline void make_table_tree(int nLen, const int j, unsigned int &i, unsigned short *pTbl, int &avail);
 };
 
 
@@ -210,7 +194,7 @@ public:
 	{
 	}
 	
-	void start_c_dyn( /* void */ );
+	void start_c_dyn();
 
 	void decode_start_dyn(const tHuffBits enBit);
 	void reconst(int start, int end);
@@ -222,19 +206,12 @@ public:
 	
 	void make_new_node(int p);
 	
-	void encode_c_dyn(unsigned int c);
-	unsigned short decode_c_dyn( /* void */ );
+	unsigned short decode_c_dyn();
 	unsigned short decode_p_dyn(size_t &decode_count);
 	
-	void output_dyn(unsigned int code, unsigned int pos);
-	void encode_end_dyn( /* void */ );
-
-	// should be in CShuffleHuffman but called from CDynamicHuffman..
-	// -> renamed encode_p_st0() to encode_p_dyn()
-	void encode_p_dyn(unsigned short j);
 };
 
-
+// mess sharing entirely different handlings of 1..3
 class CShuffleHuffman : public CDynamicHuffman
 {
 protected:
@@ -242,25 +219,22 @@ protected:
 	enum tShuffle
 	{
 		SHUF_NP  = (8 * 1024 / 64),
-		//SHUF_NP2 = (SHUF_NP * 2 - 1),
 		SHUF_N1  = 286,                     // alphabet size
-		//SHUF_N2  = (2 * SHUF_N1 - 1),     // # of nodes in Huffman tree 
 		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
 		SHUF_BUFBITS     = 16,              // >= log2(MAXBUF)
-		SHUF_LENFIELD    = 4,               // bit size of length field for tree output
-						   
-		PBIT       = 5,       /* smallest integer such that (1 << PBIT) > * NP */
-		TBIT       = 5,       /* smallest integer such that (1 << TBIT) > * NT */
-		CBIT       = 9       /* smallest integer such that (1 << CBIT) > * NC */
+		SHUF_LENFIELD    = 4               // bit size of length field for tree output
 	};
 
+	unsigned char  pt_len[PT_LEN_SIZE];
+	
 	unsigned int m_np;
 	
 	// was static
 	unsigned short m_blocksize; /* decode */
 
-	// only used by ready_made()..
-	static const int fixed[2][16];
+	// these lookup-tables only used by -lh1- and -lh2-
+	static const int fixed_method_lh1[16]; // old compatible
+	static const int fixed_method_lh3[16]; // 8K buf
 	
 public:
     CShuffleHuffman()
@@ -268,38 +242,28 @@ public:
 		, m_blocksize(0)
 	{
 	}
-	
-	void ready_made(int method);
-	
-	void decode_start_st0( /*void*/ );
-	void encode_start_fix( /*void*/ );
-	void read_tree_c( /*void*/ );
-	void read_tree_p(/*void*/);
-	
-	void decode_start_fix(/*void*/);
-	
-	unsigned short decode_c_st0(/*void*/);
-	unsigned short decode_p_st0(/*void*/);
-};
 
+	// uses lookup-tables with -lh1- and -lh3-
+	//void fixed_method_pt_len(int method);
+	void fixed_method_pt_len(const int *tbl);
+
+	void decode_start_fix();
+	
+	void decode_start_st0();
+	void read_tree_c();
+	void read_tree_p();
+	
+	unsigned short decode_c_st0();
+	unsigned short decode_p_st0();
+};
 
 class CStaticHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
-	// avoid name collisions
-	enum tStaticHuffman
-	{
-		PBIT       = 5,       /* smallest integer such that (1 << PBIT) > * NP */
-		TBIT       = 5,       /* smallest integer such that (1 << TBIT) > * NT */
-		CBIT       = 9       /* smallest integer such that (1 << CBIT) > * NC */
-	};
 
+	unsigned char  pt_len[PT_LEN_SIZE];
 	
-	unsigned char *m_pBuf;      /* encode */
-	unsigned int bufsiz;     /* encode */
 	unsigned short m_blocksize; /* decode */
-	unsigned short output_pos; /* encode */
-	unsigned short output_mask; /* encode */
 	
 	int m_pbit;
 	int m_np;
@@ -308,28 +272,13 @@ public:
     CStaticHuffman()
 		: CHuffman()
 		, CHuffmanTree()
-		, m_pBuf(nullptr) // only allocated when encoding?
-		, bufsiz(0)
-		, m_blocksize(0)
 	{
 	}
 	
-	void count_t_freq(/*void*/);
-	void write_pt_len(short n, short nbit, short i_special);
-	void write_c_len(/*void*/);
-	void encode_c(short c);
-	void encode_p(unsigned short  p);
-	void send_block( /* void */ );
-	
-	void output_st1(unsigned short  c, unsigned short  p);
-	
-	void encode_start_st1(const tHuffBits enBit);
-	void encode_end_st1( /* void */ );
-
 	void read_pt_len(short nn, short nbit, short i_special);
-	void read_c_len( /* void */ );
-	unsigned short decode_c_st1( /*void*/ );
-	unsigned short decode_p_st1( /* void */ );
+	void read_c_len();
+	unsigned short decode_c_st1();
+	unsigned short decode_p_st1();
 	
 	void decode_start_st1(const tHuffBits enBit);
 
@@ -339,12 +288,6 @@ protected:
 	
 	// used by decode_start_st1() and encode_start_st1()
 	bool SetBitsByDictbit(const tHuffBits enBit);
-	
-	// used by send_block() and encode_start_st1()
-	inline void clear_c_p_freq();
-
-	// used by count_t_freq()
-	inline void clear_t_freq();
 	
 };
 

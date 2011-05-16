@@ -36,7 +36,7 @@ public:
 protected:
 	QString m_szArchive;
 	size_t m_nFileSize;
-	
+
 	// some statistics of archive
 	unsigned long m_ulTotalPacked;
 	unsigned long m_ulTotalUnpacked;
@@ -64,8 +64,10 @@ public slots:
 	void SetConversionCodec(QTextCodec *pCodec);
 	//void FileLocated(LzHeader *pHeader);
 
+	void SetExtractPath(QString &szExtractPath);
+	
 	// extract all files to specified path
-	bool Extract(QString &szExtractPath);
+	bool Extract();
 
 	// extract only specified files to specified path
 	//bool ExtractFiles(QString &szExtractPath, QStringList &lstFiles);
@@ -79,8 +81,6 @@ public slots:
 	// test archive integrity
 	bool Test();
 
-	// add files to new or existing archive (with compression..)
-	bool AddFiles(QStringList &lstFiles);
 	
 signals:
 	// progress-status by signals, errors by exceptions

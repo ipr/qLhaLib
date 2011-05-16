@@ -34,6 +34,9 @@ private:
 	inline CLhDecoder *GetDecoder(const tCompressionMethod enMethod);
 	
 protected:
+	
+	QString m_szExtractPath;
+	
 	CCrcIo m_crcio;
 	
 	CReadBuffer m_ReadBuf; // packed data from archive
@@ -54,6 +57,7 @@ protected:
 public:
     CLhExtract(QObject *parent = 0)
 		: QObject(parent)
+	    , m_szExtractPath()
 		, m_mapDecoders()
 		, m_ReadBuf(4096) // emulated old buffering style
 		, m_WriteBuf(2* 4096)
@@ -74,9 +78,13 @@ public:
 		}
 		m_mapDecoders.clear();
 	}
-	
-	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
 
+	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+
+	QString GetExtractPath();
+	QString GetExtractPathToFile(QString &szFilename);
+	void SetExtractPath(QString &szExtractPath);
+	
 signals:
 	// progress-status by signals, errors by exceptions
 	void message(QString);

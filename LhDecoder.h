@@ -53,6 +53,8 @@ protected:
 	CCrcIo m_crcio;
 	unsigned int m_uiCrc;
 
+	size_t m_decode_count;
+	
 	// buffer for dictionary text
 	CReadBuffer m_DictionaryText;
 	
@@ -70,6 +72,7 @@ public:
 	CLhDecoder(void)
 		: m_crcio()
 		, m_uiCrc(0)
+	    , m_decode_count(0)
 		, m_DictionaryText(1024)
 		, m_dicsiz(0)
 		, m_dtext(nullptr)
@@ -85,6 +88,8 @@ public:
 	void InitClear()
 	{
 		m_uiCrc = 0;
+		m_decode_count = 0;
+		
 		m_dicsiz = 0;
 		m_dtext = nullptr;
 		m_dicsiz_1 = 0;
@@ -139,8 +144,8 @@ public:
 	virtual BitIo *GetBitIo() = 0;
 	
 	virtual void DecodeStart() = 0;
-	virtual unsigned short DecodeC(size_t &decode_count) = 0;
-	virtual unsigned short DecodeP(size_t &decode_count) = 0;
+	virtual unsigned short DecodeC() = 0;
+	virtual unsigned short DecodeP() = 0;
 
 	virtual void DecodeFinish()
 	{
@@ -156,8 +161,13 @@ public:
 		return m_uiCrc;
 	}
 	
+	size_t GetDecodeCount() const
+	{
+		return m_decode_count;
+	}
+	
 	// 
-	virtual void Decode(size_t &decode_count);
+	virtual void Decode();
 };
 
 //////// decoders
@@ -190,8 +200,8 @@ public:
 	}
 	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 
 };
 
@@ -221,8 +231,8 @@ public:
 	}
 	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 	
 };
 
@@ -252,8 +262,8 @@ public:
 	}
 	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 /*
@@ -291,8 +301,8 @@ public:
 	}
 
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 // -lzs-
@@ -329,8 +339,8 @@ public:
 	}
 
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 // -lz5-
@@ -367,8 +377,8 @@ public:
 	}
 	
 	virtual void DecodeStart();
-	virtual unsigned short DecodeC(size_t &decode_count);
-	virtual unsigned short DecodeP(size_t &decode_count);
+	virtual unsigned short DecodeC();
+	virtual unsigned short DecodeP();
 };
 
 

@@ -122,10 +122,9 @@ unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader
 	
 	pDecoder->DecodeStart();
 	
-	size_t decode_count = 0;
-    while (decode_count < pHeader->original_size) 
+    while (pDecoder->GetDecodeCount() < pHeader->original_size) 
 	{
-		pDecoder->Decode(decode_count);
+		pDecoder->Decode();
 	}
 	
 	pDecoder->DecodeFinish();
@@ -187,7 +186,7 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 // decode data from archive and write to prepared output file,
 // use given metadata as help..
 //
-void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
+void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
 	QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
 	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
@@ -197,9 +196,7 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 	if (m_Compression == LZ_UNKNOWN)
 	{
 		// unknown/unsupported method
-		//emit error(QString("Unknown/unsupported compression, %1 method: ").arg(pHeader->filename).append(szMethod));
 		throw ArcException("Unknown/unsupported compression", szMethod.toStdString());
-		return;
 	}
 	
 	if (m_Compression == LZHDIRS_METHOD_NUM)
@@ -210,6 +207,21 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 		return;
 	}
 
+	// check line-ending&combine
+	QString szTempPath = GetExtractPathToFile(pHeader->filename);
+	
+	CAnsiFile OutFile;
+	if (OutFile.Open(szTempPath.toStdString(), true) == false)
+	{
+		throw ArcException("Failed creating file for writing", szTempPath.toStdString());
+	}
+	
+	// seek in archive where data for this entry begins..
+	if (ArchiveFile.Seek(pHeader->data_pos, SEEK_SET) == false)
+	{
+		throw IOException("Failure seeking entry data");
+	}
+	
 	unsigned int uiFileCrc = 0;
 	
 	// huffman dictionary bits
@@ -250,3 +262,31 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFil
 /*
 //bool CLhExtract::ExtractToBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
 */
+
+QString CLhExtract::GetExtractPath()
+{
+	return m_szExtractPath;
+}
+
+QString CLhExtract::GetExtractPathToFile(QString &szFilename)
+{
+	// this should have proper path-ending already..
+	QString szTempPath = m_szExtractPath;
+	szTempPath += szFilename;
+	return szTempPath;
+}
+
+void CLhExtract::SetExtractPath(QString &szExtractPath)
+{
+	// fix path name if MSDOS-style..
+	// check ending too
+	//
+	QString szTempPath = szExtractPath;
+	szTempPath.replace('\\', "/");
+	if (szTempPath.at(szTempPath.length() -1) != '/')
+	{
+		szTempPath += "/";
+	}
+	
+	m_szExtractPath = szTempPath;
+}

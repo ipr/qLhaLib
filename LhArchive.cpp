@@ -82,10 +82,6 @@ void CLhArchive::SeekHeader(CAnsiFile &ArchiveFile)
 	{
 		throw ArcException("No supported header in file", m_szArchive.toStdString());
 	}
-	if (m_pHeaders->ParseBuffer(Buffer) == false)
-	{
-		throw ArcException("Failed to parse header", m_szArchive.toStdString());
-	}
 	
 	// just seek start.. 
 	if (ArchiveFile.Seek(0, SEEK_SET) == false)
@@ -121,25 +117,26 @@ void CLhArchive::SetConversionCodec(QTextCodec *pCodec)
 	m_pHeaders->SetConversionCodec(pCodec);
 }
 
-bool CLhArchive::Extract(QString &szExtractPath)
+void CLhArchive::SetExtractPath(QString &szExtractPath)
+{
+	m_pExtraction->SetExtractPath(szExtractPath);
+}
+
+bool CLhArchive::Extract()
 {
 	// same instance, called again
+	// TODO: need better way to check when reopening same (unchanged) file
 	Clear();
 	
 	// lookup each entry of file
 	CAnsiFile ArchiveFile;
 
-	// TODO: need better way to check when reponing same (unchanged) file
-	
 	// open and list contents
 	SeekContents(ArchiveFile);
 
 	// make user-given path where to extract (may be empty)
-	CPathHelper::MakePath(szExtractPath.toStdString());
+	CPathHelper::MakePath(m_pExtraction->GetExtractPath().toStdString());
 
-	// note: archive-wide crc counting also ?
-	// (see member)
-    //unsigned int crc;
 	
 	// decode and write each file from archive
 	//
@@ -151,9 +148,8 @@ bool CLhArchive::Extract(QString &szExtractPath)
 
 		emit message(QString("Extracting.. ").append(pHeader->filename));
 		
-		// this should have proper path-ending already..
-		QString szTempPath = szExtractPath;
-		szTempPath += pHeader->filename;
+		// check path-ending&combine
+		QString szTempPath = m_pExtraction->GetExtractPathToFile(pHeader->filename);
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
@@ -169,22 +165,10 @@ bool CLhArchive::Extract(QString &szExtractPath)
 		// create path to file
 		CPathHelper::MakePathToFile(szTempPath.toStdString());
 
-		CAnsiFile OutFile;
-		if (OutFile.Open(szTempPath.toStdString(), true) == false)
-		{
-			throw ArcException("Failed creating file for writing", szTempPath.toStdString());
-		}
-		
-		// seek in archive where data for this entry begins..
-		if (ArchiveFile.Seek(pHeader->data_pos, SEEK_SET) == false)
-		{
-			throw IOException("Failure seeking entry data");
-		}
-		
 		// decode from archive to output..
 		// give parsed metadata and prepared output also
 		//
-		m_pExtraction->ExtractFile(ArchiveFile, pHeader, OutFile);
+		m_pExtraction->ExtractFile(ArchiveFile, pHeader);
 		
 		++it;
 	}
@@ -234,13 +218,12 @@ bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArra
 bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
 	// same instance, called again
+	// TODO: need better way to check when reopening same (unchanged) file
 	Clear();
 
 	// auto-close file (on leaving scope),
 	// wrap some handling
 	CAnsiFile ArchiveFile;
-	
-	// TODO: need better way to check when reponing same (unchanged) file
 	
 	// lookup each entry of file,
 	// throws exception on error
@@ -289,29 +272,3 @@ bool CLhArchive::Test()
 	return false;
 }
 
-bool CLhArchive::AddFiles(QStringList &lstFiles)
-{
-	CAnsiFile ArchiveFile;
-	if (ArchiveFile.Open(m_szArchive.toStdString(), true) == false)
-	{
-		throw IOException("Failed opening archive for writing");
-	}
-	
-	if (ArchiveFile.GetSize() > 0)
-	{
-		// adding to existing archive
-		// -> check existing data
-		
-		//SeekHeader(ArchiveFile);
-		//m_pHeaders->ParseHeaders(ArchiveFile);
-	}
-	else
-	{
-		// write archive header to new file
-	}
-	
-	// now add specified files to archive..
-
-	
-	return false;
-}
