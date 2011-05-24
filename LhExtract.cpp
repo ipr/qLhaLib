@@ -216,7 +216,12 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		throw ArcException("Failed creating file for writing", szTempPath.toStdString());
 	}
 	
+	// TODO: verify offset by what was actually read for header..
+	// count new offset, see if that is different..
+	size_t nDataOffset = pHeader->header_pos + pHeader->header_size;
+	
 	// seek in archive where data for this entry begins..
+	//
 	if (ArchiveFile.Seek(pHeader->data_pos, SEEK_SET) == false)
 	{
 		throw IOException("Failure seeking entry data");

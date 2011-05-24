@@ -45,7 +45,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 	while (bIsEnd == false)
 	{
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
-		m_get_ptr_end = (char*)m_pReadBuffer->GetEnd();
+		// m_get_ptr_end = (char*)m_pReadBuffer->GetEnd(); <- not used..
 		
 		long lHeaderPos = 0;
 		if (ArchiveFile.Tell(lHeaderPos) == false)
@@ -69,9 +69,14 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		LzHeader *pHeader = new LzHeader();
 		m_HeaderList.push_back(pHeader);
 
+		// try to keep track of how much there is for header in truth..
+		// 
+		pHeader->header_size = COMMON_HEADER_SIZE;
 		pHeader->header_pos = lHeaderPos;
+		pHeader->header_level = m_get_ptr[I_HEADER_LEVEL];
+		
 		bool bRet = false;
-		switch (m_get_ptr[I_HEADER_LEVEL]) 
+		switch (pHeader->header_level) 
 		{
 		case 0:
 			bRet = get_header_level0(ArchiveFile, pHeader);
@@ -86,7 +91,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			bRet = get_header_level3(ArchiveFile, pHeader);
 			break;
 		default:
-			throw ArcException("Unknown level header", m_get_ptr[I_HEADER_LEVEL]);
+			throw ArcException("Unknown level header", pHeader->header_level);
 		}
 		
 		if (bRet == false)
@@ -148,33 +153,35 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
  *    size field is 4 bytes
  */
 
-//static ssize_t
-size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc)
+size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t extend_size, unsigned int *hcrc)
 {
-    size_t whole_size = header_size;
+    size_t whole_size = extend_size;
     int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
 
+	// keep this size also
+	pHeader->extend_size = whole_size;
+	
     if (pHeader->header_level == 0)
 	{
         return 0;
 	}
 
 	// clear or allocate larger if necessary
-	m_pReadBuffer->PrepareBuffer(header_size, false);
+	m_pReadBuffer->PrepareBuffer(extend_size, false);
 	
-    while (header_size) 
+    while (extend_size) 
 	{
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
 		
 		// this only makes sense for "wrap-under" case of unsigned counter..
-        if (m_pReadBuffer->GetSize() < header_size) 
+        if (m_pReadBuffer->GetSize() < extend_size) 
 		{
-			throw ArcException("header size too large.", header_size);
+			throw ArcException("header size too large.", extend_size);
         }
 
-        if (ArchiveFile.Read(m_pReadBuffer->GetBegin(), header_size) == false) 
+        if (ArchiveFile.Read(m_pReadBuffer->GetBegin(), extend_size) == false) 
 		{
-			throw ArcException("Invalid header (LHa file ?)", 0);
+			throw ArcException("Invalid header (LHa file ?)", extend_size);
         }
 
 		unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -189,17 +196,17 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             pHeader->header_crc = get_word();
             /* clear buffer for CRC calculation. */
             pBuf[1] = pBuf[2] = 0;
-            skip_bytes(header_size - n - 2);
+            skip_bytes(extend_size - n - 2);
             break;
         case EXTH_FILENAME:
             /* filename */
-            //name_length = get_bytes(pHeader->name, header_size-n, sizeof(pHeader->name)-1);
-            pHeader->filename = get_string(header_size-n);
+            //name_length = get_bytes(pHeader->name, extend_size-n, sizeof(pHeader->name)-1);
+            pHeader->filename = get_string(extend_size-n);
             break;
         case EXTH_PATH:
             /* directory */
-            //dir_length = get_bytes(dirname, header_size-n, sizeof(dirname)-1);
-            pHeader->dirname = get_string(header_size-n);
+            //dir_length = get_bytes(dirname, extend_size-n, sizeof(dirname)-1);
+            pHeader->dirname = get_string(extend_size-n);
             break;
 			
         case EXTH_MSDOSATTRIBS:
@@ -235,13 +242,13 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
         case EXTH_UNIXGROUP:
             /* UNIX group name */
-            //i = get_bytes(pHeader->group, header_size-n, sizeof(pHeader->group)-1);
-            pHeader->group = get_string(header_size-n);
+            //i = get_bytes(pHeader->group, extend_size-n, sizeof(pHeader->group)-1);
+            pHeader->group = get_string(extend_size-n);
             break;
         case EXTH_UNIXUSER:
             /* UNIX user name */
-            //i = get_bytes(pHeader->user, header_size-n, sizeof(pHeader->user)-1);
-            pHeader->user = get_string(header_size-n);
+            //i = get_bytes(pHeader->user, extend_size-n, sizeof(pHeader->user)-1);
+            pHeader->user = get_string(extend_size-n);
             break;
         case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
@@ -269,23 +276,23 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                0xfe: extended attribute - platform information(another opinion)
                0xff: extended attribute - permission, owner-id and timestamp
                      (level 3 on UNLHA32) */
-            skip_bytes(header_size - n);
+            skip_bytes(extend_size - n);
 			emit warning(QString("unknown extended header %1").arg(iExtType));
             break;
         }
 
         if (hcrc)
 		{
-            *hcrc = m_crcio.calccrc(*hcrc, pBuf, header_size);
+            *hcrc = m_crcio.calccrc(*hcrc, pBuf, extend_size);
 		}
 
         if (pHeader->size_field_length == 2)
 		{
-            whole_size += header_size = get_word();
+            whole_size += extend_size = get_word();
 		}
         else
 		{
-            whole_size += header_size = get_longword();
+            whole_size += extend_size = get_longword();
 		}
     }
 
@@ -345,20 +352,17 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
  */
 bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-    size_t header_size;
-    size_t extend_size;
-	int checksum = 0;
-
     pHeader->size_field_length = 2; /* in bytes */
-	header_size = get_byte();
-    pHeader->header_size = header_size;
-    checksum = get_byte();
+	
+	size_t header_size = get_byte();
+    int checksum = get_byte();
+    pHeader->header_size = header_size +2;
 	
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
 	{
-		throw ArcException("Invalid header (LHarc file ?)", checksum);
+		throw ArcException("Invalid header (LHarc file ?)", header_size);
     }
 
     if (calc_sum(pBuf + I_METHOD, header_size) != checksum)
@@ -377,7 +381,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     int name_length = get_byte();
     pHeader->filename = get_string(name_length);
 
-    extend_size = header_size+2 - name_length - 24;
+    size_t extend_size = header_size+2 - name_length - 24;
 
     if (extend_size < 0) 
 	{
@@ -462,19 +466,17 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  */
 bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-    size_t header_size;
-	int checksum = 0;
-
     pHeader->size_field_length = 2; /* in bytes */
-	header_size = get_byte();
-    pHeader->header_size = header_size;
-	checksum = get_byte();
+	
+	size_t header_size = get_byte();
+	int checksum = get_byte();
+    pHeader->header_size = header_size +2;
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
 	{
-		throw ArcException("Invalid header (LHarc file ?)", checksum);
+		throw ArcException("Invalid header (LHarc file ?)", header_size);
     }
 
     if (calc_sum(pBuf + I_METHOD, header_size) != checksum) 
@@ -492,7 +494,6 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->header_level = get_byte();
 
     int name_length = get_byte();
-    //i = get_bytes(pHeader->name, name_length, sizeof(pHeader->name)-1);
     pHeader->filename = get_string(name_length);
 
     /* defaults for other type */
@@ -553,17 +554,16 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  */
 bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-    size_t header_size;
-
     pHeader->size_field_length = 2; /* in bytes */
-	header_size = get_word();
+	
+	size_t header_size = get_word();
     pHeader->header_size = header_size;
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL2_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
 	{
-		throw ArcException("Invalid header (LHarc file ?)", 0);
+		throw ArcException("Invalid header (LHarc file ?)", header_size);
     }
 
 	// there's size to it given so use it
@@ -631,12 +631,13 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     pHeader->size_field_length = get_word();
+    pHeader->header_size = COMMON_HEADER_SIZE + I_LEVEL3_HEADER_SIZE;
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
     if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL3_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
 	{
-		throw ArcException("Invalid header (LHarc file ?)", 0);
+		throw ArcException("Invalid header (LHarc file ?)", pHeader->header_size);
     }
 
 	// there's size to it given so use it

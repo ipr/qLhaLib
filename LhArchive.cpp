@@ -248,6 +248,7 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		QLhALib::CArchiveEntry &Entry = lstArchiveInfo.back();
 		Entry.m_szFileName = pHeader->filename;
 		Entry.m_uiCrc = pHeader->crc;
+		Entry.m_ucHeaderLevel = pHeader->header_level;
 		Entry.m_ulPackedSize = pHeader->packed_size;
 		Entry.m_ulUnpackedSize = pHeader->original_size;
 		Entry.m_szPackMode = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);

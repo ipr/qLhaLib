@@ -45,6 +45,7 @@ enum tHuffBits
 	 MAX_DICSIZ          = (1L << MAX_DICBIT)
 };
 
+// method strings stored in archive-files
 #define LZHUFF0_METHOD          "-lh0-"
 #define LZHUFF1_METHOD          "-lh1-"
 #define LZHUFF2_METHOD          "-lh2-"
@@ -57,6 +58,12 @@ enum tHuffBits
 #define LARC5_METHOD            "-lz5-"
 #define LARC4_METHOD            "-lz4-"
 #define LZHDIRS_METHOD          "-lhd-"
+
+// methods not listed in japanese-version:
+// -lh8-, -lh9-, -lha-, -lhb-, -lhc-, -lhe- (Joe Jared extensions)
+// -lhx- (UNLHA32)
+// -pc1-, -pm0-, -pm1-, -pm2-, -pms- (CP/M)
+// -lz2-, -lz3-, -lz7-, -lz8- (LArc extensions)
 
 #define EXTEND_GENERIC          0
 #define EXTEND_UNIX             'U'
@@ -84,31 +91,12 @@ enum tHuffBits
                                            that is not '\xff', but 0xff. */
 
 
-// some various decoding-values used everywhere..
-//
-enum tDecodingLimits
-{
-	MAXMATCH           = 256, /* formerly F (not more than UCHAR_MAX + 1) */
-	THRESHOLD          = 3,   /* choose optimal value */
-
-	USHRT_BIT          = 16,  /* (CHAR_BIT * sizeof(ushort)) */
-	
-	NP_LEN         = (MAX_DICBIT + 1),
-	NT_LEN         = (USHRT_BIT + 3),
-	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
-	
-	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
-	
-	/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
-	PT_LEN_SIZE        = 0x80
-};
-
 // -lzs- and -lz5- decoders
 enum tLzDecoderMagicNumbers
 {
 	MAGIC0     = 18,
 	MAGIC5     = 19
-}
+};
 
 
 #endif // LHATYPEDEFS_H

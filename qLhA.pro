@@ -36,7 +36,8 @@ HEADERS += qlhalib.h\
     LhHeader.h \
     LhExtract.h \
     LhDecoder.h \
-    Huffman.h
+    Huffman.h \
+    FilemodeFlags.h
 
 # LzEncode.h 
 # Huffman.h

@@ -16,6 +16,8 @@
 #include <QList>
 #include <QDateTime>
 
+#include <stdint.h>
+
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
 
@@ -23,94 +25,11 @@
 #include "GenericTime.h"
 #include "FiletimeHelper.h"
 
+// misc. helper-structures for file-modes
+#include "FilemodeFlags.h"
+
 #define METHOD_TYPE_STORAGE     5
 
-// write open the bit-flags for in/out of library
-
-typedef struct MsdosFlags
-{
-	// constructor
-	MsdosFlags()
-	{
-		SetFromValue(0x20);
-	}
-	
-	// some shitty MS-DOS-style flags:
-	bool bRo;  // bit1  read only
-	bool bHid; // bit2  hidden
-	bool bSys; // bit3  system
-	bool bVol; // bit4  volume label
-	bool bDir; // bit5  directory
-	bool bArc; // bit6  archive bit (need to backup)
-	
-	void SetFromValue(unsigned char ucVal)
-	{
-		bRo = ((ucVal & 2) ? true : false);
-		bHid = ((ucVal & 4) ? true : false);
-		bSys = ((ucVal & 8) ? true : false);
-		bVol = ((ucVal & 16) ? true : false);
-		bDir = ((ucVal & 32) ? true : false);
-		bArc = ((ucVal & 64) ? true : false);
-	}
-	
-} MsdosFlags;
-
-
-enum tUnixFlags
-{
-	UNIX_FILE_TYPEMASK     = 0170000,
-	UNIX_FILE_REGULAR      = 0100000,
-	UNIX_FILE_DIRECTORY    = 0040000,
-	UNIX_FILE_SYMLINK      = 0120000,
-	UNIX_SETUID            = 0004000,
-	UNIX_SETGID            = 0002000,
-	UNIX_STICKYBIT         = 0001000,
-	UNIX_OWNER_READ_PERM   = 0000400,
-	UNIX_OWNER_WRITE_PERM  = 0000200,
-	UNIX_OWNER_EXEC_PERM   = 0000100,
-	UNIX_GROUP_READ_PERM   = 0000040,
-	UNIX_GROUP_WRITE_PERM  = 0000020,
-	UNIX_GROUP_EXEC_PERM   = 0000010,
-	UNIX_OTHER_READ_PERM   = 0000004,
-	UNIX_OTHER_WRITE_PERM  = 0000002,
-	UNIX_OTHER_EXEC_PERM   = 0000001,
-	UNIX_RW_RW_RW          = 0000666
-};
-
-typedef struct UnixModeFlags
-{
-	//tUnixFlags m_enFlags;
-	unsigned short  unix_mode;
-	
-	// constructor
-	UnixModeFlags()
-	{
-		// default: normal file with read+write for everyone
-		unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
-	}
-
-	// is file just symbolic link instead of actual file?
-	bool IsSymLink()
-	{
-		// TODO: UNIX_FILE_TYPEMASK ?
-		if ((unix_mode & UNIX_FILE_SYMLINK) == UNIX_FILE_SYMLINK)
-		{
-			return true;
-		}
-		return false;
-	}
-	
-	bool IsDirectory()
-	{
-		// TODO: UNIX_FILE_TYPEMASK ?
-		if ((unix_mode & UNIX_FILE_DIRECTORY) == UNIX_FILE_DIRECTORY)
-		{
-			return true;
-		}
-		return false;
-	}
-
-} UnixModeFlags;
 
 typedef struct LzHeader 
 {
@@ -120,6 +39,10 @@ typedef struct LzHeader
 		/* the `method' member is rewrote by the encoding function.
 		   but need set for empty files */
 		memcpy(method, LZHUFF0_METHOD, METHOD_TYPE_STORAGE);
+
+		header_size = 0;
+		extend_size = 0;
+		size_field_length = 0;
 		
 		packed_size = 0;
 		original_size = 0;
@@ -131,12 +54,12 @@ typedef struct LzHeader
 		data_pos = 0;
 		
 		// defaults for these
-		//unix_mode = UNIX_FILE_REGULAR | UNIX_RW_RW_RW;
 		unix_gid = 0;
 		unix_uid = 0;
 	}
 	
     size_t          header_size;
+	size_t          extend_size; // size extended-header (if any)
     int             size_field_length; // "size" variable may have different sizes??
 	
     char            method[METHOD_TYPE_STORAGE];
@@ -195,6 +118,8 @@ typedef struct LzHeader
 	//
 	tCompressionMethod GetMethod()
 	{
+		// TODO: simplify, even this list does not include all types..
+		
 		if (IsMethod(LZHUFF0_METHOD) == true)
 		{
 			return LZHUFF0_METHOD_NUM;
@@ -248,7 +173,6 @@ typedef struct LzHeader
 		return LZ_UNKNOWN;
 	}
 	
-	
 }  LzHeader;
 
 
@@ -290,28 +214,48 @@ enum tExtendedAttribs
 	EXTH_RESERVED         = 0xFF // reservation for later
 };
 
+/* TODO: simplification of handling those different headers
+class CAbstractHeader
+{
+public:
+	// note: make private..
+	
+	char    *m_get_ptr;
+	
+	size_t m_nSize;
+	size_t m_nOffset;
+	
+public:
+	CAbstractHeader(char *pBuf, size_t nSize)
+	    : m_get_ptr(pBuf)
+	    , m_nSize(nSize)
+	    , m_nOffset(0)
+	{}
+};
+
+class CHeaderLevel0 : public CAbstractHeader
+class CHeaderLevel1 : public CAbstractHeader
+class CHeaderLevel2 : public CAbstractHeader
+class CHeaderLevel3 : public CAbstractHeader
+class CHeaderExtended : public CAbstractHeader
+*/
+
 class CLhHeader : public QObject
 {
 	Q_OBJECT
 
 private:
 	
+	// TODO:
+	// current header helper..
+	//CLhHeaderParsing *m_pCurrentHeader;
+	
+	
 	// TODO: these buffer handlings REALLY need to be fixed..
 	// change methods later, move to buffer-class
 	//
-	// temp! buffer-descriptor
-	//
-	/*
-	typedef struct LhBuffer
-	{
-		
-	} LhBuffer;
-	*/
 	
 	char    *m_get_ptr;
-	char    *m_get_ptr_end;
-	
-	char    *m_put_ptr;
 	
 	inline int get_byte()
 	{
@@ -323,13 +267,6 @@ private:
 		m_get_ptr += (len);
 	}
 	
-	/*
-	inline void put_byte(int c)
-	{
-		*m_put_ptr++ = (char)(c);
-	}
-	*/
-
 	inline int get_word()
 	{
 		int b0 = get_byte();
@@ -338,14 +275,6 @@ private:
 		return w;
 	}
 	
-	/*
-	inline void put_word(unsigned int v)
-	{
-		put_byte(v);
-		put_byte(v >> 8);
-	}
-	*/
-
 	inline long get_longword()
 	{
 		long b0 = get_byte();
@@ -354,16 +283,6 @@ private:
 		long b3 = get_byte();
 		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
 	}
-
-	/*
-	inline void put_longword(long v)
-	{
-		put_byte(v);
-		put_byte(v >> 8);
-		put_byte(v >> 16);
-		put_byte(v >> 24);
-	}
-	*/
 
 	inline int get_bytes(char *buf, int len, int size)
 	{
@@ -376,15 +295,6 @@ private:
 		return i;
 	}
 	
-	/*
-	inline void put_bytes(char *buf, int len)
-	{
-		for (int i = 0; i < len; i++)
-		{
-			put_byte(buf[i]);
-		}
-	}
-	*/
 	
 	// note: string isn't null-terminated in file
 	// so we need to work around that..
@@ -473,7 +383,6 @@ public:
 	CLhHeader(QObject *parent = 0)
 		: QObject(parent)
 		, m_get_ptr(nullptr)
-		, m_get_ptr_end(nullptr)
 		, m_HeaderList()
 		, m_crcio()
 		, m_pTextCodec(nullptr)
@@ -624,7 +533,7 @@ signals:
 	void warning(QString);
 	
 protected:
-	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t header_size, unsigned int *hcrc);
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t extend_size, unsigned int *hcrc);
 	
 	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader);

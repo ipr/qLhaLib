@@ -8,6 +8,10 @@
 #include "LhaTypeDefs.h"
 
 
+// all file-IO was through functions in bitio,
+// which is now this class taking buffers only:
+// read/write in larger chunks instead of per-character now.
+//
 class BitIo
 {
 public:
@@ -77,6 +81,27 @@ public:
 	{}
 	
 };
+
+
+// some various decoding-values used everywhere in decoding..
+//
+enum tDecodingLimits
+{
+	MAXMATCH           = 256, /* formerly F (not more than UCHAR_MAX + 1) */
+	THRESHOLD          = 3,   /* choose optimal value */
+
+	USHRT_BIT          = 16,  /* (CHAR_BIT * sizeof(ushort)) */
+	
+	NP_LEN         = (MAX_DICBIT + 1),
+	NT_LEN         = (USHRT_BIT + 3),
+	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+	
+	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
+	
+	/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
+	PT_LEN_SIZE        = 0x80
+};
+
 
 class CHuffman
 {
@@ -280,6 +305,5 @@ protected:
 	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
 	
 };
-
 
 #endif // HUFFMAN_H

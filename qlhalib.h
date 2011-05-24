@@ -120,6 +120,7 @@ public:
 			: m_uiCrc(0)
 			, m_ulUnpackedSize(0)
 			, m_ulPackedSize(0)
+		    , m_ucHeaderLevel(0)
 			, m_bPackedSizeAvailable(true)
 			, m_Stamp()
 			, m_szFileName()
@@ -139,6 +140,9 @@ public:
 	
 		// compressed size offile
 		unsigned long m_ulPackedSize;
+		
+		// header "level" (type)
+		unsigned char m_ucHeaderLevel;
 	
 		// packed-size is not available for merged files (LZX)
 		// -> not supported by LHa..
