@@ -157,6 +157,7 @@ typedef struct LzHeader
     unsigned char   extend_type;
 	
 	// keep offset of data in file for locating later..
+	long            header_pos;
 	long            data_pos;
 
 	// MS-DOS attribute-flags

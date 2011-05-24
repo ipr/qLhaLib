@@ -47,6 +47,12 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
 		m_get_ptr_end = (char*)m_pReadBuffer->GetEnd();
 		
+		long lHeaderPos = 0;
+		if (ArchiveFile.Tell(lHeaderPos) == false)
+		{
+			throw IOException("Failure getting current position");
+		}
+		
 		int end_mark = getc((FILE*)ArchiveFile);
 		if (end_mark == EOF || end_mark == 0) 
 		{
@@ -62,7 +68,8 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		
 		LzHeader *pHeader = new LzHeader();
 		m_HeaderList.push_back(pHeader);
-		
+
+		pHeader->header_pos = lHeaderPos;
 		bool bRet = false;
 		switch (m_get_ptr[I_HEADER_LEVEL]) 
 		{
@@ -343,7 +350,8 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	int checksum = 0;
 
     pHeader->size_field_length = 2; /* in bytes */
-    pHeader->header_size = header_size = get_byte();
+	header_size = get_byte();
+    pHeader->header_size = header_size;
     checksum = get_byte();
 	
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -458,7 +466,8 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	int checksum = 0;
 
     pHeader->size_field_length = 2; /* in bytes */
-    pHeader->header_size = header_size = get_byte();
+	header_size = get_byte();
+    pHeader->header_size = header_size;
 	checksum = get_byte();
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -547,7 +556,8 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     size_t header_size;
 
     pHeader->size_field_length = 2; /* in bytes */
-    pHeader->header_size = header_size = get_word();
+	header_size = get_word();
+    pHeader->header_size = header_size;
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
@@ -641,10 +651,9 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->has_crc = true;
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
-    //pHeader->header_size = header_size = get_longword();
-    pHeader->header_size = get_longword();
 	
-    size_t header_size = pHeader->header_size;
+    size_t header_size = get_longword();
+    pHeader->header_size = header_size;
     size_t extend_size = get_longword();
 
     unsigned int hcrc = 0;
