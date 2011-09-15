@@ -1,0 +1,6 @@
+List of currently known bugs:
+* extraction sometimes fails in decoding/decompression
+ - some kind of initialization failure
+ - possibly some offset is a little off and invalid data is loaded to initialize decoding tables
+ - most likely Lha-header handling is the problem here, bug somewhere in what I've done to it..
+
