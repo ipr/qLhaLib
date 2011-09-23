@@ -109,8 +109,6 @@ public:
 	// allocate or grow if necessary
 	void PrepareBuffer(const size_t nMinSize, bool bKeepData = true)
 	{
-		m_nCurrentPos = 0;
-		
 		if (m_pReadBuffer == nullptr
 			|| m_nReadBufferSize == 0)
 		{
@@ -146,6 +144,7 @@ public:
 		{
 			// otherwise just clear existing (keep existing)
 			::memset(m_pReadBuffer, 0, m_nReadBufferSize);
+			m_nCurrentPos = 0;
 		}
 	}
 
