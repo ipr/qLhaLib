@@ -109,6 +109,8 @@ public:
 	// allocate or grow if necessary
 	void PrepareBuffer(const size_t nMinSize, bool bKeepData = true)
 	{
+		m_nCurrentPos = 0;
+		
 		if (m_pReadBuffer == nullptr
 			|| m_nReadBufferSize == 0)
 		{
@@ -165,6 +167,14 @@ public:
 	// reduce repeated code -> count to given offset from start
 	unsigned char *GetAt(const size_t nOffset)
 	{
+#ifdef _DEBUG
+		// debug-case, access beyond buffer
+		if (m_nReadBufferSize <= nOffset)
+		{
+			return nullptr;
+		}
+#endif
+	
 		return m_pReadBuffer + nOffset;
 	}
 	
@@ -188,11 +198,13 @@ public:
 	
 	// helpers for read/write single character:
 	// use instead of direct-IO
-	unsigned char GetNext()
+	unsigned char GetNextByte()
 	{
-		return (*(GetAt(m_nCurrentPos++)));
+		unsigned char *pBuf = GetAt(m_nCurrentPos);
+		m_nCurrentPos++;
+		return (*pBuf);
 	}
-	void SetNext(const unsigned char ucValue)
+	void SetNextByte(const unsigned char ucValue)
 	{
 		unsigned char *pBuf = GetAt(m_nCurrentPos);
 		(*pBuf) = ucValue;

@@ -168,17 +168,17 @@ unsigned short CLhDecodeLz5::DecodeC()
     if (flagcnt == 0) 
 	{
         flagcnt = 8;
-		flag = m_BitIo.m_pReadBuf->GetNext();
+		flag = m_BitIo.m_pReadBuf->GetNextByte();
     }
 	
     flagcnt--;
 	
-	c = m_BitIo.m_pReadBuf->GetNext();
+	c = m_BitIo.m_pReadBuf->GetNextByte();
     if ((flag & 1) == 0) 
 	{
         m_matchpos = c;
 
-		c = m_BitIo.m_pReadBuf->GetNext();
+		c = m_BitIo.m_pReadBuf->GetNextByte();
 		
         m_matchpos += (c & 0xf0) << 4;
         c &= 0x0f;

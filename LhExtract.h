@@ -49,10 +49,10 @@ protected:
 	
 	tHuffBits GetDictionaryBits(const tCompressionMethod enMethod);
 
-	unsigned int ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
-	
-	unsigned int ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile);
+	unsigned int ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	unsigned int ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 
+	bool ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	
 public:
     CLhExtract(QObject *parent = 0)
@@ -79,7 +79,9 @@ public:
 		m_mapDecoders.clear();
 	}
 
-	void ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	void ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+	void ToUserBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray);
+	void Test(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 
 	QString GetExtractPath();
 	QString GetExtractPathToFile(QString &szFilename);

@@ -31,8 +31,9 @@
 #define METHOD_TYPE_STORAGE     5
 
 
-typedef struct LzHeader 
+class LzHeader 
 {
+public:
 	// constructor
 	LzHeader()
 	{
@@ -40,6 +41,8 @@ typedef struct LzHeader
 		   but need set for empty files */
 		memcpy(method, LZHUFF0_METHOD, METHOD_TYPE_STORAGE);
 
+        m_enCompression = LZ_UNKNOWN;
+        
 		header_size = 0;
 		extend_size = 0;
 		size_field_length = 0;
@@ -64,6 +67,8 @@ typedef struct LzHeader
 	
     char            method[METHOD_TYPE_STORAGE];
 	//QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
+    
+    tCompressionMethod m_enCompression;
 	
     size_t          packed_size;
     size_t          original_size;
@@ -172,8 +177,7 @@ typedef struct LzHeader
 		// unknown/unsupported
 		return LZ_UNKNOWN;
 	}
-	
-}  LzHeader;
+};
 
 
 // indices of values of header in file

@@ -168,7 +168,7 @@ bool CLhArchive::Extract()
 		// decode from archive to output..
 		// give parsed metadata and prepared output also
 		//
-		m_pExtraction->ExtractFile(ArchiveFile, pHeader);
+		m_pExtraction->ToFile(ArchiveFile, pHeader);
 		
 		++it;
 	}
@@ -177,9 +177,9 @@ bool CLhArchive::Extract()
 }
 
 // extract single file from archive to user-buffer
-/*
-bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArray)
+bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 {
+	/*
 	// lookup each entry of file
 	CAnsiFile ArchiveFile;
 	
@@ -206,14 +206,26 @@ bool CLhArchive::ExtractToCallerBuffer(QString &szFileEntry, QByteArray &outArra
 			continue;
 		}
 		
+		// is wanted?
+		//break;
+		
 		++it;
 	}
+	*/
+
+	/*	
+	if (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		m_pExtraction->ToUserBuffer(ArchiveFile, pHeader);
+	}
+	*/
+	
 	
 	// throw exception instead? (user-input was crap -> not our fault)
 	emit warning(QString("file %1 was not found").arg(szFileEntry));
 	return false;
 }
-*/
 
 bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
@@ -268,8 +280,46 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 	return true;
 }
 
+// test archive without writing out
+// (simulate extraction)
 bool CLhArchive::Test()
 {
-	return false;
+	// same instance, called again
+	// TODO: need better way to check when reopening same (unchanged) file
+	Clear();
+	
+	// lookup each entry of file
+	CAnsiFile ArchiveFile;
+
+	// open and list contents
+	SeekContents(ArchiveFile);
+
+	// decode each file from archive
+	//
+	auto it = m_pHeaders->m_HeaderList.begin();
+	auto itEnd = m_pHeaders->m_HeaderList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+
+		emit message(QString("Testing.. ").append(pHeader->filename));
+		
+		// if it's directory-entry -> nothing more to do here
+		// (usually has -lhd- compression method for "store only"?)
+		if (pHeader->UnixMode.IsDirectory() == true)
+		{
+			++it;
+			continue;
+		}
+		
+		// decode from archive to output..
+		// give parsed metadata and prepared output also
+		//
+		m_pExtraction->Test(ArchiveFile, pHeader);
+		
+		++it;
+	}
+	
+	return true;
 }
 

@@ -43,7 +43,7 @@ public:
 	        if (compsize != 0) 
 			{
 	            compsize--;
-				subbitbuf = m_pReadBuf->GetNext();
+				subbitbuf = m_pReadBuf->GetNextByte();
 	        }
 	        else
 			{

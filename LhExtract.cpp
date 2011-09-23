@@ -99,17 +99,13 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod)
 // -lh1- .. -lh7-, -lzs-, -lz5-
 // -> different decoders and variations needed
 //
-unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
+unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
 	CLhDecoder *pDecoder = GetDecoder(m_Compression);
 	if (pDecoder == nullptr)
 	{
 		throw ArcException("Unknown/unsupported compression", m_Compression);
 	}
-	
-	// prepare enough in buffers, zero them also
-	m_ReadBuf.PrepareBuffer(pHeader->packed_size, false);
-	m_WriteBuf.PrepareBuffer(pHeader->original_size, false);
 	
 	if (ArchiveFile.Read(m_ReadBuf.GetBegin(), pHeader->packed_size) == false)
 	{
@@ -129,12 +125,6 @@ unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader
 	
 	pDecoder->DecodeFinish();
 
-	// write to output upto what is collected in write-buffer
-	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
-	{
-		throw IOException("Failed writing output");
-	}
-
 	return pDecoder->GetCrc();
 }
 
@@ -142,15 +132,14 @@ unsigned int CLhExtract::ExtractDecode(CAnsiFile &ArchiveFile, LzHeader *pHeader
 // -lh0-, -lhd- and -lz4- 
 // -> no compression -> "as-is"
 //
-unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader, CAnsiFile &OutFile)
+unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
 	// no compression, just copy to output
 	
-	// check we have enough buffer for reading in chunks
-	m_ReadBuf.PrepareBuffer(4096, false);
-	
 	unsigned int uiFileCrc = 0;
 	size_t nToWrite = pHeader->original_size;
+	
+	// TODO: just read entirely at once and remove this looping..
 	while (nToWrite > 0)
 	{
 		size_t read_size = nToWrite;
@@ -167,11 +156,9 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 		// update crc
 		uiFileCrc = m_crcio.calccrc(uiFileCrc, m_ReadBuf.GetBegin(), read_size);
 		
-		// write output
-		if (OutFile.Write(m_ReadBuf.GetBegin(), read_size) == false)
-		{
-			throw IOException("Failed writing output");
-		}
+		// copy to output-buffer as-is for writing to file when ready
+		m_WriteBuf.Append(m_ReadBuf.GetBegin(), read_size);
+		
 		nToWrite -= read_size;
 	}
 	
@@ -179,14 +166,7 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 	return uiFileCrc;
 }
 
-
-/////// public methods
-
-
-// decode data from archive and write to prepared output file,
-// use given metadata as help..
-//
-void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
 	QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
 	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
@@ -204,28 +184,19 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		// just make directories and no actual files:
 		// -lhd- is just directory-entry in file-list
 		// and not actual file (make path only)
-		return;
+		return false;
 	}
 
-	// check line-ending&combine
-	QString szTempPath = GetExtractPathToFile(pHeader->filename);
-	
-	CAnsiFile OutFile;
-	if (OutFile.Open(szTempPath.toStdString(), true) == false)
-	{
-		throw ArcException("Failed creating file for writing", szTempPath.toStdString());
-	}
-	
-	// TODO: verify offset by what was actually read for header..
-	// count new offset, see if that is different..
-	size_t nDataOffset = pHeader->header_pos + pHeader->header_size;
-	
 	// seek in archive where data for this entry begins..
 	//
 	if (ArchiveFile.Seek(pHeader->data_pos, SEEK_SET) == false)
 	{
 		throw IOException("Failure seeking entry data");
 	}
+
+	// prepare enough in buffers, zero them also
+	m_ReadBuf.PrepareBuffer(pHeader->packed_size, false);
+	m_WriteBuf.PrepareBuffer(pHeader->original_size, false);
 	
 	unsigned int uiFileCrc = 0;
 	
@@ -236,7 +207,7 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		// no compression, just copy to output
 		// (-lh0-, -lhd- and -lz4-)
 		
-		uiFileCrc = ExtractNoCompression(ArchiveFile, pHeader, OutFile);
+		uiFileCrc = ExtractNoCompression(ArchiveFile, pHeader);
 		
 		// file done
 	}
@@ -244,15 +215,9 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	{
 		// LZ decoding: need decoder for the method
 		//
-		uiFileCrc = ExtractDecode(ArchiveFile, pHeader, OutFile);
+		uiFileCrc = ExtractDecode(ArchiveFile, pHeader);
 
 		// file done
-	}
-	
-	// flush to disk (whatever we may have..)
-	if (OutFile.Flush() == false)
-	{
-		throw IOException("Failed flushing output");
 	}
 	
 	// verify CRC: exception if not match (keep decoded anyway..)
@@ -260,13 +225,72 @@ void CLhExtract::ExtractFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	{
 		throw ArcException("CRC error on extract", pHeader->filename.toStdString());
 	}
+	return true;
+}
+
+
+/////// public methods
+
+
+// decode data from archive and write to prepared output file,
+// use given metadata as help..
+//
+void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+	if (ExtractFileFromArchive(ArchiveFile, pHeader) == false)
+	{
+		// nothing to write:
+		// link/directory with no data (handled separately)
+		return;
+	}
+
+	// check line-ending&combine
+	QString szTempPath = GetExtractPathToFile(pHeader->filename);
+
+	// open file for writing	
+	CAnsiFile OutFile;
+	if (OutFile.Open(szTempPath.toStdString(), true) == false)
+	{
+		throw ArcException("Failed creating file for writing", szTempPath.toStdString());
+	}
+	
+	// write to output upto what is collected in write-buffer
+	if (OutFile.Write(m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos()) == false)
+	{
+		throw IOException("Failed writing output");
+	}
+	
+	// flush to disk (whatever we may have..)
+	if (OutFile.Flush() == false)
+	{
+		throw IOException("Failed flushing output");
+	}
 }
 
 // decode&extract single file from archive to user-buffer
 //
-/*
-//bool CLhExtract::ExtractToBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
-*/
+void CLhExtract::ToUserBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
+{
+	// extract into buffer, don't write to file
+	if (ExtractFileFromArchive(ArchiveFile, pHeader) == false)
+	{
+		// directory/link entry, no data
+		// -> nothing to output
+		return;
+	}
+	
+	// copy to user buffer
+	//outArray.reserve(m_WriteBuf.
+	//outArray.copy
+}
+
+// only test extraction, no file-output, just internal buffers
+//
+void CLhExtract::Test(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+	// try extract into buffer, don't write to file
+	ExtractFileFromArchive(ArchiveFile, pHeader);
+}
 
 QString CLhExtract::GetExtractPath()
 {
