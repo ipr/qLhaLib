@@ -106,11 +106,21 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			throw IOException("Failure getting current position");
 		}
 		
+		// parse method-string to enum now..
+		pHeader->m_enCompression = pHeader->GetMethod();
+		
+
+		// temp, make more generic handling..
+	    if (pHeader->extend_type == EXTEND_UNIX)
+	    {
+			//pHeader->UnixMode.ParseMode(pHeader->
+	    }
+		
 		// fix path-names
 		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
 		
-		if (pHeader->UnixMode.IsSymLink() == true) 
+		if (pHeader->UnixMode.isSymlink) 
 		{
 			/* hdr->name is symbolic link name */
 			/* hdr->realname is real name */
@@ -233,7 +243,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			break;
         case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
-            pHeader->UnixMode.unix_mode = get_word();
+            pHeader->UnixMode.ParseMode(get_word());
             break;
         case EXTH_UNIXGIDUID:
             /* UNIX gid and uid */
@@ -371,13 +381,18 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
 	CGenericTime gtStamp(get_longword());
     pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
+    
+    // TODO: in some cases (Amiga-packed) there is filecomment
+    // also in same string, we should somehow separate those to base-name and comment..
+    //
     int name_length = get_byte();
     pHeader->filename = get_string(name_length);
 
@@ -413,7 +428,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		{
             pHeader->minor_version = get_byte();
             pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
-            pHeader->UnixMode.unix_mode = get_word();
+            pHeader->UnixMode.ParseMode(get_word());
             pHeader->unix_uid = get_word();
             pHeader->unix_gid = get_word();
             extend_size -= 11;
@@ -485,7 +500,8 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
 	CGenericTime gtStamp(get_longword());
@@ -567,7 +583,8 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
@@ -641,7 +658,8 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_longword());

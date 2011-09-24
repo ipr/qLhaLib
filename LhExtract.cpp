@@ -168,15 +168,16 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 
 bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-	QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
-	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
+	//QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
+	//emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
+	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(pHeader->pack_method));
 	
-	// determine decoding method
-	m_Compression = pHeader->GetMethod();
+	// check decoding method (if supported/directory only)
+	m_Compression = pHeader->m_enCompression;
 	if (m_Compression == LZ_UNKNOWN)
 	{
 		// unknown/unsupported method
-		throw ArcException("Unknown/unsupported compression", szMethod.toStdString());
+		throw ArcException("Unknown/unsupported compression", pHeader->pack_method.toStdString());
 	}
 	
 	if (m_Compression == LZHDIRS_METHOD_NUM)

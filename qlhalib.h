@@ -126,7 +126,7 @@ public:
 			, m_szFileName()
 			//, m_szPathName()
 			, m_szPackMode()
-			//, m_szComment()
+			, m_szComment()
 		{
 		}
 	
@@ -160,8 +160,9 @@ public:
 		// -l??- string, e.g. '-lh5-', '-lz0-'
 		QString m_szPackMode;
 		
-		// uncompressed file-comment from archive (if any)
-		//QString m_szComment;
+		// file-related comment from archive (if any)
+		// (usually in Amiga-packed files)
+		QString m_szComment;
 	};
 	
 	// simplest way to list all files in archive for caller

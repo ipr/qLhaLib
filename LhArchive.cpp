@@ -153,7 +153,7 @@ bool CLhArchive::Extract()
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
-		if (pHeader->UnixMode.IsDirectory() == true)
+		if (pHeader->UnixMode.isDir)
 		{
 			// make directory only
 			CPathHelper::MakePath(szTempPath.toStdString());
@@ -195,7 +195,7 @@ bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 	{
 		LzHeader *pHeader = (*it);
 		
-		if (pHeader->UnixMode.IsDirectory() == true)
+		if (pHeader->UnixMode.isDir)
 		{
 			if (pHeader->filename == szFileEntry)
 			{
@@ -249,7 +249,7 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		LzHeader *pHeader = (*it);
 		
 		// if it's directory-entry -> nothing more to do here
-		if (pHeader->UnixMode.IsDirectory() == true)
+		if (pHeader->UnixMode.isDir)
 		{
 			++it;
 			continue;
@@ -263,8 +263,9 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_ucHeaderLevel = pHeader->header_level;
 		Entry.m_ulPackedSize = pHeader->packed_size;
 		Entry.m_ulUnpackedSize = pHeader->original_size;
-		Entry.m_szPackMode = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
+		Entry.m_szPackMode = pHeader->pack_method;
 		Entry.m_Stamp = pHeader->last_modified_stamp;
+		Entry.m_szComment = pHeader->file_comment;
 		
 		// attributes? which ones?
 		// unix/msdos? not always both..
@@ -306,7 +307,7 @@ bool CLhArchive::Test()
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
-		if (pHeader->UnixMode.IsDirectory() == true)
+		if (pHeader->UnixMode.isDir)
 		{
 			++it;
 			continue;

@@ -37,10 +37,6 @@ public:
 	// constructor
 	LzHeader()
 	{
-		/* the `method' member is rewrote by the encoding function.
-		   but need set for empty files */
-		memcpy(method, LZHUFF0_METHOD, METHOD_TYPE_STORAGE);
-
         m_enCompression = LZ_UNKNOWN;
         
 		header_size = 0;
@@ -65,10 +61,8 @@ public:
 	size_t          extend_size; // size extended-header (if any)
     int             size_field_length; // "size" variable may have different sizes??
 	
-    char            method[METHOD_TYPE_STORAGE];
-	//QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
-    
-    tCompressionMethod m_enCompression;
+	QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
+    tCompressionMethod m_enCompression; // enumeration of supported types
 	
     size_t          packed_size;
     size_t          original_size;
@@ -76,6 +70,8 @@ public:
 	QString         filename;
 	QString         dirname;
 	QString         realname; // real name for symbolic link (unix)
+	
+	QString			file_comment; // usually Amiga-packed files have comment also
 
 	// note: only 16-bit crc..
     unsigned int    crc;      /* file CRC */
@@ -107,15 +103,7 @@ public:
 	QString         user;
 	QString         group;
 
-	bool IsMethod(char Method[METHOD_TYPE_STORAGE])
-	{
-		if (memcmp(method, Method, METHOD_TYPE_STORAGE) == 0)
-		{
-			return true;
-		}
-		return false;
-	}
-	
+
 	// get suitable method for extraction:
 	// check string if it is supported.
 	//
@@ -124,55 +112,64 @@ public:
 	tCompressionMethod GetMethod()
 	{
 		// TODO: simplify, even this list does not include all types..
+		//
+		// removed defines for future changes,
+		// rest of changes later..
+		// until then, this is only place still using string-compare for method..
 		
-		if (IsMethod(LZHUFF0_METHOD) == true)
+		// -lh?-
+		if (pack_method.contains("-lh") == true
+			&& pack_method.at(4) == '-')
 		{
-			return LZHUFF0_METHOD_NUM;
+			// LZHUFF, get level..
+			const char level = pack_method.at(3).toAscii();
+			switch (level)
+			{
+			case '0':
+				return LZHUFF0_METHOD_NUM;
+			case '1':
+				return LZHUFF1_METHOD_NUM;
+			case '2':
+				return LZHUFF2_METHOD_NUM;
+			case '3':
+				return LZHUFF3_METHOD_NUM;
+			case '4':
+				return LZHUFF4_METHOD_NUM;
+			case '5':
+				return LZHUFF5_METHOD_NUM;
+			case '6':
+				return LZHUFF6_METHOD_NUM;
+			case '7':
+				return LZHUFF7_METHOD_NUM;
+			}
+			// fallthrough..
 		}
-		else if (IsMethod(LZHUFF1_METHOD) == true)
-		{
-			return LZHUFF1_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF2_METHOD) == true)
-		{
-			return LZHUFF2_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF3_METHOD) == true)
-		{
-			return LZHUFF3_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF4_METHOD) == true)
-		{
-			return LZHUFF4_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF5_METHOD) == true)
-		{
-			return LZHUFF5_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF6_METHOD) == true)
-		{
-			return LZHUFF6_METHOD_NUM;
-		}
-		else if (IsMethod(LZHUFF7_METHOD) == true)
-		{
-			return LZHUFF7_METHOD_NUM;
-		}
-		else if (IsMethod(LARC_METHOD) == true)
+		else if (pack_method == "-lzs-")
 		{
 			return LARC_METHOD_NUM;
 		}
-		else if (IsMethod(LARC5_METHOD) == true)
+		else if (pack_method == "-lz5-")
 		{
 			return LARC5_METHOD_NUM;
 		}
-		else if (IsMethod(LARC4_METHOD) == true)
+		else if (pack_method == "-lz4-")
 		{
 			return LARC4_METHOD_NUM;
 		}
-		else if (IsMethod(LZHDIRS_METHOD) == true)
+		else if (pack_method == "-lhd-")
 		{
 			return LZHDIRS_METHOD_NUM;
 		}
+
+		//		
+		// methods not listed in japanese-version:
+		// -lh8-, -lh9-, -lha-, -lhb-, -lhc-, -lhe- (Joe Jared extensions)
+		// -lhx- (UNLHA32)
+		// -pc1-, -pm0-, -pm1-, -pm2-, -pms- (CP/M)
+		// -lz2-, -lz3-, -lz7-, -lz8- (LArc extensions)
+		//
+		// -> check code compatibility and add support?
+		//
 		
 		// unknown/unsupported
 		return LZ_UNKNOWN;
@@ -313,23 +310,7 @@ private:
 		// -> convert to common '/' or '\\'
 		// note: not null-terminated..
 
-		/*		
-		QByteArray arr(m_get_ptr, len);
-		auto it = arr.begin();
-		auto itEnd = arr.end();
-		while (it != itEnd)
-		{
-			// note: force correct compare (char-to-char)
-			if ((*it) == LHA_PATHSEP)
-			{
-				(*it) = '/';
-			}
-			++it;
-		}
-		return QString(arr);
-		*/
-		
-		// TODO: replace with above: may cause crc-errors..?
+		/* moved -> caller should handle..
 		for (int i = 0; i < len; i++)
 		{
 			// note: force correct compare (char-to-char)
@@ -338,6 +319,11 @@ private:
 				m_get_ptr[i] = '/';
 			}
 		}
+		*/
+		
+		// for debugging, check wtf is the separator..
+		//
+		char *pString = m_get_ptr;
 		
 		QString szVal;
 		if (m_pTextCodec == nullptr)
