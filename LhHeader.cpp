@@ -146,6 +146,394 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 
 
 /*
+ * level 0 header
+ *
+ *
+ * offset  size  field name
+ * ----------------------------------
+ *     0      1  header size    [*1]
+ *     1      1  header sum
+ *            ---------------------------------------
+ *     2      5  method ID                         ^
+ *     7      4  packed size    [*2]               |
+ *    11      4  original size                     |
+ *    15      2  time                              |
+ *    17      2  date                              |
+ *    19      1  attribute                         | [*1] header size (X+Y+22)
+ *    20      1  level (0x00 fixed)                |
+ *    21      1  name length                       |
+ *    22      X  pathname                          |
+ * X +22      2  file crc (CRC-16)                 |
+ * X +24      Y  ext-header(old style)             v
+ * -------------------------------------------------
+ * X+Y+24        data                              ^
+ *                 :                               | [*2] packed size
+ *                 :                               v
+ * -------------------------------------------------
+ *
+ * ext-header(old style)
+ *     0      1  ext-type ('U')
+ *     1      1  minor version
+ *     2      4  UNIX time
+ *     6      2  mode
+ *     8      2  uid
+ *    10      2  gid
+ *
+ * attribute (MS-DOS)
+ *    bit1  read only
+ *    bit2  hidden
+ *    bit3  system
+ *    bit4  volume label
+ *    bit5  directory
+ *    bit6  archive bit (need to backup)
+ *
+ */
+bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+    pHeader->size_field_length = 2; /* in bytes */
+	
+	size_t header_size = get_byte();
+    int checksum = get_byte();
+    pHeader->header_size = header_size +2;
+	
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
+
+    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
+	{
+		throw ArcException("Invalid header (LHarc file ?)", header_size);
+    }
+
+    if (calc_sum(pBuf + I_METHOD, header_size) != checksum)
+	{
+		throw ArcException("Checksum error (LHarc file?)", checksum);
+    }
+
+	// there's size to it given so use it
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->packed_size = get_longword();
+    pHeader->original_size = get_longword();
+	CGenericTime gtStamp(get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
+    pHeader->header_level = get_byte();
+    
+    int name_length = get_byte(); // keep full length
+
+    // Note: in some cases (Amiga-packed) there is filecomment
+    // also in same string (separated by NULL), 
+    // read upto given length and into two strings.
+    //
+	// read at max. given length, stop on NULL if found:
+	// check what remains (if any)
+    int read_name_len = getStringToNULL(name_length, pHeader->filename);
+    if (read_name_len < name_length)
+    {
+		int null = get_byte(); // read null byte..
+		read_name_len += 1;
+		
+		// read remaining part to file comment
+		read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
+		if (read_name_len != name_length)
+		{
+			// if we did not read enough our offsets may be wrong afterwards..
+			throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
+		}
+	}
+
+    long extend_size = header_size+2 - name_length - 24;
+    if (extend_size < 0) 
+	{
+        if (extend_size == -2) 
+		{
+            /* CRC field is not given */
+            pHeader->extend_type = EXTEND_GENERIC;
+            pHeader->has_crc = false;
+            return true;
+        } 
+
+		throw ArcException("Unknown header (lha file?)", extend_size);
+    }
+
+    pHeader->has_crc = true;
+    pHeader->crc = get_word();
+
+    if (extend_size == 0)
+	{
+        return true;
+	}
+
+    pHeader->extend_type = get_byte();
+    extend_size--;
+
+    if (pHeader->extend_type == EXTEND_UNIX) 
+	{
+        if (extend_size >= 11) 
+		{
+            pHeader->minor_version = get_byte();
+            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+            pHeader->UnixMode.ParseMode(get_word());
+            pHeader->unix_uid = get_word();
+            pHeader->unix_gid = get_word();
+            extend_size -= 11;
+        } 
+		else 
+		{
+            pHeader->extend_type = EXTEND_GENERIC;
+        }
+    }
+    if (extend_size > 0)
+	{
+        skip_bytes(extend_size);
+	}
+
+    pHeader->header_size += 2;
+    return true;
+}
+
+
+/*
+ * level 1 header
+ *
+ *
+ * offset   size  field name
+ * -----------------------------------
+ *     0       1  header size   [*1]
+ *     1       1  header sum
+ *             -------------------------------------
+ *     2       5  method ID                        ^
+ *     7       4  skip size     [*2]               |
+ *    11       4  original size                    |
+ *    15       2  time                             |
+ *    17       2  date                             |
+ *    19       1  attribute (0x20 fixed)           | [*1] header size (X+Y+25)
+ *    20       1  level (0x01 fixed)               |
+ *    21       1  name length                      |
+ *    22       X  filename                         |
+ * X+ 22       2  file crc (CRC-16)                |
+ * X+ 24       1  OS ID                            |
+ * X +25       Y  ???                              |
+ * X+Y+25      2  next-header size                 v
+ * -------------------------------------------------
+ * X+Y+27      Z  ext-header                       ^
+ *                 :                               |
+ * -----------------------------------             | [*2] skip size
+ * X+Y+Z+27       data                             |
+ *                 :                               v
+ * -------------------------------------------------
+ *
+ */
+bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+    pHeader->size_field_length = 2; /* in bytes */
+	
+	size_t header_size = get_byte();
+	int checksum = get_byte();
+    pHeader->header_size = header_size +2;
+
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
+	
+    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
+	{
+		throw ArcException("Invalid header (LHarc file ?)", header_size);
+    }
+
+    if (calc_sum(pBuf + I_METHOD, header_size) != checksum) 
+	{
+		throw ArcException("Checksum error (LHarc file?)", checksum);
+    }
+
+	// there's size to it given so use it
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->packed_size = get_longword(); /* skip size */
+    pHeader->original_size = get_longword();
+	CGenericTime gtStamp(get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
+    pHeader->header_level = get_byte();
+
+    int name_length = get_byte();
+    pHeader->filename = get_string(name_length);
+
+    /* defaults for other type */
+    pHeader->has_crc = true;
+    pHeader->crc = get_word();
+    pHeader->extend_type = get_byte();
+
+    int dummy = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE;
+    if (dummy > 0)
+	{
+        skip_bytes(dummy); /* skip old style extend header */
+	}
+
+	pHeader->extend_size = get_word();
+    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, 0);
+    if (extend_size == -1)
+	{
+        return false;
+	}
+
+    /* On level 1 header, size fields should be adjusted. */
+    /* the `packed_size' field contains the extended header size. */
+    /* the `header_size' field does not. */
+    pHeader->packed_size -= extend_size;
+    pHeader->header_size += extend_size + 2;
+
+    return true;
+}
+
+/*
+ * level 2 header
+ *
+ *
+ * offset   size  field name
+ * --------------------------------------------------
+ *     0       2  total header size [*1]           ^
+ *             -----------------------             |
+ *     2       5  method ID                        |
+ *     7       4  packed size       [*2]           |
+ *    11       4  original size                    |
+ *    15       4  time                             |
+ *    19       1  RESERVED (0x20 fixed)            | [*1] total header size
+ *    20       1  level (0x02 fixed)               |      (X+26+(1))
+ *    21       2  file crc (CRC-16)                |
+ *    23       1  OS ID                            |
+ *    24       2  next-header size                 |
+ * -----------------------------------             |
+ *    26       X  ext-header                       |
+ *                 :                               |
+ * -----------------------------------             |
+ * X +26      (1) padding                          v
+ * -------------------------------------------------
+ * X +26+(1)      data                             ^
+ *                 :                               | [*2] packed size
+ *                 :                               v
+ * -------------------------------------------------
+ *
+ */
+bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+    pHeader->size_field_length = 2; /* in bytes */
+	
+	pHeader->header_size = get_word();
+
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
+	
+    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL2_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
+	{
+		throw ArcException("Invalid header (LHarc file ?)", pHeader->header_size);
+    }
+
+	// there's size to it given so use it
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->packed_size = get_longword();
+    pHeader->original_size = get_longword();
+    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
+    pHeader->header_level = get_byte();
+
+    /* defaults for other type */
+    pHeader->has_crc = true;
+    pHeader->crc = get_word();
+    pHeader->extend_type = get_byte();
+    pHeader->extend_size = get_word();
+
+    unsigned int hcrc = 0;
+    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
+
+    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, &hcrc);
+    if (extend_size == -1)
+	{
+        return false;
+	}
+
+    int padding = (pHeader->header_size - I_LEVEL2_HEADER_SIZE - extend_size);
+	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
+
+    if (pHeader->header_crc != hcrc)
+	{
+		throw ArcException("header CRC error", hcrc);
+	}
+
+    return true;
+}
+
+/*
+ * level 3 header
+ *
+ *
+ * offset   size  field name
+ * --------------------------------------------------
+ *     0       2  size field length (4 fixed)      ^
+ *     2       5  method ID                        |
+ *     7       4  packed size       [*2]           |
+ *    11       4  original size                    |
+ *    15       4  time                             |
+ *    19       1  RESERVED (0x20 fixed)            | [*1] total header size
+ *    20       1  level (0x03 fixed)               |      (X+32)
+ *    21       2  file crc (CRC-16)                |
+ *    23       1  OS ID                            |
+ *    24       4  total header size [*1]           |
+ *    28       4  next-header size                 |
+ * -----------------------------------             |
+ *    32       X  ext-header                       |
+ *                 :                               v
+ * -------------------------------------------------
+ * X +32          data                             ^
+ *                 :                               | [*2] packed size
+ *                 :                               v
+ * -------------------------------------------------
+ *
+ */
+bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
+{
+    pHeader->size_field_length = get_word();
+    pHeader->header_size = COMMON_HEADER_SIZE + I_LEVEL3_HEADER_SIZE;
+
+	unsigned char *pBuf = m_pReadBuffer->GetBegin();
+	
+    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL3_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
+	{
+		throw ArcException("Invalid header (LHarc file ?)", pHeader->header_size);
+    }
+
+	// there's size to it given so use it
+    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->packed_size = get_longword();
+    pHeader->original_size = get_longword();
+    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
+    pHeader->header_level = get_byte();
+
+    /* defaults for other type */
+    pHeader->has_crc = true;
+    pHeader->crc = get_word();
+    pHeader->extend_type = get_byte();
+	
+    pHeader->header_size = get_longword();
+    pHeader->extend_size = get_longword();
+
+    unsigned int hcrc = 0;
+    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
+
+    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, &hcrc);
+    if (extend_size == -1)
+	{
+        return false;
+	}
+
+    int padding = (pHeader->header_size - I_LEVEL3_HEADER_SIZE - extend_size);
+	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
+
+    if (pHeader->header_crc != hcrc)
+	{
+		throw ArcException("header CRC error", hcrc);
+	}
+
+    return true;
+}
+
+
+/*
  * extended header
  *
  *             size  field name
@@ -178,7 +566,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	}
 
 	// clear or allocate larger if necessary
-	m_pReadBuffer->PrepareBuffer(extend_size, false);
+	m_pReadBuffer->PrepareBuffer(pHeader->extend_size, false);
 	
     while (extend_size) 
 	{
@@ -317,384 +705,6 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
     return whole_size;
 }
 
-
-/*
- * level 0 header
- *
- *
- * offset  size  field name
- * ----------------------------------
- *     0      1  header size    [*1]
- *     1      1  header sum
- *            ---------------------------------------
- *     2      5  method ID                         ^
- *     7      4  packed size    [*2]               |
- *    11      4  original size                     |
- *    15      2  time                              |
- *    17      2  date                              |
- *    19      1  attribute                         | [*1] header size (X+Y+22)
- *    20      1  level (0x00 fixed)                |
- *    21      1  name length                       |
- *    22      X  pathname                          |
- * X +22      2  file crc (CRC-16)                 |
- * X +24      Y  ext-header(old style)             v
- * -------------------------------------------------
- * X+Y+24        data                              ^
- *                 :                               | [*2] packed size
- *                 :                               v
- * -------------------------------------------------
- *
- * ext-header(old style)
- *     0      1  ext-type ('U')
- *     1      1  minor version
- *     2      4  UNIX time
- *     6      2  mode
- *     8      2  uid
- *    10      2  gid
- *
- * attribute (MS-DOS)
- *    bit1  read only
- *    bit2  hidden
- *    bit3  system
- *    bit4  volume label
- *    bit5  directory
- *    bit6  archive bit (need to backup)
- *
- */
-bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
-{
-    pHeader->size_field_length = 2; /* in bytes */
-	
-	size_t header_size = get_byte();
-    int checksum = get_byte();
-    pHeader->header_size = header_size +2;
-	
-	unsigned char *pBuf = m_pReadBuffer->GetBegin();
-
-    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
-	{
-		throw ArcException("Invalid header (LHarc file ?)", header_size);
-    }
-
-    if (calc_sum(pBuf + I_METHOD, header_size) != checksum)
-	{
-		throw ArcException("Checksum error (LHarc file?)", checksum);
-    }
-
-	// there's size to it given so use it
-    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
-    pHeader->packed_size = get_longword();
-    pHeader->original_size = get_longword();
-	CGenericTime gtStamp(get_longword());
-    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
-    pHeader->header_level = get_byte();
-    
-    // TODO: in some cases (Amiga-packed) there is filecomment
-    // also in same string, we should somehow separate those to base-name and comment..
-    //
-    int name_length = get_byte();
-    pHeader->filename = get_string(name_length);
-
-    long extend_size = header_size+2 - name_length - 24;
-    if (extend_size < 0) 
-	{
-        if (extend_size == -2) 
-		{
-            /* CRC field is not given */
-            pHeader->extend_type = EXTEND_GENERIC;
-            pHeader->has_crc = false;
-            return true;
-        } 
-
-		throw ArcException("Unknown header (lha file?)", extend_size);
-    }
-
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
-
-    if (extend_size == 0)
-	{
-        return true;
-	}
-
-    pHeader->extend_type = get_byte();
-    extend_size--;
-
-    if (pHeader->extend_type == EXTEND_UNIX) 
-	{
-        if (extend_size >= 11) 
-		{
-            pHeader->minor_version = get_byte();
-            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
-            pHeader->UnixMode.ParseMode(get_word());
-            pHeader->unix_uid = get_word();
-            pHeader->unix_gid = get_word();
-            extend_size -= 11;
-        } 
-		else 
-		{
-            pHeader->extend_type = EXTEND_GENERIC;
-        }
-    }
-    if (extend_size > 0)
-	{
-        skip_bytes(extend_size);
-	}
-
-    pHeader->header_size += 2;
-    return true;
-}
-
-
-/*
- * level 1 header
- *
- *
- * offset   size  field name
- * -----------------------------------
- *     0       1  header size   [*1]
- *     1       1  header sum
- *             -------------------------------------
- *     2       5  method ID                        ^
- *     7       4  skip size     [*2]               |
- *    11       4  original size                    |
- *    15       2  time                             |
- *    17       2  date                             |
- *    19       1  attribute (0x20 fixed)           | [*1] header size (X+Y+25)
- *    20       1  level (0x01 fixed)               |
- *    21       1  name length                      |
- *    22       X  filename                         |
- * X+ 22       2  file crc (CRC-16)                |
- * X+ 24       1  OS ID                            |
- * X +25       Y  ???                              |
- * X+Y+25      2  next-header size                 v
- * -------------------------------------------------
- * X+Y+27      Z  ext-header                       ^
- *                 :                               |
- * -----------------------------------             | [*2] skip size
- * X+Y+Z+27       data                             |
- *                 :                               v
- * -------------------------------------------------
- *
- */
-bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
-{
-    pHeader->size_field_length = 2; /* in bytes */
-	
-	size_t header_size = get_byte();
-	int checksum = get_byte();
-    pHeader->header_size = header_size +2;
-
-	unsigned char *pBuf = m_pReadBuffer->GetBegin();
-	
-    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
-	{
-		throw ArcException("Invalid header (LHarc file ?)", header_size);
-    }
-
-    if (calc_sum(pBuf + I_METHOD, header_size) != checksum) 
-	{
-		throw ArcException("Checksum error (LHarc file?)", checksum);
-    }
-
-	// there's size to it given so use it
-    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
-    pHeader->packed_size = get_longword(); /* skip size */
-    pHeader->original_size = get_longword();
-	CGenericTime gtStamp(get_longword());
-    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
-    pHeader->header_level = get_byte();
-
-    int name_length = get_byte();
-    pHeader->filename = get_string(name_length);
-
-    /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
-    pHeader->extend_type = get_byte();
-
-    int dummy = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE;
-    if (dummy > 0)
-	{
-        skip_bytes(dummy); /* skip old style extend header */
-	}
-
-    long extend_size = get_word();
-    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, 0);
-    if (extend_size == -1)
-	{
-        return false;
-	}
-
-    /* On level 1 header, size fields should be adjusted. */
-    /* the `packed_size' field contains the extended header size. */
-    /* the `header_size' field does not. */
-    pHeader->packed_size -= extend_size;
-    pHeader->header_size += extend_size + 2;
-
-    return true;
-}
-
-/*
- * level 2 header
- *
- *
- * offset   size  field name
- * --------------------------------------------------
- *     0       2  total header size [*1]           ^
- *             -----------------------             |
- *     2       5  method ID                        |
- *     7       4  packed size       [*2]           |
- *    11       4  original size                    |
- *    15       4  time                             |
- *    19       1  RESERVED (0x20 fixed)            | [*1] total header size
- *    20       1  level (0x02 fixed)               |      (X+26+(1))
- *    21       2  file crc (CRC-16)                |
- *    23       1  OS ID                            |
- *    24       2  next-header size                 |
- * -----------------------------------             |
- *    26       X  ext-header                       |
- *                 :                               |
- * -----------------------------------             |
- * X +26      (1) padding                          v
- * -------------------------------------------------
- * X +26+(1)      data                             ^
- *                 :                               | [*2] packed size
- *                 :                               v
- * -------------------------------------------------
- *
- */
-bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
-{
-    pHeader->size_field_length = 2; /* in bytes */
-	
-	size_t header_size = get_word();
-    pHeader->header_size = header_size;
-
-	unsigned char *pBuf = m_pReadBuffer->GetBegin();
-	
-    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL2_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
-	{
-		throw ArcException("Invalid header (LHarc file ?)", header_size);
-    }
-
-	// there's size to it given so use it
-    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
-    pHeader->packed_size = get_longword();
-    pHeader->original_size = get_longword();
-    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
-    pHeader->header_level = get_byte();
-
-    /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
-    pHeader->extend_type = get_byte();
-	
-    long extend_size = get_word();
-
-    unsigned int hcrc = 0;
-    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
-
-    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, &hcrc);
-    if (extend_size == -1)
-	{
-        return false;
-	}
-
-    int padding = header_size - I_LEVEL2_HEADER_SIZE - extend_size;
-	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
-
-    if (pHeader->header_crc != hcrc)
-	{
-		throw ArcException("header CRC error", hcrc);
-	}
-
-    return true;
-}
-
-/*
- * level 3 header
- *
- *
- * offset   size  field name
- * --------------------------------------------------
- *     0       2  size field length (4 fixed)      ^
- *     2       5  method ID                        |
- *     7       4  packed size       [*2]           |
- *    11       4  original size                    |
- *    15       4  time                             |
- *    19       1  RESERVED (0x20 fixed)            | [*1] total header size
- *    20       1  level (0x03 fixed)               |      (X+32)
- *    21       2  file crc (CRC-16)                |
- *    23       1  OS ID                            |
- *    24       4  total header size [*1]           |
- *    28       4  next-header size                 |
- * -----------------------------------             |
- *    32       X  ext-header                       |
- *                 :                               v
- * -------------------------------------------------
- * X +32          data                             ^
- *                 :                               | [*2] packed size
- *                 :                               v
- * -------------------------------------------------
- *
- */
-bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
-{
-    pHeader->size_field_length = get_word();
-    pHeader->header_size = COMMON_HEADER_SIZE + I_LEVEL3_HEADER_SIZE;
-
-	unsigned char *pBuf = m_pReadBuffer->GetBegin();
-	
-    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, I_LEVEL3_HEADER_SIZE - COMMON_HEADER_SIZE) == false) 
-	{
-		throw ArcException("Invalid header (LHarc file ?)", pHeader->header_size);
-    }
-
-	// there's size to it given so use it
-    //get_bytes(pHeader->method, METHOD_TYPE_STORAGE, METHOD_TYPE_STORAGE);
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
-    pHeader->packed_size = get_longword();
-    pHeader->original_size = get_longword();
-    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
-    pHeader->header_level = get_byte();
-
-    /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
-    pHeader->extend_type = get_byte();
-	
-    size_t header_size = get_longword();
-    pHeader->header_size = header_size;
-    
-    long extend_size = get_longword();
-
-    unsigned int hcrc = 0;
-    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
-
-    extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, &hcrc);
-    if (extend_size == -1)
-	{
-        return false;
-	}
-
-    int padding = header_size - I_LEVEL3_HEADER_SIZE - extend_size;
-	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
-
-    if (pHeader->header_crc != hcrc)
-	{
-		throw ArcException("header CRC error", hcrc);
-	}
-
-    return true;
-}
 
 void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize)
 {

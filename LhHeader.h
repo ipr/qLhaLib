@@ -58,7 +58,7 @@ public:
 	}
 	
     size_t          header_size;
-	size_t          extend_size; // size extended-header (if any)
+	long            extend_size; // size of extended-header (if any)
     int             size_field_length; // "size" variable may have different sizes??
 	
 	QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
@@ -305,26 +305,6 @@ private:
 	//
 	QString get_string(int len)
 	{
-		// if string if file/path
-		// and has LHA_PATHSEP
-		// -> convert to common '/' or '\\'
-		// note: not null-terminated..
-
-		/* moved -> caller should handle..
-		for (int i = 0; i < len; i++)
-		{
-			// note: force correct compare (char-to-char)
-			if (m_get_ptr[i] == LHA_PATHSEP)
-			{
-				m_get_ptr[i] = '/';
-			}
-		}
-		*/
-		
-		// for debugging, check wtf is the separator..
-		//
-		char *pString = m_get_ptr;
-		
 		QString szVal;
 		if (m_pTextCodec == nullptr)
 		{
@@ -336,6 +316,37 @@ private:
 		}
 		m_get_ptr += len;
 		return szVal;
+	}
+	
+	// get string upto NULL (if found),
+	// used in case there are filename and file-comment
+	// in same string (use them separately)
+	inline int getStringToNULL(int len, QString &string)
+	{
+		for (int i = 0; i < len; i++)
+		{
+			// if there is NULL on the string
+			// we should stop reading there:
+			// in case of filename there may be file-comment after that
+			// (such as Amiga file comment)
+			// 
+			if (m_get_ptr[i] == 0x00)
+			{
+				len = i;
+				break;
+			}
+		}
+		
+		if (m_pTextCodec == nullptr)
+		{
+			string = QString::fromAscii(m_get_ptr, len);
+		}
+		else
+		{
+			string = m_pTextCodec->toUnicode(m_get_ptr, len);
+		}
+		m_get_ptr += len;
+		return len;
 	}
 
 	CFiletimeHelper get_wintime()
@@ -523,12 +534,13 @@ signals:
 	void warning(QString);
 	
 protected:
-	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc);
-	
+
 	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
+
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc);
 	
 	void UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize);
 	

@@ -126,6 +126,7 @@ public:
 			, m_szFileName()
 			//, m_szPathName()
 			, m_szPackMode()
+			, m_extendType()
 			, m_szComment()
 		{
 		}
@@ -159,6 +160,10 @@ public:
 
 		// -l??- string, e.g. '-lh5-', '-lz0-'
 		QString m_szPackMode;
+
+		// temp, string for now..
+		// for diagnostics, show extended-header type (if errors occur)
+		QString m_extendType;
 		
 		// file-related comment from archive (if any)
 		// (usually in Amiga-packed files)
