@@ -28,7 +28,8 @@
 // misc. helper-structures for file-modes
 #include "FilemodeFlags.h"
 
-#define METHOD_TYPE_STORAGE     5
+// renamed for clarity..
+#define PACKMETHOD_TYPE_LENGTH ((int)5)
 
 
 class LzHeader 
@@ -36,21 +37,26 @@ class LzHeader
 public:
 	// constructor
 	LzHeader()
+		: m_enCompression(LZ_UNKNOWN)
+		, pack_method()
+		, header_size(0)
+		, extend_size(0)
+		, size_field_length(0)
+		, packed_size(0)
+		, original_size(0)
+		, header_level(0)
+		, header_pos(0)
+		, data_pos(0)
+		, extend_type(EXTEND_UNIX)
+		, filename()
+		, dirname()
+		, realname()
+		, file_comment()
+		, UnixMode()
 	{
-        m_enCompression = LZ_UNKNOWN;
-        
-		header_size = 0;
-		extend_size = 0;
-		size_field_length = 0;
-		
-		packed_size = 0;
-		original_size = 0;
-		header_level = 0;
-		
 		crc = 0x0000;
-		extend_type = EXTEND_UNIX;
-		
-		data_pos = 0;
+		has_crc = false;
+		header_crc = 0;
 		
 		// defaults for these
 		unix_gid = 0;
@@ -61,12 +67,13 @@ public:
 	long            extend_size; // size of extended-header (if any)
     int             size_field_length; // "size" variable may have different sizes??
 	
-	QString         pack_method; // -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
+	QString         pack_method; // method as-is from file, e.g. -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
     tCompressionMethod m_enCompression; // enumeration of supported types
 	
     size_t          packed_size;
     size_t          original_size;
-    unsigned char   header_level;
+    unsigned char   header_level; // level/type of header (0..3)
+    
 	QString         filename;
 	QString         dirname;
 	QString         realname; // real name for symbolic link (unix)
@@ -78,7 +85,7 @@ public:
     bool            has_crc;  /* file CRC */
     unsigned int    header_crc; /* header CRC */
 	
-    unsigned char   extend_type;
+    unsigned char   extend_type; /* OS type, single character */
 	
 	// keep offset of data in file for locating later..
 	long            header_pos;
@@ -107,21 +114,13 @@ public:
 	// get suitable method for extraction:
 	// check string if it is supported.
 	//
-	// note: there are some variations..
-	//
 	tCompressionMethod GetMethod()
 	{
-		// TODO: simplify, even this list does not include all types..
-		//
-		// removed defines for future changes,
-		// rest of changes later..
-		// until then, this is only place still using string-compare for method..
-		
-		// -lh?-
 		if (pack_method.contains("-lh") == true
 			&& pack_method.at(4) == '-')
 		{
-			// LZHUFF, get level..
+			// -lh?-
+			// -> LZHUFF, get level..
 			const char level = pack_method.at(3).toAscii();
 			switch (level)
 			{
@@ -141,38 +140,117 @@ public:
 				return LZHUFF6_METHOD_NUM;
 			case '7':
 				return LZHUFF7_METHOD_NUM;
+				
+				/* 
+			case '8':
+				// -lh8- same as -lh7- ?
+				// was it ever in use?
+				return LZHUFF7_METHOD_NUM;
+				*/
+				
+			case 'd': // -lhd-
+				return LZHDIRS_METHOD_NUM;
+				
+				/*
+			case '9': // -lh9-
+			case 'a': // -lha-
+			case 'b': // -lhb-
+			case 'c': // -lhc-
+			case 'e': // -lhe-
+				// Joe Jared extensions, not yet supported..
+				break;
+				*/
+				
+				/*
+			case 'x': // -lhx-
+				// UNLHA32 ?
+				break;
+				*/
 			}
-			// fallthrough..
 		}
-		else if (pack_method == "-lzs-")
+		else if (pack_method.contains("-lz") == true
+			&& pack_method.at(4) == '-')
 		{
-			return LARC_METHOD_NUM;
-		}
-		else if (pack_method == "-lz5-")
-		{
-			return LARC5_METHOD_NUM;
-		}
-		else if (pack_method == "-lz4-")
-		{
-			return LARC4_METHOD_NUM;
-		}
-		else if (pack_method == "-lhd-")
-		{
-			return LZHDIRS_METHOD_NUM;
-		}
+			// -lz?-
+			// LhArc, get level..
+			const char level = pack_method.at(3).toAscii();
+			switch (level)
+			{
+			case 's': // -lzs-
+				return LARC_METHOD_NUM;
+			case '5': // -lz5-
+				return LARC5_METHOD_NUM;
+			case '4': // -lz4-
+				return LARC4_METHOD_NUM;
 
-		//		
-		// methods not listed in japanese-version:
-		// -lh8-, -lh9-, -lha-, -lhb-, -lhc-, -lhe- (Joe Jared extensions)
-		// -lhx- (UNLHA32)
-		// -pc1-, -pm0-, -pm1-, -pm2-, -pms- (CP/M)
-		// -lz2-, -lz3-, -lz7-, -lz8- (LArc extensions)
-		//
-		// -> check code compatibility and add support?
-		//
-		
-		// unknown/unsupported
+				/*
+			case '7': // -lz7-
+			case '8': // -lz8-
+			case '2': // -lz2-
+			case '3': // -lz3-
+				// LArc extensions, not yet supported..
+				break;
+				*/
+			}
+		}
+		/* 
+		// CP/M variations?
+		else if (pack_method.contains("-pm") == true
+			&& pack_method.at(4) == '-')
+		{
+		}
+		else if (pack_method == "-pc1-")
+		{
+		}
+		*/
+
+		// fallthrough: unknown/unsupported
 		return LZ_UNKNOWN;
+	}
+	
+	QString GetOSTypeName()
+	{
+		switch (extend_type)
+		{
+		case 0:
+			return "Generic";
+		case 'U':
+			return "Unix";
+		case 'M':
+			return "MSDOS";
+		case 'm':
+			return "MacOS";
+		case '2':
+			return "OS/2";
+		case '9':
+			return "OS9";
+		case 'K':
+			return "OS/68K";
+		case '3': /* OS-9000 ?? */
+			return "OS/386";
+		case 'H':
+			return "HUMAN";
+		case 'C':
+			return "CP/M";
+		case 'F':
+			return "FLEX";
+		case 'w':
+			return "Winslows 95/98";
+		case 'W':
+			return "Winslows NT";
+		case 'R':
+			return "Runser";
+		case 'T':
+			// not official..
+			return "Townsos";
+		case 'X': /* OS-9 for X68000 ?*/
+			// not official..
+			return "XOSK";
+		case 'J':
+			// not official..
+			return "Java";
+		}
+		return "Unknown";
 	}
 };
 
@@ -215,47 +293,16 @@ enum tExtendedAttribs
 	EXTH_RESERVED         = 0xFF // reservation for later
 };
 
-/* TODO: simplification of handling those different headers
-class CAbstractHeader
-{
-public:
-	// note: make private..
-	
-	char    *m_get_ptr;
-	
-	size_t m_nSize;
-	size_t m_nOffset;
-	
-public:
-	CAbstractHeader(char *pBuf, size_t nSize)
-	    : m_get_ptr(pBuf)
-	    , m_nSize(nSize)
-	    , m_nOffset(0)
-	{}
-};
-
-class CHeaderLevel0 : public CAbstractHeader
-class CHeaderLevel1 : public CAbstractHeader
-class CHeaderLevel2 : public CAbstractHeader
-class CHeaderLevel3 : public CAbstractHeader
-class CHeaderExtended : public CAbstractHeader
-*/
-
 class CLhHeader : public QObject
 {
 	Q_OBJECT
 
 private:
 	
-	// TODO:
-	// current header helper..
-	//CLhHeaderParsing *m_pCurrentHeader;
-	
 	
 	// TODO: these buffer handlings REALLY need to be fixed..
 	// change methods later, move to buffer-class
 	//
-	
 	char    *m_get_ptr;
 	
 	inline int get_byte()
@@ -541,6 +588,8 @@ protected:
 	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 
 	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc);
+	
+	int readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length);
 	
 	void UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize);
 	

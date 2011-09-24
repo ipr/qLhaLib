@@ -148,7 +148,7 @@ unsigned short CLhDecodeLzs::DecodeC()
 unsigned short CLhDecodeLzs::DecodeP()
 {
 	//decode_p_lzs
-    return (m_loc - m_matchpos - MAGIC0) & 0x7ff;
+    return (m_loc - m_matchpos - LZMAGIC0) & 0x7ff;
 }
 
 // -lz5-
@@ -192,6 +192,6 @@ unsigned short CLhDecodeLz5::DecodeC()
 unsigned short CLhDecodeLz5::DecodeP()
 {
 	//decode_p_lz5
-    return (m_loc - m_matchpos - MAGIC5) & 0xfff;
+    return (m_loc - m_matchpos - LZMAGIC5) & 0xfff;
 }
 

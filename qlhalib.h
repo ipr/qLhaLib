@@ -121,13 +121,17 @@ public:
 			, m_ulUnpackedSize(0)
 			, m_ulPackedSize(0)
 		    , m_ucHeaderLevel(0)
-			, m_bPackedSizeAvailable(true)
+			//, m_bPackedSizeAvailable(true)
 			, m_Stamp()
 			, m_szFileName()
 			//, m_szPathName()
 			, m_szPackMode()
 			, m_extendType()
 			, m_szComment()
+			, m_szUser()
+			, m_szGroup()
+			, m_unix_uid(0)
+			, m_unix_gid(0)
 		{
 		}
 	
@@ -147,7 +151,7 @@ public:
 	
 		// packed-size is not available for merged files (LZX)
 		// -> not supported by LHa..
-		bool m_bPackedSizeAvailable;
+		//bool m_bPackedSizeAvailable;
 		
 		// "last modified" time usually
 		QDateTime m_Stamp;
@@ -158,7 +162,7 @@ public:
 		//QString m_szPathName;
 		//QString m_szRealName; // if symlink?
 
-		// -l??- string, e.g. '-lh5-', '-lz0-'
+		// -l??- string of packing mode, e.g. '-lh5-', '-lz0-'
 		QString m_szPackMode;
 
 		// temp, string for now..
@@ -168,6 +172,13 @@ public:
 		// file-related comment from archive (if any)
 		// (usually in Amiga-packed files)
 		QString m_szComment;
+		
+		// Unix-style user&group of file
+		QString m_szUser;
+		QString m_szGroup;
+		
+		unsigned short m_unix_uid;
+		unsigned short m_unix_gid;
 		
 		// generic way to give protection flags to caller?
 		// (whichever os, gui or console..)

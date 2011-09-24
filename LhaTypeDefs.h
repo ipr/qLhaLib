@@ -64,20 +64,12 @@ enum tHuffBits
 #define EXTEND_XOSK             'X' /* OS-9 for X68000 (?) */
 #define EXTEND_JAVA             'J'
 
-/* path separator of the
- filename in lha header.
- it should compare with
- `unsigned char' or `int',
- that is not '\xff', but 0xff. */
-/*
-#define LHA_PATHSEP       ((char)0xff)   
-*/
 
 // -lzs- and -lz5- decoders
 enum tLzDecoderMagicNumbers
 {
-	MAGIC0     = 18,
-	MAGIC5     = 19
+	LZMAGIC0     = 18,
+	LZMAGIC5     = 19
 };
 
 

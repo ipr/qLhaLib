@@ -168,9 +168,8 @@ unsigned int CLhExtract::ExtractNoCompression(CAnsiFile &ArchiveFile, LzHeader *
 
 bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
-	//QString szMethod = QString::fromAscii(pHeader->method, METHOD_TYPE_STORAGE);
-	//emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(szMethod));
-	emit message(QString("decoding.. %1 method: ").arg(pHeader->filename).append(pHeader->pack_method));
+	emit message(QString("decoding.. %1 method: ")
+					.arg(pHeader->filename).append(pHeader->pack_method));
 	
 	// check decoding method (if supported/directory only)
 	m_Compression = pHeader->m_enCompression;

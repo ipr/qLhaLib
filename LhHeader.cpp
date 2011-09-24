@@ -109,14 +109,6 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		// parse method-string to enum now..
 		pHeader->m_enCompression = pHeader->GetMethod();
 		
-		// temp, make more generic handling..
-		/*
-	    if (pHeader->extend_type == EXTEND_UNIX)
-	    {
-			//pHeader->UnixMode.ParseMode(pHeader->
-	    }
-	    */
-		
 		// fix path-names
 		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
@@ -209,7 +201,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
 	CGenericTime gtStamp(get_longword());
@@ -218,28 +210,13 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->header_level = get_byte();
     
     int name_length = get_byte(); // keep full length
-
-    // Note: in some cases (Amiga-packed) there is filecomment
-    // also in same string (separated by NULL), 
-    // read upto given length and into two strings.
-    //
-	// read at max. given length, stop on NULL if found:
-	// check what remains (if any)
-    int read_name_len = getStringToNULL(name_length, pHeader->filename);
-    if (read_name_len < name_length)
-    {
-		int null = get_byte(); // read null byte..
-		read_name_len += 1;
-		
-		// read remaining part to file comment
-		read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
-		if (read_name_len != name_length)
-		{
-			// if we did not read enough our offsets may be wrong afterwards..
-			throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
-		}
+	int read_name_len = readFilenameComment(ArchiveFile, pHeader, name_length);
+	if (read_name_len != name_length)
+	{
+		// if we did not read enough our offsets may be wrong afterwards..
+		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
 	}
-
+	
     long extend_size = header_size+2 - name_length - 24;
     if (extend_size < 0) 
 	{
@@ -343,7 +320,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
 	CGenericTime gtStamp(get_longword());
@@ -352,7 +329,12 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->header_level = get_byte();
 
     int name_length = get_byte();
-    pHeader->filename = get_string(name_length);
+	int read_name_len = readFilenameComment(ArchiveFile, pHeader, name_length);
+	if (read_name_len != name_length)
+	{
+		// if we did not read enough our offsets may be wrong afterwards..
+		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
+	}
 
     /* defaults for other type */
     pHeader->has_crc = true;
@@ -424,7 +406,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
@@ -497,7 +479,7 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
 
 	// there's size to it given so use it
-    pHeader->pack_method = get_string(METHOD_TYPE_STORAGE);
+    pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
@@ -705,6 +687,29 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
     return whole_size;
 }
 
+// read filename and (optional) comment from archive-file.
+//
+// Note: in some cases (Amiga-packed) there is filecomment
+// also in same string as filename (separated by NULL).
+//
+// Normal Unicode-reading tries to locate two NULL-terminators
+// before ending string -> need to check for that.
+//
+int CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length)
+{
+	// read at max. given length, stop on NULL if found:
+	// check what remains (if any)
+    int read_name_len = getStringToNULL(name_length, pHeader->filename);
+    if (read_name_len < name_length)
+    {
+		int null = get_byte(); // read null byte..
+		read_name_len += 1;
+		
+		// read remaining part to file comment
+		read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
+	}
+	return read_name_len;
+}
 
 void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize)
 {

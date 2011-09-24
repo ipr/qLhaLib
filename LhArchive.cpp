@@ -267,6 +267,10 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_Stamp = pHeader->last_modified_stamp;
 		Entry.m_extendType = pHeader->extend_type; // TODO: plaintext description of type?
 		Entry.m_szComment = pHeader->file_comment;
+		Entry.m_szUser = pHeader->user;
+		Entry.m_szGroup = pHeader->group;
+		Entry.m_unix_uid = pHeader->unix_uid;
+		Entry.m_unix_gid = pHeader->unix_gid;
 		
 		// attributes? which ones?
 		// unix/msdos? (amiga?): depends on where packed..?
