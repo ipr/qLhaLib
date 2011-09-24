@@ -45,7 +45,6 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 	while (bIsEnd == false)
 	{
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
-		// m_get_ptr_end = (char*)m_pReadBuffer->GetEnd(); <- not used..
 		
 		long lHeaderPos = 0;
 		if (ArchiveFile.Tell(lHeaderPos) == false)
@@ -537,7 +536,9 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, unsigned int *hcrc)
 {
     size_t whole_size = pHeader->extend_size;
-    int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
+    
+    // overhead of extension type (byte) + length (2 or 4 bytes, depends on header level etc.)
+    int nExtensionOverhead = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
 
     if (pHeader->header_level == 0)
 	{
@@ -564,9 +565,10 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			throw ArcException("Invalid header (LHa file ?)", extend_size);
         }
 		
-		// TODO:
-        //tExtendedAttribs enExtType = (tExtendedAttribs)get_byte();
+        // type of extension
+        //
         int iExtType = get_byte();
+        
         switch (iExtType) 
 		{
         case EXTH_CRC:
@@ -578,21 +580,22 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				unsigned char *pBuf = m_pReadBuffer->GetBegin();
 				pBuf[1] = pBuf[2] = 0;
 				
-				skip_bytes(extend_size - n - 2);
+				skip_bytes(extend_size - nExtensionOverhead - 2);
 			}
             break;
             
         case EXTH_FILENAME:
             /* filename */
-            pHeader->filename = getPathname(extend_size-n, true);
+            pHeader->filename = getPathname(extend_size - nExtensionOverhead, true);
             break;
         case EXTH_PATH:
             /* directory */
-            pHeader->dirname = getPathname(extend_size-n, true);
+            pHeader->dirname = getPathname(extend_size - nExtensionOverhead, true);
             break;
 			
         case EXTH_MSDOSATTRIBS:
             /* MS-DOS attribute flags */
+            // (if EXTEND_MSDOS || EXTEND_HUMAN || EXTEND_GENERIC)
             pHeader->MsDosAttributes.SetFromValue(get_word());
             break;
 			
@@ -612,6 +615,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			break;
         case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
+            // (if EXTEND_UNIX)
             pHeader->UnixMode.ParseMode(get_word());
             break;
         case EXTH_UNIXGIDUID:
@@ -621,22 +625,26 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
         case EXTH_UNIXGROUP:
             /* UNIX group name */
-            pHeader->group = get_string(extend_size-n);
+            pHeader->group = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXUSER:
             /* UNIX user name */
-            pHeader->user = get_string(extend_size-n);
+            pHeader->user = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
 			// (32-bit time_t)
             pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
             break;
+            
+		case EXTH_COMMENT:
+			/* uncompressed comment */
+            pHeader->file_comment = get_string(extend_size - nExtensionOverhead);
+            break;
 			
         default:
             /* other headers */
             /* 0x39: multi-disk header
-               0x3f: uncompressed comment
                0x42: 64bit large file size
                0x48-0x4f(?): reserved for authenticity verification
                0x7d: encapsulation
@@ -652,8 +660,9 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                0xfc: encapsulation (another opinion)
                0xfe: extended attribute - platform information(another opinion)
                0xff: extended attribute - permission, owner-id and timestamp
-                     (level 3 on UNLHA32) */
-            skip_bytes(extend_size - n);
+                     (level 3 on UNLHA32) 
+            */
+            skip_bytes(extend_size - nExtensionOverhead);
 			emit warning(QString("unknown extended header %1").arg(iExtType));
             break;
         }
@@ -663,14 +672,19 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             *hcrc = m_crcio.calccrc(*hcrc, m_pReadBuffer->GetBegin(), extend_size);
 		}
 
+		// note: size of length-field may vary,
+		// read length of next now
         if (pHeader->size_field_length == 2)
 		{
-            whole_size += extend_size = get_word();
+            extend_size = get_word();
 		}
         else
 		{
-            whole_size += extend_size = get_longword();
+            extend_size = get_longword();
 		}
+		
+		// keep track of how much was read in extensions
+		whole_size += extend_size;
     }
 
     /* concatenate dirname and filename */

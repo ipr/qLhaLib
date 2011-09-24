@@ -176,18 +176,80 @@ bool CLhArchive::Extract()
 	return true;
 }
 
+// extract listed files from archive to disk
+bool CLhArchive::ExtractFiles(QStringList &lstFiles)
+{
+	// same instance, called again
+	// TODO: need better way to check when reopening same (unchanged) file
+	Clear();
+	
+	// lookup each entry of file
+	CAnsiFile ArchiveFile;
+
+	// open and list contents
+	SeekContents(ArchiveFile);
+
+	// make user-given path where to extract (may be empty)
+	CPathHelper::MakePath(m_pExtraction->GetExtractPath().toStdString());
+	
+	/*
+	
+	
+	auto it = m_pHeaders->m_HeaderList.begin();
+	auto itEnd = m_pHeaders->m_HeaderList.end();
+	while (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		
+		if (pHeader->UnixMode.isDir)
+		{
+			if (pHeader->filename == szFileEntry)
+			{
+				emit warning(QString("Wanted file %1 is a directory").arg(szFileEntry));
+				return false;
+			}
+			++it;
+			continue;
+		}
+		
+		// is wanted?
+		//break;
+		
+		++it;
+	}
+	*/
+
+	/*	
+	if (it != itEnd)
+	{
+		LzHeader *pHeader = (*it);
+		m_pExtraction->ToUserBuffer(ArchiveFile, pHeader);
+	}
+	*/
+	
+	
+	// throw exception instead? (user-input was crap -> not our fault)
+	emit warning(QString("file(s) were not found"));
+	return false;
+}
+
 // extract single file from archive to user-buffer
 bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 {
-	/*
+	// same instance, called again
+	// TODO: need better way to check when reopening same (unchanged) file
+	Clear();
+	
 	// lookup each entry of file
 	CAnsiFile ArchiveFile;
-	
-	// only seek if not listed already
-	if (m_nFileSize == 0 && m_pHeaders->m_HeaderList.size() == 0)
-	{
-		SeekContents(ArchiveFile);
-	}
+
+	// open and list contents
+	SeekContents(ArchiveFile);
+
+	// make user-given path where to extract (may be empty)
+	CPathHelper::MakePath(m_pExtraction->GetExtractPath().toStdString());
+
+	/*
 	
 	auto it = m_pHeaders->m_HeaderList.begin();
 	auto itEnd = m_pHeaders->m_HeaderList.end();

@@ -16,12 +16,15 @@
 #include <QList>
 #include <QDateTime>
 
+// use standard typedefs where it matters
 #include <stdint.h>
 
 #include "AnsiFile.h"
 #include "LhaTypeDefs.h"
 
 #include "crcio.h"
+
+// timestamp helpers
 #include "GenericTime.h"
 #include "FiletimeHelper.h"
 
@@ -172,7 +175,7 @@ public:
 			&& pack_method.at(4) == '-')
 		{
 			// -lz?-
-			// LhArc, get level..
+			// LArc, get level..
 			const char level = pack_method.at(3).toAscii();
 			switch (level)
 			{
@@ -194,13 +197,14 @@ public:
 			}
 		}
 		/* 
-		// CP/M variations?
 		else if (pack_method.contains("-pm") == true
 			&& pack_method.at(4) == '-')
 		{
+			// CP/M variations?
 		}
 		else if (pack_method == "-pc1-")
 		{
+			// another CP/M variation?
 		}
 		*/
 
@@ -276,9 +280,9 @@ enum tHeaderIndices
 // used to parse attributes from archive-file
 enum tExtendedAttribs
 {
-	EXTH_CRC      = 0,
-	EXTH_FILENAME = 1,
-	EXTH_PATH     = 2,
+	EXTH_CRC      = 0x00, // 16-bit CRC
+	EXTH_FILENAME = 0x01, // file name
+	EXTH_PATH     = 0x02, // path name
 	
 	EXTH_COMMENT          = 0x3f, // file comment (Amiga-style?), uncompressed
 	EXTH_MSDOSATTRIBS     = 0x40,

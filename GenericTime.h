@@ -16,9 +16,19 @@
 #include <time.h>
 
 
-// some kinda shitty msdos-timestamp.. blah..
-// just convert it
-//
+/*
+  The time/date stamp (bytes $000F-$0012), is broken down as follows:
+
+      Bytes:$000F-0010: Time of last modification:
+                        BITS  0- 4: Seconds divided by 2
+                                    (0-58, only even numbers)
+                        BITS  5-10: Minutes (0-59)
+                        BITS 11-15: Hours (0-23, no AM or PM)
+      Bytes:$0011-0012: Date of last modification:
+                        BITS  0- 4: Day (1-31)
+                        BITS  5- 9: Month (1-12)
+                        BITS 10-15: Year minus 1980
+*/
 class CGenericTime
 {
 protected:
@@ -45,24 +55,6 @@ protected:
 	
 		return mktime(&tm);
 	}
-
-	/*
-	inline long unix_to_generic_stamp(const time_t t) const
-	{
-		struct tm *tm = localtime(&t);
-	
-		tm->tm_year -= 80;
-		tm->tm_mon += 1;
-	
-		return ((long)(tm->tm_year << 25) +
-				(tm->tm_mon  << 21) +
-				(tm->tm_mday << 16) +
-				(tm->tm_hour << 11) +
-				(tm->tm_min  << 5) +
-				(tm->tm_sec / 2));
-	}
-	*/
-	
 	
 public:
 	CGenericTime(void)
@@ -71,7 +63,8 @@ public:
 	CGenericTime(const long lTime)
 		: m_lGenericTime(lTime)
 	{}
-	
+
+	// just convert to something to useful	
 	operator time_t () const
 	{
 		return generic_to_unix_stamp(m_lGenericTime);

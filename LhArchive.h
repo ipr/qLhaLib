@@ -42,9 +42,6 @@ protected:
 	unsigned long m_ulTotalUnpacked;
 	unsigned long m_ulTotalFiles;
 	
-	// does not apply to LHa
-	//unsigned long m_ulMergeSize; 
-
 	// archive-file crc ?
 	unsigned int m_uiCrc;
 
@@ -70,7 +67,7 @@ public slots:
 	bool Extract();
 
 	// extract only specified files to specified path
-	//bool ExtractFiles(QString &szExtractPath, QStringList &lstFiles);
+	bool ExtractFiles(QStringList &lstFiles);
 	
 	// extract single file from archive to user-buffer
 	bool ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray);
@@ -111,14 +108,6 @@ public:
 	{ 
 		return m_ulTotalFiles; 
 	}
-	
-	/* does not apply to LHA
-	unsigned long GetMergeSize() const
-	{ 
-		return m_ulMergeSize; 
-	}
-	*/
-	
 };
 
 #endif // LHARCHIVE_H

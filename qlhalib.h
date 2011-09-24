@@ -121,7 +121,6 @@ public:
 			, m_ulUnpackedSize(0)
 			, m_ulPackedSize(0)
 		    , m_ucHeaderLevel(0)
-			//, m_bPackedSizeAvailable(true)
 			, m_Stamp()
 			, m_szFileName()
 			//, m_szPathName()
@@ -137,7 +136,6 @@ public:
 	
 		// CRC from archive,
 		// only 16-bit CRC in LHa
-		// (32-bit CRC in LZX)
 		unsigned int m_uiCrc;
 		
 		// unpacked size of file
@@ -149,10 +147,6 @@ public:
 		// header "level" (type)
 		unsigned char m_ucHeaderLevel;
 	
-		// packed-size is not available for merged files (LZX)
-		// -> not supported by LHa..
-		//bool m_bPackedSizeAvailable;
-		
 		// "last modified" time usually
 		QDateTime m_Stamp;
 		
