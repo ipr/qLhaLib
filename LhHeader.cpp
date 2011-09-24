@@ -581,15 +581,14 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				skip_bytes(extend_size - n - 2);
 			}
             break;
+            
         case EXTH_FILENAME:
             /* filename */
-            //name_length = get_bytes(pHeader->name, extend_size-n, sizeof(pHeader->name)-1);
-            pHeader->filename = get_string(extend_size-n);
+            pHeader->filename = getPathname(extend_size-n, true);
             break;
         case EXTH_PATH:
             /* directory */
-            //dir_length = get_bytes(dirname, extend_size-n, sizeof(dirname)-1);
-            pHeader->dirname = get_string(extend_size-n);
+            pHeader->dirname = getPathname(extend_size-n, true);
             break;
 			
         case EXTH_MSDOSATTRIBS:

@@ -344,25 +344,13 @@ private:
 	}
 	
 	
-	// note: string isn't null-terminated in file
-	// so we need to work around that..
+	// note: string isn't null-terminated in file.
 	//
 	// note: read-buffer is deallocated/overwritten
 	// later when next chunk is read/done.
 	//
-	QString get_string(int len, bool fixPath = false)
+	QString get_string(int len)
 	{
-		for (int i = 0; i < len; i++)
-		{
-			// fix '\\' path-separator before reading
-			// since Unicode-conversion may assume it is Yen-sign..
-			if (m_get_ptr[i] == 0xFF
-				&& fixPath == true)
-			{
-				m_get_ptr[i] = '/';
-			}
-		}
-		
 		QString szVal;
 		if (m_pTextCodec == nullptr)
 		{
@@ -376,17 +364,49 @@ private:
 		return szVal;
 	}
 	
+	// get pathname (file/dir) and fix path-separator:
+	// don't modify source-buffer as 
+	// that affects CRC-calculation..
+	// 	
+	QString getPathname(int len, bool fixPath = true)
+	{
+		QByteArray tmp(m_get_ptr, len);
+		
+		for (int i = 0; i < len; i++)
+		{
+			// fix '\\' path-separator 
+			// since it may be handled as Yen-sign
+			// after conversion to Unicode..
+			if (tmp[i] == (char)0xFF
+				&& fixPath == true)
+			{
+				tmp[i] = '/';
+			}
+		}
+		m_get_ptr += len;
+		
+		if (m_pTextCodec == nullptr)
+		{
+			return QString(tmp);
+		}
+		else
+		{
+			return m_pTextCodec->toUnicode(tmp);
+		}
+	}
+	
 	// get string upto NULL (if found),
 	// used in case there are filename and file-comment
 	// in same string (use them separately)
-	inline int getStringToNULL(int len, QString &string, bool fixPath = false)
+	//
+	int getStringToNULL(int len, QString &string, bool fixPath = false)
 	{
 		for (int i = 0; i < len; i++)
 		{
 			// fix '\\' path-separator before reading
 			// since Unicode-conversion may assume it is Yen-sign..
 			//
-			if (m_get_ptr[i] == 0xFF
+			if (m_get_ptr[i] == (char)0xFF
 				&& fixPath == true)
 			{
 				m_get_ptr[i] = '/';
