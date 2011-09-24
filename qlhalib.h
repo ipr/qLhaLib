@@ -163,6 +163,10 @@ public:
 		// file-related comment from archive (if any)
 		// (usually in Amiga-packed files)
 		QString m_szComment;
+		
+		// generic way to give protection flags to caller?
+		// (whichever os, gui or console..)
+		
 	};
 	
 	// simplest way to list all files in archive for caller

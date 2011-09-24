@@ -523,7 +523,7 @@ signals:
 	void warning(QString);
 	
 protected:
-	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t extend_size, unsigned int *hcrc);
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc);
 	
 	bool get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader);

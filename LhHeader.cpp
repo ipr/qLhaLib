@@ -109,12 +109,13 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		// parse method-string to enum now..
 		pHeader->m_enCompression = pHeader->GetMethod();
 		
-
 		// temp, make more generic handling..
+		/*
 	    if (pHeader->extend_type == EXTEND_UNIX)
 	    {
 			//pHeader->UnixMode.ParseMode(pHeader->
 	    }
+	    */
 		
 		// fix path-names
 		pHeader->filename.replace('\\', "/");
@@ -163,7 +164,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
  *    size field is 4 bytes
  */
 
-size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, size_t extend_size, unsigned int *hcrc)
+size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc)
 {
     size_t whole_size = extend_size;
     int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
@@ -396,8 +397,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     int name_length = get_byte();
     pHeader->filename = get_string(name_length);
 
-    size_t extend_size = header_size+2 - name_length - 24;
-
+    long extend_size = header_size+2 - name_length - 24;
     if (extend_size < 0) 
 	{
         if (extend_size == -2) 
@@ -523,7 +523,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
         skip_bytes(dummy); /* skip old style extend header */
 	}
 
-    size_t extend_size = get_word();
+    long extend_size = get_word();
     extend_size = get_extended_header(ArchiveFile, pHeader, extend_size, 0);
     if (extend_size == -1)
 	{
@@ -596,7 +596,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->crc = get_word();
     pHeader->extend_type = get_byte();
 	
-    size_t extend_size = get_word();
+    long extend_size = get_word();
 
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
@@ -673,7 +673,8 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	
     size_t header_size = get_longword();
     pHeader->header_size = header_size;
-    size_t extend_size = get_longword();
+    
+    long extend_size = get_longword();
 
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
