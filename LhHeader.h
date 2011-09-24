@@ -350,8 +350,19 @@ private:
 	// note: read-buffer is deallocated/overwritten
 	// later when next chunk is read/done.
 	//
-	QString get_string(int len)
+	QString get_string(int len, bool fixPath = false)
 	{
+		for (int i = 0; i < len; i++)
+		{
+			// fix '\\' path-separator before reading
+			// since Unicode-conversion may assume it is Yen-sign..
+			if (m_get_ptr[i] == 0xFF
+				&& fixPath == true)
+			{
+				m_get_ptr[i] = '/';
+			}
+		}
+		
 		QString szVal;
 		if (m_pTextCodec == nullptr)
 		{
@@ -368,10 +379,19 @@ private:
 	// get string upto NULL (if found),
 	// used in case there are filename and file-comment
 	// in same string (use them separately)
-	inline int getStringToNULL(int len, QString &string)
+	inline int getStringToNULL(int len, QString &string, bool fixPath = false)
 	{
 		for (int i = 0; i < len; i++)
 		{
+			// fix '\\' path-separator before reading
+			// since Unicode-conversion may assume it is Yen-sign..
+			//
+			if (m_get_ptr[i] == 0xFF
+				&& fixPath == true)
+			{
+				m_get_ptr[i] = '/';
+			}
+		
 			// if there is NULL on the string
 			// we should stop reading there:
 			// in case of filename there may be file-comment after that
@@ -587,7 +607,7 @@ protected:
 	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 
-	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc);
+	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, unsigned int *hcrc);
 	
 	int readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length);
 	

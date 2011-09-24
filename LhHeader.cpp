@@ -348,7 +348,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	}
 
 	pHeader->extend_size = get_word();
-    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, 0);
+    long extend_size = get_extended_header(ArchiveFile, pHeader, 0);
     if (extend_size == -1)
 	{
         return false;
@@ -422,7 +422,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
 
-    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, &hcrc);
+    long extend_size = get_extended_header(ArchiveFile, pHeader, &hcrc);
     if (extend_size == -1)
 	{
         return false;
@@ -497,7 +497,7 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     unsigned int hcrc = 0;
     hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
 
-    long extend_size = get_extended_header(ArchiveFile, pHeader, pHeader->extend_size, &hcrc);
+    long extend_size = get_extended_header(ArchiveFile, pHeader, &hcrc);
     if (extend_size == -1)
 	{
         return false;
@@ -534,14 +534,11 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  *    size field is 4 bytes
  */
 
-size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, long extend_size, unsigned int *hcrc)
+size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, unsigned int *hcrc)
 {
-    size_t whole_size = extend_size;
+    size_t whole_size = pHeader->extend_size;
     int n = 1 + pHeader->size_field_length; /* `ext-type' + `next-header size' */
 
-	// keep this size also
-	pHeader->extend_size = whole_size;
-	
     if (pHeader->header_level == 0)
 	{
         return 0;
@@ -550,6 +547,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	// clear or allocate larger if necessary
 	m_pReadBuffer->PrepareBuffer(pHeader->extend_size, false);
 	
+	// keep this size while reading
+	long extend_size = pHeader->extend_size;
     while (extend_size) 
 	{
 		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
@@ -564,8 +563,6 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 		{
 			throw ArcException("Invalid header (LHa file ?)", extend_size);
         }
-
-		unsigned char *pBuf = m_pReadBuffer->GetBegin();
 		
 		// TODO:
         //tExtendedAttribs enExtType = (tExtendedAttribs)get_byte();
@@ -573,11 +570,16 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         switch (iExtType) 
 		{
         case EXTH_CRC:
-            /* header crc (CRC-16) */
-            pHeader->header_crc = get_word();
-            /* clear buffer for CRC calculation. */
-            pBuf[1] = pBuf[2] = 0;
-            skip_bytes(extend_size - n - 2);
+			{
+				/* header crc (CRC-16) */
+				pHeader->header_crc = get_word();
+				
+				/* clear buffer for CRC calculation. */
+				unsigned char *pBuf = m_pReadBuffer->GetBegin();
+				pBuf[1] = pBuf[2] = 0;
+				
+				skip_bytes(extend_size - n - 2);
+			}
             break;
         case EXTH_FILENAME:
             /* filename */
@@ -607,9 +609,6 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				pHeader->creation_stamp.setTime_t((time_t)ftCreation);
 				pHeader->last_modified_stamp.setTime_t((time_t)ftLastModified); // already set ?
 				pHeader->last_access_stamp.setTime_t((time_t)ftLastAccess);
-				
-				// last modified time
-				//if (pHeader->header_level >= 2)  /* time_t has been already set */
 			}
 			break;
         case EXTH_UNIXPERMISSIONS:
@@ -623,12 +622,10 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
         case EXTH_UNIXGROUP:
             /* UNIX group name */
-            //i = get_bytes(pHeader->group, extend_size-n, sizeof(pHeader->group)-1);
             pHeader->group = get_string(extend_size-n);
             break;
         case EXTH_UNIXUSER:
             /* UNIX user name */
-            //i = get_bytes(pHeader->user, extend_size-n, sizeof(pHeader->user)-1);
             pHeader->user = get_string(extend_size-n);
             break;
         case EXTH_UNIXLASTMODIFIED:
@@ -664,7 +661,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 
         if (hcrc)
 		{
-            *hcrc = m_crcio.calccrc(*hcrc, pBuf, extend_size);
+            *hcrc = m_crcio.calccrc(*hcrc, m_pReadBuffer->GetBegin(), extend_size);
 		}
 
         if (pHeader->size_field_length == 2)
@@ -699,7 +696,7 @@ int CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, co
 {
 	// read at max. given length, stop on NULL if found:
 	// check what remains (if any)
-    int read_name_len = getStringToNULL(name_length, pHeader->filename);
+    int read_name_len = getStringToNULL(name_length, pHeader->filename, true);
     if (read_name_len < name_length)
     {
 		int null = get_byte(); // read null byte..
