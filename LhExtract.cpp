@@ -267,7 +267,9 @@ void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	}
 }
 
-// decode&extract single file from archive to user-buffer
+// decode&extract single file from archive to user-buffer:
+// extracted file may be any binary blob (sound, image, text.. whatever),
+// user is upto deciding what to do with it..
 //
 void CLhExtract::ToUserBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteArray &outArray)
 {
@@ -279,9 +281,26 @@ void CLhExtract::ToUserBuffer(CAnsiFile &ArchiveFile, LzHeader *pHeader, QByteAr
 		return;
 	}
 	
-	// copy to user buffer
-	//outArray.reserve(m_WriteBuf.
-	//outArray.copy
+	// whatever user might have there, clear it first
+	//
+	outArray.clear();
+	
+	// reserve space according to where we are in "write-buffer" (last position decoded)
+	// -> force enough to be allocated
+	//
+	outArray.resize(m_WriteBuf.GetCurrentPos());
+	
+	// force copy to user: after this our buffer 
+	// may be destroyed/library closed/next file extracted.. -> invalidation of our buffer
+	//
+	::memcpy(outArray.data(), m_WriteBuf.GetBegin(), m_WriteBuf.GetCurrentPos());
+
+	// TODO:	
+	// set new used-size to user-buffer?
+	// is it implicitly same as resize() ?
+	//
+	//outArray.set ??
+	
 }
 
 // only test extraction, no file-output, just internal buffers

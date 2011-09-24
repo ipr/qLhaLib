@@ -177,8 +177,14 @@ bool CLhArchive::Extract()
 }
 
 // extract listed files from archive to disk
-bool CLhArchive::ExtractFiles(QStringList &lstFiles)
+bool CLhArchive::ExtractSelected(QStringList &lstFiles)
 {
+	if (lstFiles.isEmpty())
+	{
+		emit warning(QString("No file(s) selected, nothing to extract.."));
+		return false;
+	}
+
 	// same instance, called again
 	// TODO: need better way to check when reopening same (unchanged) file
 	Clear();
@@ -192,45 +198,46 @@ bool CLhArchive::ExtractFiles(QStringList &lstFiles)
 	// make user-given path where to extract (may be empty)
 	CPathHelper::MakePath(m_pExtraction->GetExtractPath().toStdString());
 	
-	/*
-	
-	
 	auto it = m_pHeaders->m_HeaderList.begin();
 	auto itEnd = m_pHeaders->m_HeaderList.end();
 	while (it != itEnd)
 	{
 		LzHeader *pHeader = (*it);
+		if (lstFiles.contains(pHeader->filename) == false)
+		{
+			// skipping file, not included in user selection..
+			++it;
+			continue;
+		}
+
+		emit message(QString("Extracting.. ").append(pHeader->filename));
 		
+		// check path-ending&combine
+		QString szTempPath = m_pExtraction->GetExtractPathToFile(pHeader->filename);
+		
+		// if it's directory-entry -> nothing more to do here
+		// (usually has -lhd- compression method for "store only"?)
 		if (pHeader->UnixMode.isDir)
 		{
-			if (pHeader->filename == szFileEntry)
-			{
-				emit warning(QString("Wanted file %1 is a directory").arg(szFileEntry));
-				return false;
-			}
+			// make directory only
+			CPathHelper::MakePath(szTempPath.toStdString());
+			
 			++it;
 			continue;
 		}
 		
-		// is wanted?
-		//break;
+		// create path to file
+		CPathHelper::MakePathToFile(szTempPath.toStdString());
+
+		// decode from archive to output..
+		// give parsed metadata and prepared output also
+		//
+		m_pExtraction->ToFile(ArchiveFile, pHeader);
 		
 		++it;
 	}
-	*/
-
-	/*	
-	if (it != itEnd)
-	{
-		LzHeader *pHeader = (*it);
-		m_pExtraction->ToUserBuffer(ArchiveFile, pHeader);
-	}
-	*/
 	
-	
-	// throw exception instead? (user-input was crap -> not our fault)
-	emit warning(QString("file(s) were not found"));
-	return false;
+	return true;
 }
 
 // extract single file from archive to user-buffer
@@ -246,11 +253,6 @@ bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 	// open and list contents
 	SeekContents(ArchiveFile);
 
-	// make user-given path where to extract (may be empty)
-	CPathHelper::MakePath(m_pExtraction->GetExtractPath().toStdString());
-
-	/*
-	
 	auto it = m_pHeaders->m_HeaderList.begin();
 	auto itEnd = m_pHeaders->m_HeaderList.end();
 	while (it != itEnd)
@@ -267,25 +269,19 @@ bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 			++it;
 			continue;
 		}
-		
-		// is wanted?
-		//break;
+	
+		// is wanted file?
+		if (pHeader->filename == szFileEntry)
+		{
+			m_pExtraction->ToUserBuffer(ArchiveFile, pHeader, outArray);
+			return true;
+		}
 		
 		++it;
 	}
-	*/
-
-	/*	
-	if (it != itEnd)
-	{
-		LzHeader *pHeader = (*it);
-		m_pExtraction->ToUserBuffer(ArchiveFile, pHeader);
-	}
-	*/
-	
 	
 	// throw exception instead? (user-input was crap -> not our fault)
-	emit warning(QString("file %1 was not found").arg(szFileEntry));
+	emit warning(QString("File %1 was not found in archive").arg(szFileEntry));
 	return false;
 }
 
@@ -334,8 +330,10 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_unix_uid = pHeader->unix_uid;
 		Entry.m_unix_gid = pHeader->unix_gid;
 		
-		// attributes? which ones?
-		// unix/msdos? (amiga?): depends on where packed..?
+		// file attributes/protection flags? which ones?
+		// unix? msdos? (amiga?) 
+		// -> depends on where packed..?
+		// -> give all supported..?
 		
 		// update archive statistics
 		m_ulTotalPacked += pHeader->packed_size;

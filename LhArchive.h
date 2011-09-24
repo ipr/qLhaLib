@@ -52,22 +52,18 @@ protected:
 	void Clear();
 	
 	void SeekHeader(CAnsiFile &ArchiveFile);
-	
 	void SeekContents(CAnsiFile &ArchiveFile);
 	
 public slots:
 	
-	//void SetArchiveFile(QString szArchive);
 	void SetConversionCodec(QTextCodec *pCodec);
-	//void FileLocated(LzHeader *pHeader);
-
 	void SetExtractPath(QString &szExtractPath);
 	
 	// extract all files to specified path
 	bool Extract();
 
 	// extract only specified files to specified path
-	bool ExtractFiles(QStringList &lstFiles);
+	bool ExtractSelected(QStringList &lstFiles);
 	
 	// extract single file from archive to user-buffer
 	bool ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray);

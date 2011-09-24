@@ -195,6 +195,8 @@ public slots:
 	//////////////////	
 	// actual operations below
 	bool Extract(QString &szExtractPath);
+	bool ExtractSelected(QString &szExtractPath, QStringList &lstFiles);
+	bool ExtractToBuffer(QString &szFileEntry, QByteArray &outArray);
 	bool List(QLhALib::tArchiveEntryList &lstArchiveInfo);
 	bool Test();
 

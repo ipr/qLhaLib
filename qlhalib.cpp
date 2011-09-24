@@ -85,6 +85,33 @@ bool QLhALib::Extract(QString &szExtractPath)
 	return false;
 }
 
+bool QLhALib::ExtractSelected(QString &szExtractPath, QStringList &lstFiles)
+{
+	try
+	{
+		m_pLhaHandler->SetExtractPath(szExtractPath);
+		return m_pLhaHandler->ExtractSelected(lstFiles);
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
+}
+
+bool QLhALib::ExtractToBuffer(QString &szFileEntry, QByteArray &outArray)
+{
+	try
+	{
+		return m_pLhaHandler->ExtractToUserBuffer(szFileEntry, outArray);
+	}
+	catch (std::exception &exp)
+	{
+		emit fatal_error(exp.what());
+	}
+	return false;
+}
+
 bool QLhALib::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 {
 	try
