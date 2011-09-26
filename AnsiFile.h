@@ -60,7 +60,6 @@ private:
 	size_t m_nReadBufferSize;
 	
 	//size_t m_nMaxBufferSize; // limit of growing buffer..
-	
 	//bool m_bKeepExisting; // keep existing data if growing buffer..
 	//bool m_bPageAlign; // page-size aligned allocations
 
@@ -213,6 +212,13 @@ public:
 	// copy given, start at current
 	void Append(unsigned char *pData, size_t nSize)
 	{
+#ifdef _DEBUG
+		if ((m_nCurrentPos + nSize) > m_nReadBufferSize)
+		{
+			// exception, access beyond allocated buffer
+		}
+#endif
+	
 		unsigned char *pBuf = GetAt(m_nCurrentPos);
 		memcpy(pBuf, pData, nSize);
 		m_nCurrentPos += nSize;

@@ -1,6 +1,8 @@
 ///////////////////////////////////////////
 //
-// CLhExtract : extract&decode file(s) from LhA-archive file to disk
+// CLhExtract : extract&decode file(s) from LhA-archive file to disk,
+// handle file read/write and buffering while extracting,
+// uses CLhDecoder for actual decoding interface.
 //
 // Ilkka Prusi 2011
 //
@@ -64,7 +66,7 @@ tHuffBits CLhExtract::GetDictionaryBits(const tCompressionMethod enMethod)
         return LZHUFF1_DICBIT;
     case LZHUFF2_METHOD_NUM:    /* -lh2- */
         return LZHUFF2_DICBIT;
-    case LZHUFF3_METHOD_NUM:    /* -lh2- */
+    case LZHUFF3_METHOD_NUM:    /* -lh3- */
         return LZHUFF3_DICBIT;
 		
     case LZHUFF4_METHOD_NUM:    /* -lh4- */

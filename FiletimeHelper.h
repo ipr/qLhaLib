@@ -10,9 +10,33 @@
 
 #include <stdint.h>
 
+#ifdef _WIN32
+
 // for typedefs used here
 #include <Windows.h>
 
+#else
+
+// for compatibility in other platforms
+struct FILETIME 
+{
+    uint32_t dwLowDateTime;
+    uint32_t dwHighDateTime;
+};
+
+// conversion helpers for alignment
+struct ULARGE_PAIR
+{
+	uint32_t LowPart;
+	uint32_t HighPart;
+};
+union ULARGE_INTEGER 
+{
+	struct ULARGE_PAIR u;
+    uint64_t QuadPart;
+};
+
+#endif
 
 class CFiletimeHelper
 {
@@ -22,13 +46,6 @@ private:
 protected:
 	uint64_t GetFiletimeValue(const FILETIME &ftStamp) const
 	{
-	//ifdef _WIN64
-		// 64-bit -> need helper for correct alignment
-	//else
-		// 32-bit -> can use faster casting-way
-	//endif
-		
-		// for now, just use same method for both.. optimize later
 		ULARGE_INTEGER ulTemp;
 		ulTemp.HighPart = ftStamp.dwHighDateTime;
 		ulTemp.LowPart = ftStamp.dwLowDateTime;
@@ -57,7 +74,7 @@ public:
 	{
 		m_u64Stamp = GetFiletimeValue(ftStamp);
 	}
-    CFiletimeHelper(const unsigned long ulHiPart, const unsigned long ulLoPart)
+    CFiletimeHelper(const uint32_t ulHiPart, const uint32_t ulLoPart)
 		: m_u64Stamp(0)
 	{
 		FILETIME ft;
@@ -152,11 +169,6 @@ public:
 		m_u64Stamp = GetFiletimeValue(ftNow);
 		return *this;
 	}
-	
-	/*
-	wstring ToString()
-	{}
-	*/
 	
 };
 

@@ -126,6 +126,9 @@ typedef struct UnixModeFlags
 // these match Amiga-style file-attributes
 // (protection mode flags):
 // HSPA RWED
+//
+// is there "extended header" with these somewhere in LhA variations?
+//
 typedef struct AmigaAttributes
 {
 	// parsed file-protection flags

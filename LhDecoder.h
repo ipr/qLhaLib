@@ -1,8 +1,37 @@
 ///////////////////////////////////////////
 //
-// CLhDecoder : extract&decode file(s) from LhA-archive file to disk
+// CLhDecoder : extract&decode file(s) from LhA-archive file to disk,
+// interface to actual Huffman decoding of specific packing methods.
 //
 // Ilkka Prusi 2011
+//
+//
+//////////// note on actual decoding implementations:
+// three "stages":
+// - start (initialize)
+// - decode C (multiple "chunks")
+// - decode P ("finalize")
+//
+// some per-stage handling are specific to some packing-method
+// and others are shared: 
+//
+// CLhDecoder-derived classes are interfaces to packing methods
+// so file-extraction does not need to (and should not know)
+// which method actually is being used.
+//
+///////// stages by packing method
+//// decode start
+// -lh1- and -lh2- have specific cases
+// -lh3-, static huffman (0)
+// -lh4- .. -lh7-, static huffman (1)
+//// decode C
+// -lh1- and -lh2-, dynamic huffman
+// -lh3-, static huffman (0)
+// -lh4- .. -lh7-, static huffman (1)
+//// decode P
+// -lh2-, dynamic huffman
+// -lh1- and -lh3-, static huffman (0)
+// -lh4- .. -lh7-, static huffman (1)
 //
 
 
@@ -23,7 +52,6 @@
 #include "Huffman.h"
 
 
-
 //////// decoder base
 
 // interface/base class for decoding methods,
@@ -31,23 +59,6 @@
 //
 class CLhDecoder
 {
-private:
-	// actual implementations
-
-	//// decode start
-	// -lh1- and -lh2- have specific cases
-	// -lh3-, static huffman (0)
-	// -lh4- .. -lh7-, static huffman (1)
-	//// decode C
-	// -lh1- and -lh2-, dynamic huffman
-	// -lh3-, static huffman (0)
-	// -lh4- .. -lh7-, static huffman (1)
-	//// decode P
-	// -lh2-, dynamic huffman
-	// -lh1- and -lh3-, static huffman (0)
-	// -lh4- .. -lh7-, static huffman (1)
-
-	
 protected:
 	
 	CCrcIo m_crcio;

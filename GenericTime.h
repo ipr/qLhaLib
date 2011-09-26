@@ -11,11 +11,6 @@
  * |<--- hour --->|<---- minute --->|<- second/2 ->|
  *
  */
-
-#include <stdint.h>
-#include <time.h>
-
-
 /*
   The time/date stamp (bytes $000F-$0012), is broken down as follows:
 
@@ -29,6 +24,10 @@
                         BITS  5- 9: Month (1-12)
                         BITS 10-15: Year minus 1980
 */
+
+#include <stdint.h>
+#include <time.h>
+
 class CGenericTime
 {
 protected:
@@ -41,19 +40,22 @@ protected:
 		return (((n) >> (off)) & ((1 << (len))-1));
 	}
 
+	// note: time_t is __time64_t (64-bit) 
+	// unless otherwise define'd with _USE_32BIT_TIME_T on Win32
+	//
 	inline time_t generic_to_unix_stamp(const long t) const
 	{
-		struct tm tm;
+		struct tm tmp;
 	
-		tm.tm_sec  = subbits(t,  0, 5) * 2;
-		tm.tm_min  = subbits(t,  5, 6);
-		tm.tm_hour = subbits(t, 11, 5);
-		tm.tm_mday = subbits(t, 16, 5);
-		tm.tm_mon  = subbits(t, 21, 4) - 1;
-		tm.tm_year = subbits(t, 25, 7) + 80;
-		tm.tm_isdst = -1;
+		tmp.tm_sec  = subbits(t,  0, 5) * 2;
+		tmp.tm_min  = subbits(t,  5, 6);
+		tmp.tm_hour = subbits(t, 11, 5);
+		tmp.tm_mday = subbits(t, 16, 5);
+		tmp.tm_mon  = subbits(t, 21, 4) - 1;
+		tmp.tm_year = subbits(t, 25, 7) + 80;
+		tmp.tm_isdst = -1;
 	
-		return mktime(&tm);
+		return mktime(&tmp);
 	}
 	
 public:

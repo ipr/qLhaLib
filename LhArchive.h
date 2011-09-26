@@ -1,9 +1,9 @@
 //////////////////////////////////////////////
 //
-// code to handle LHA archive-file "commands":
+// CLhArchive: code to handle LHA archive-file "commands":
 // - list
-// - extract
-// - add/update
+// - extract (variations)
+// - test
 //
 // Ilkka Prusi 2011
 //

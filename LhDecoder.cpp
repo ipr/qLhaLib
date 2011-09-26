@@ -1,10 +1,12 @@
 ///////////////////////////////////////////
 //
-// CLhDecoder : extract&decode file(s) from LhA-archive file to disk
+// CLhDecoder : extract&decode file(s) from LhA-archive file to disk,
+// interface to actual Huffman decoding of specific packing methods.
 //
+// See notes in header file
+// 
 // Ilkka Prusi 2011
 //
-
 
 #include "LhDecoder.h"
 

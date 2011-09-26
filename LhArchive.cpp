@@ -1,5 +1,14 @@
-#include "LhArchive.h"
+//////////////////////////////////////////////
+//
+// CLhArchive: code to handle LHA archive-file "commands":
+// - list
+// - extract (variations)
+// - test
+//
+// Ilkka Prusi 2011
+//
 
+#include "LhArchive.h"
 
 CLhArchive::CLhArchive(QLhALib *pParent, QString &szArchive)
 	: QObject(pParent),
@@ -323,7 +332,8 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_ulUnpackedSize = pHeader->original_size;
 		Entry.m_szPackMode = pHeader->pack_method;
 		Entry.m_Stamp = pHeader->last_modified_stamp;
-		Entry.m_extendType = pHeader->extend_type; // TODO: plaintext description of type?
+		//Entry.m_extendType = pHeader->extend_type; // TODO: plaintext description of type?
+		Entry.m_extendType = pHeader->GetOSTypeName();
 		Entry.m_szComment = pHeader->file_comment;
 		Entry.m_szUser = pHeader->user;
 		Entry.m_szGroup = pHeader->group;

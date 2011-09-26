@@ -1,3 +1,12 @@
+/////////////////////////////////////////////
+//
+// QLhALib : exported interface to LhA library
+//
+// See notes in header file
+// 
+// Ilkka Prusi 2011
+//
+
 #include "qlhalib.h"
 
 #include <exception>

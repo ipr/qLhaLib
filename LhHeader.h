@@ -96,12 +96,13 @@ public:
 
 	// MS-DOS attribute-flags
     MsdosFlags      MsDosAttributes;
-	
-    /* extend_type == EXTEND_UNIX  and convert from other type. */
-	
+
+	// read Windows FILETIME format timestamps -> converted to here
     QDateTime       creation_stamp;
     QDateTime       last_modified_stamp;
     QDateTime       last_access_stamp;
+
+    /* extend_type == EXTEND_UNIX  and convert from other type. */
 
 	// only on unix-extension ?
     unsigned char   minor_version;
@@ -214,47 +215,51 @@ public:
 	
 	QString GetOSTypeName()
 	{
+		if (extend_type == 0)
+		{
+			return QString("Generic");
+		}
+	
+		QString type("(" + extend_type + ")"); // for logging
 		switch (extend_type)
 		{
-		case 0:
-			return "Generic";
 		case 'U':
-			return "Unix";
+			return QString("Unix" + type);
 		case 'M':
-			return "MSDOS";
+			return QString("MSDOS" + type);
 		case 'm':
-			return "MacOS";
+			return QString("MacOS" + type);
 		case '2':
-			return "OS/2";
+			return QString("OS/2" + type);
 		case '9':
-			return "OS9";
+			return QString("OS9" + type);
 		case 'K':
-			return "OS/68K";
+			return QString("OS/68K" + type);
 		case '3': /* OS-9000 ?? */
-			return "OS/386";
+			return QString("OS/386" + type);
 		case 'H':
-			return "HUMAN";
+			return QString("HUMAN" + type);
 		case 'C':
-			return "CP/M";
+			return QString("CP/M" + type);
 		case 'F':
-			return "FLEX";
+			return QString("FLEX" + type);
 		case 'w':
-			return "Winslows 95/98";
+			return QString("Windows 95/98" + type);
 		case 'W':
-			return "Winslows NT";
+			return QString("Windows NT" + type);
 		case 'R':
-			return "Runser";
+			return QString("Runser" + type);
 		case 'T':
 			// not official..
-			return "Townsos";
+			return QString("Townsos" + type);
 		case 'X': /* OS-9 for X68000 ?*/
 			// not official..
-			return "XOSK";
+			return QString("XOSK" + type);
 		case 'J':
 			// not official..
-			return "Java";
+			return QString("Java" + type);
 		}
-		return "Unknown";
+		return QString("Unknown" + type);
 	}
 };
 

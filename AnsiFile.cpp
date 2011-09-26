@@ -6,11 +6,8 @@
 // ilkka.prusi@gmail.com
 //
 
-//#include "stdafx.h"
 #include "AnsiFile.h"
 
-//#include <dir.h>
-//#include <dirent.h>
 #include <direct.h>
 #include <stdlib.h>
 #include <stdio.h>

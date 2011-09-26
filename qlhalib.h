@@ -123,7 +123,6 @@ public:
 		    , m_ucHeaderLevel(0)
 			, m_Stamp()
 			, m_szFileName()
-			//, m_szPathName()
 			, m_szPackMode()
 			, m_extendType()
 			, m_szComment()
@@ -150,10 +149,9 @@ public:
 		// "last modified" time usually
 		QDateTime m_Stamp;
 		
-		// name of entry from archive
+		// name of entry from archive (with full path)
 		QString m_szFileName;
 		
-		//QString m_szPathName;
 		//QString m_szRealName; // if symlink?
 
 		// -l??- string of packing mode, e.g. '-lh5-', '-lz0-'

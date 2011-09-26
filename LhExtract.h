@@ -1,6 +1,8 @@
 ///////////////////////////////////////////
 //
-// CLhExtract : extract&decode file(s) from LhA-archive file to disk
+// CLhExtract : extract&decode file(s) from LhA-archive file to disk,
+// handle file read/write and buffering while extracting,
+// uses CLhDecoder for actual decoding interface.
 //
 // Ilkka Prusi 2011
 //
