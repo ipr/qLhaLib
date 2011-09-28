@@ -431,13 +431,11 @@ private:
 		// and possible shifting in smaller type
 		// (loss of bits)
 		uint32_t tmp = 0;
-		tmp += m_get_ptr[3];
-		tmp <<= 8;
-		tmp += m_get_ptr[2];
-		tmp <<= 8;
-		tmp += m_get_ptr[1];
-		tmp <<= 8;
-		tmp += m_get_ptr[0];
+		for (int i = 3; i >= 0; i--)
+		{
+			tmp += m_get_ptr[i];
+			tmp <<= 8;
+		}
 		incrementPtr(4);
 		return tmp;
 	}
@@ -449,21 +447,11 @@ private:
 		// and possible shifting in smaller type
 		// (loss of bits)
 		uint64_t tmp = 0;
-		tmp += m_get_ptr[7];
-		tmp <<= 8;
-		tmp += m_get_ptr[6];
-		tmp <<= 8;
-		tmp += m_get_ptr[5];
-		tmp <<= 8;
-		tmp += m_get_ptr[4];
-		tmp <<= 8;
-		tmp += m_get_ptr[3];
-		tmp <<= 8;
-		tmp += m_get_ptr[2];
-		tmp <<= 8;
-		tmp += m_get_ptr[1];
-		tmp <<= 8;
-		tmp += m_get_ptr[0];
+		for (int i = 7; i >= 0; i--)
+		{
+			tmp += m_get_ptr[i];
+			tmp <<= 8;
+		}
 		incrementPtr(8);
 		return tmp;
 	}
