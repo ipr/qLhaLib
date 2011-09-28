@@ -16,6 +16,8 @@
 #include <QList>
 #include <QDateTime>
 
+//#include <QDebug> // test
+
 // use standard typedefs where it matters
 #include <stdint.h>
 
@@ -533,6 +535,7 @@ private:
 			// 
 			if (m_get_ptr[i] == 0x00)
 			{
+				//char *pTmp = (char*)m_get_ptr; // for debug
 				len = i;
 				break;
 			}
@@ -546,6 +549,7 @@ private:
 		{
 			string = m_pTextCodec->toUnicode((char*)m_get_ptr, len);
 		}
+		
 		incrementPtr(len);
 		return len;
 	}

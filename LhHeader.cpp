@@ -106,8 +106,19 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			throw IOException("Failure getting current position");
 		}
 		
+		if (pHeader->packed_size == 0 || pHeader->original_size == 0)
+		{
+			emit warning(QString("zero size in file: %1 method: ")
+							.arg(pHeader->filename).append(pHeader->pack_method));
+		}
+		
 		// parse method-string to enum now..
 		pHeader->m_enCompression = pHeader->GetMethod();
+		if (pHeader->m_enCompression == LZ_UNKNOWN)
+		{
+			emit warning(QString("unknown compression in file: %1 method: ")
+							.arg(pHeader->filename).append(pHeader->pack_method));
+		}
 		
 		// fix path-names, no need for MSDOS-style paths
 		// since around 1999 (W2k or newer)..
@@ -205,6 +216,14 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
+    
+    /*
+    if (pHeader->packed_size == 0 || pHeader->original_size == 0)
+    {
+		qDebug() << "empty size in file";
+    }
+    */
+    
     pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();

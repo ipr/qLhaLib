@@ -239,6 +239,17 @@ bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeade
 //
 void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
+	// if compressed size is zero, how much could we read?
+	// if original size is zero, what could we write?
+	// -> broken archive-file?
+	if (pHeader->packed_size == 0 || pHeader->original_size == 0)
+	{
+		// broken archive?
+		emit warning(QString("zero size in file: %1 method: ")
+						.arg(pHeader->filename).append(pHeader->pack_method));
+		return;
+	}
+
 	if (ExtractFileFromArchive(ArchiveFile, pHeader) == false)
 	{
 		// nothing to write:
@@ -248,7 +259,14 @@ void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 
 	// check line-ending&combine
 	QString szTempPath = GetExtractPathToFile(pHeader->filename);
-
+	if (szTempPath.length() == 0)
+	{
+		// empty filename -> can't create file
+		emit warning(QString("empty name of file, method: ")
+						.append(pHeader->pack_method));
+		return;
+	}
+	
 	// open file for writing	
 	CAnsiFile OutFile;
 	if (OutFile.Open(szTempPath.toStdString(), true) == false)

@@ -555,15 +555,15 @@ unsigned short CShuffleHuffman::decode_p_st0()
 
 void CDynamicHuffman::start_c_dyn()
 {
-    int             i, j;
-
-    n1 = (n_max >= 256 + m_maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
-    for (i = 0; i < TREESIZE_C; i++) 
+	// keep m_n1 for: decode_c_dyn()
+    m_n1 = (n_max >= 256 + m_maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
+    for (int n = 0; n < TREESIZE_C; n++) 
 	{
-        stock[i] = i;
-        block[i] = 0;
+        stock[n] = n;
+        block[n] = 0;
     }
 	
+    int i, j;
     for (i = 0, j = n_max * 2 - 2; i < n_max; i++, j--) 
 	{
         freq[j] = 1;
@@ -611,6 +611,7 @@ void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
     most_p = ROOT_P;
     total_p = 0;
 
+	// keep m_nn for: decode_p_dyn()
 	m_nn = (1 << ((int)enBit));
     nextcount = 64;
 }
@@ -653,7 +654,7 @@ void CDynamicHuffman::reconst(int start, int end)
         unsigned int f = freq[l] + freq[l + 1];
 		
 		int k = 0;
-        for (k = start; f < freq[k]; k++); // note: empty loop?
+        for (k = start; f < freq[k]; k++); // note: empty loop, locate..
 		
         while (j >= k) 
 		{
@@ -700,8 +701,9 @@ int CDynamicHuffman::swap_inc(int p)
 {
     int b = block[p];
 	int q = edge[b]; 
-    if (q != p) /* swap for leader */
+    if (q != p)
 	{
+		/* swap for leader */
         int r = child[p];
         int s = child[q];
         child[p] = s;
@@ -794,7 +796,8 @@ void CDynamicHuffman::make_new_node(int p)
     int r = most_p + 1;
     int q = r + 1;
 	
-    s_node[~(child[r] = child[most_p])] = r;
+	child[r] = child[most_p];
+    s_node[~(child[r])] = r;
     child[q] = ~(p + N_CHAR);
     child[most_p] = q;
     freq[r] = freq[most_p];
@@ -836,7 +839,7 @@ unsigned short CDynamicHuffman::decode_c_dyn()
     c = ~c;
     update_c(c);
 	
-    if (c == n1)
+    if (c == m_n1)
 	{
         c += m_BitIo.getbits(8);
 	}
@@ -850,7 +853,8 @@ unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
     while (decode_count > nextcount) 
 	{
         make_new_node(nextcount / 64);
-        if ((nextcount += 64) >= m_nn)
+        nextcount += 64;
+        if (nextcount >= m_nn)
 		{
             nextcount = 0xffffffff;
 		}

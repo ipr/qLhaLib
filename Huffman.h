@@ -199,7 +199,7 @@ protected:
 	
 	unsigned short total_p;
 	int      avail;
-	int      n1;
+	int      m_n1;
 	int      most_p;
 	int      m_nn;
 	unsigned long nextcount;
@@ -280,7 +280,7 @@ protected:
 
 	unsigned short m_blocksize; /* decode */
 	
-	int m_dict_bit;
+	int m_dict_bit; // set in decode_start_st1()
 	unsigned int m_np_dict; // depends on dict bit
 
 	unsigned char pt_len[PT_LEN_SIZE];
