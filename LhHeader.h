@@ -410,7 +410,7 @@ private:
 	
 	inline uint8_t get_byte()
 	{
-		uint8_t tmp = (m_get_ptr[0]);
+		uint8_t tmp = (m_get_ptr[0] & 0xFF);
 		incrementPtr(1);
 		return tmp;
 	}
@@ -418,9 +418,11 @@ private:
 	inline uint16_t get_word()
 	{
 		uint16_t tmp = 0;
-		tmp += m_get_ptr[1];
-		tmp <<= 8;
-		tmp += m_get_ptr[0];
+		for (int i = 2; i > 0; i--)
+		{
+			tmp = (tmp << 8);
+			tmp += (m_get_ptr[i-1] & 0xFF);
+		}
 		incrementPtr(2);
 		return tmp;
 	}
@@ -431,10 +433,10 @@ private:
 		// and possible shifting in smaller type
 		// (loss of bits)
 		uint32_t tmp = 0;
-		for (int i = 3; i >= 0; i--)
+		for (int i = 4; i > 0; i--)
 		{
-			tmp += m_get_ptr[i];
-			tmp <<= 8;
+			tmp = (tmp << 8);
+			tmp += (m_get_ptr[i-1] & 0xFF);
 		}
 		incrementPtr(4);
 		return tmp;
@@ -447,10 +449,10 @@ private:
 		// and possible shifting in smaller type
 		// (loss of bits)
 		uint64_t tmp = 0;
-		for (int i = 7; i >= 0; i--)
+		for (int i = 8; i > 0; i--)
 		{
-			tmp += m_get_ptr[i];
-			tmp <<= 8;
+			tmp = (tmp << 8);
+			tmp += (m_get_ptr[i-1] & 0xFF);
 		}
 		incrementPtr(8);
 		return tmp;
