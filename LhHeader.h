@@ -57,6 +57,8 @@ public:
 		, packed_size(0)
 		, original_size(0)
 		, header_level(0)
+		, lf_packedsize(0)
+		, lf_originalsize(0)
 		, header_pos(0)
 		, data_pos(0)
 		, extend_type(EXTEND_UNIX)
@@ -81,6 +83,9 @@ public:
     size_t          packed_size; // compressed size of entry
     size_t          original_size; // uncompressed size of entry
     unsigned char   header_level; // level/type of header (0..3)
+    
+    uint64_t		lf_packedsize; // if 64-bit filesize is given, compressed size of file
+    uint64_t		lf_originalsize; // if 64-bit filesize is given, uncompressed size of file
 
 	// keep offset of data in file for locating later..
 	long            header_pos;
@@ -339,19 +344,50 @@ enum tExtendedAttribs
 {
 	EXTH_CRC      = 0x00, // 16-bit CRC
 	EXTH_FILENAME = 0x01, // file name
-	EXTH_PATH     = 0x02, // path name
+	EXTH_PATHNAME = 0x02, // path name
+	
+	// 0x03-0x38 : reserved (common)
+	//EXTH_MULTIVOLUME     = 0x39, // (reserved) multi-disk/multi-volume header
+	// 0x3A-0x3E : reserved (common)
 	
 	EXTH_COMMENT          = 0x3f, // file comment (Amiga-style?), uncompressed
 	EXTH_MSDOSATTRIBS     = 0x40,
 	EXTH_WINDOWSTIMES     = 0x41, // Windows timestamps of file
 	EXTH_LARGEFILE        = 0x42, // 64-bit filesize
+	
+	// 0x43-0x47 : reserved (msdos?)
+	// 0x48-0x4F : reserved, for authenticity verification?
+	
 	EXTH_UNIXPERMISSIONS  = 0x50, // UNIX permission
 	EXTH_UNIXGIDUID       = 0x51, // UNIX gid and uid
 	EXTH_UNIXGROUP        = 0x52, // UNIX group name
 	EXTH_UNIXUSER         = 0x53, // UNIX user name
 	EXTH_UNIXLASTMODIFIED = 0x54, // UNIX last modified time 
+
+	// 0x55-0x5F : reserved (Unix)
+	// 0x60-0x7C : reserved (others)
+
+	EXTH_CAPSULEHEADER = 0x7D, // encapsulation, MacBinary-like format-information??
+	EXTH_PLATFORMINFORMATION = 0x7E, // attributes for OS/2 ?
 	
-	EXTH_RESERVED         = 0xFF // reservation for later
+	// permission, owner-id and timestamp, (level 3 on OS/2)
+	EXTH_NEWATTRIBUTES = 0x7F, // Unix and msdos attribute information? (level 3 header(1))
+
+	// 0x80-0xC3 : reserved (others)
+	
+	// 0xC4-0xC8 : compressed comments (different dictionary-sizes)
+	EXTH_COMPCOMMENT1  = 0xC4, // dict size: 4096
+	EXTH_COMPCOMMENT2  = 0xC5, // dict size: 8192
+	EXTH_COMPCOMMENT3  = 0xC6, // dict size: 16384
+	EXTH_COMPCOMMENT4  = 0xC7, // dict size: 32768
+	EXTH_COMPCOMMENT5  = 0xC8, // dict size: 65536
+	
+	// 0xC9-0xF3 : reserved (others), 
+	// 0xD0-0xDF OS-specific information?
+	EXTH_CAPSULEHEADER2 = 0xFC, // encapsulation, another option?
+	EXTH_PLATFORMINFORMATION2 = 0xFE, // another option?
+	
+	EXTH_UNIX_NEWATTRIBUTES = 0xFF // Unix file information? (level 3 on UNLHA32 ?)
 };
 
 class CLhHeader : public QObject
@@ -393,6 +429,27 @@ private:
 		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
 	}
 
+	// only for 64-bit filesize information (if used?)
+	inline uint64_t get_longlong()
+	{
+		long b0 = get_byte();
+		long b1 = get_byte();
+		long b2 = get_byte();
+		long b3 = get_byte();
+		long b4 = get_byte();
+		long b5 = get_byte();
+		long b6 = get_byte();
+		long b7 = get_byte();
+		
+		return ((b7 << 56) 
+				+ (b6 << 48) 
+				+ (b5 << 40) 
+				+ (b4 << 32) 
+				+ (b3 << 24) 
+				+ (b2 << 16) 
+				+ (b1 << 8) 
+				+ b0);
+	}
 	
 	// note: string isn't null-terminated in file.
 	//

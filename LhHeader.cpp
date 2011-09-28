@@ -586,7 +586,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             /* filename */
             pHeader->filename = getPathname(extend_size - nExtensionOverhead, true);
             break;
-        case EXTH_PATH:
+        case EXTH_PATHNAME:
             /* directory */
             pHeader->dirname = getPathname(extend_size - nExtensionOverhead, true);
             break;
@@ -605,6 +605,13 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			pHeader->last_modified_stamp.setTime_t((time_t)get_wintime()); // already set ?
 			pHeader->last_access_stamp.setTime_t((time_t)get_wintime());
 			break;
+		case EXTH_LARGEFILE:
+			// 64-bit filesize (Windows only?)
+			// compressed size and original size of file
+			pHeader->lf_packedsize = get_longlong();
+			pHeader->lf_originalsize = get_longlong();
+			break;
+			
         case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
             // (if EXTEND_UNIX)
@@ -629,10 +636,62 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
             break;
             
+            /*
+		case EXTH_CAPSULEHEADER:
+			// - 4 bytes, capsule header size
+			// - 4 bytes, file size
+			break;
+			*/
+
+			/*
+		case EXTH_PLATFORMINFORMATION:
+			// - 1 byte, extended attribute identifier:
+			//  -- 0x00: no compression
+			//  -- 0x01: compression (unknown packing)
+			// - 1 byte, os name size (in bytes)
+			// - n bytes, os name (see above)
+			// - n bytes, extended attribute
+			break;
+			*/
+			
+			/*
+		case EXTH_NEWATTRIBUTES:
+			// - 2 bytes, msdos attribute
+			// - 2 bytes, "permission" of file
+			// - 2 bytes, group ID
+			// - 2 byte, user ID
+			// - 4 bytes, creation time (time_t)
+			// - 4 bytes, last acccess time (time_t)
+			break;
+			*/
+
+			/*
+		case EXTH_UNIX_NEWATTRIBUTES:
+			// note: should be avoided due confusion of format with UNLHA32.DLL?
+			// something like this:
+			// - 4 bytes "permission" of compressed file, only "2 high bytes" should be used?
+			// - 4 bytes group ID
+			// - 4 bytes user ID
+			// - 4 bytes creation time (time_t)
+			// - 4 bytes last access time (time_t)
+			break;
+			*/
+            
 		case EXTH_COMMENT:
-			/* uncompressed comment */
+			// uncompressed comment
             pHeader->file_comment = get_string(extend_size - nExtensionOverhead);
             break;
+            
+			/*
+		case EXTH_COMPCOMMENT1:
+		case EXTH_COMPCOMMENT2:
+		case EXTH_COMPCOMMENT3:
+		case EXTH_COMPCOMMENT4:
+		case EXTH_COMPCOMMENT5:
+			// compressed comment (varying dictionary sizes)
+			// just read compressed bytes and decompress somewhere?
+            break;
+            */
 			
         default:
             /* other headers */
@@ -665,7 +724,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 		}
 
 		// note: size of length-field may vary,
-		// read length of next now
+		// read length of next now.
+		// this is also dependant on extension type used before it?
         if (pHeader->size_field_length == 2)
 		{
             extend_size = get_word();
