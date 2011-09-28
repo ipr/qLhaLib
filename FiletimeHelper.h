@@ -82,12 +82,18 @@ public:
 		ft.dwLowDateTime = ulLoPart;
 		m_u64Stamp = GetFiletimeValue(ft);
 	}
+	CFiletimeHelper(const CFiletimeHelper &Helper)
+		: m_u64Stamp(Helper.GetValue())
+	{}
     ~CFiletimeHelper()
 	{}
 	
-	operator uint64_t() const
+	// note: time_t is __time64_t (64-bit) 
+	// unless otherwise define'd with _USE_32BIT_TIME_T on Win32
+	//
+	operator time_t() const
 	{
-		return m_u64Stamp;
+		return (time_t)GetAsUnixTime();
 	}
 
 	operator FILETIME() const

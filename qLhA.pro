@@ -6,7 +6,7 @@
 
 QT       -= gui
 
-TARGET = qLhA
+TARGET = qLhALib
 TEMPLATE = lib
 
 DEFINES += QLHA_LIBRARY 
@@ -20,9 +20,6 @@ SOURCES += qlhalib.cpp \
     LhExtract.cpp \
     LhDecoder.cpp \
     Huffman.cpp
-
-# LzEncode.cpp 
-# Huffman.cpp
 
 
 HEADERS += qlhalib.h\
@@ -39,5 +36,3 @@ HEADERS += qlhalib.h\
     Huffman.h \
     FilemodeFlags.h
 
-# LzEncode.h 
-# Huffman.h

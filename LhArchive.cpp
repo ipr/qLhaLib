@@ -326,17 +326,16 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		
 		QLhALib::CArchiveEntry &Entry = lstArchiveInfo.back();
 		Entry.m_szFileName = pHeader->filename;
-		Entry.m_uiCrc = pHeader->crc;
+		Entry.m_uiCrc = pHeader->getFileCrc();
 		Entry.m_ucHeaderLevel = pHeader->header_level;
 		Entry.m_ulPackedSize = pHeader->packed_size;
 		Entry.m_ulUnpackedSize = pHeader->original_size;
 		Entry.m_szPackMode = pHeader->pack_method;
 		Entry.m_Stamp = pHeader->last_modified_stamp;
-		//Entry.m_extendType = pHeader->extend_type; // TODO: plaintext description of type?
 		Entry.m_extendType = pHeader->GetOSTypeName();
 		Entry.m_szComment = pHeader->file_comment;
-		Entry.m_szUser = pHeader->user;
-		Entry.m_szGroup = pHeader->group;
+		Entry.m_szUser = pHeader->unix_user;
+		Entry.m_szGroup = pHeader->unix_group;
 		Entry.m_unix_uid = pHeader->unix_uid;
 		Entry.m_unix_gid = pHeader->unix_gid;
 		

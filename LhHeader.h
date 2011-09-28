@@ -37,10 +37,19 @@
 
 class LzHeader 
 {
+protected:
+	// note: only 16-bit crc..
+    unsigned int    file_crc;   // file CRC, 0 if not found in file
+    bool            has_crc;    // if file CRC was given/found in file
+    unsigned int    header_crc; // header CRC, in extended-header only
+
 public:
 	// constructor
 	LzHeader()
-		: m_enCompression(LZ_UNKNOWN)
+		: file_crc(0)
+		, has_crc(false)
+		, header_crc(0)
+		, m_enCompression(LZ_UNKNOWN)
 		, pack_method()
 		, header_size(0)
 		, extend_size(0)
@@ -56,43 +65,37 @@ public:
 		, realname()
 		, file_comment()
 		, UnixMode()
-	{
-		crc = 0x0000;
-		has_crc = false;
-		header_crc = 0;
-		
-		// defaults for these
-		unix_gid = 0;
-		unix_uid = 0;
-	}
-	
-    size_t          header_size;
-	long            extend_size; // size of extended-header (if any)
-    int             size_field_length; // "size" variable may have different sizes??
-	
-	QString         pack_method; // method as-is from file, e.g. -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
-    tCompressionMethod m_enCompression; // enumeration of supported types
-	
-    size_t          packed_size;
-    size_t          original_size;
-    unsigned char   header_level; // level/type of header (0..3)
-    
-	QString         filename;
-	QString         dirname;
-	QString         realname; // real name for symbolic link (unix)
-	
-	QString			file_comment; // usually Amiga-packed files have comment also
+		, unix_gid(0)
+		, unix_uid(0)
+		, unix_user()
+		, unix_group()
+	{}
 
-	// note: only 16-bit crc..
-    unsigned int    crc;      /* file CRC */
-    bool            has_crc;  /* file CRC */
-    unsigned int    header_crc; /* header CRC */
+    tCompressionMethod m_enCompression; // enumerated compression of entry
+	QString         pack_method; // method as-is from file, e.g. -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
 	
-    unsigned char   extend_type; /* OS type, single character */
+    size_t          header_size; // size of header (level 0/1/2/3)
+	long            extend_size; // size of extended-header (if any)
+    int             size_field_length; // "size" field may have different sizes (extended headers)
 	
+    size_t          packed_size; // compressed size of entry
+    size_t          original_size; // uncompressed size of entry
+    unsigned char   header_level; // level/type of header (0..3)
+
 	// keep offset of data in file for locating later..
 	long            header_pos;
 	long            data_pos;
+    
+    unsigned char   extend_type; /* OS type, single character */
+
+	// note on paths: directory maybe given in filename or it may be given separately,
+	// either way we will join directoy to filename and keep full path in it finally.
+	QString         filename;
+	QString         dirname; // temp until header for entry handled
+	QString         realname; // real name for symbolic link (unix)
+	
+	QString			file_comment; // usually Amiga-packed files have comment or found in extended header
+	
 
 	// MS-DOS attribute-flags
     MsdosFlags      MsDosAttributes;
@@ -104,15 +107,51 @@ public:
 
     /* extend_type == EXTEND_UNIX  and convert from other type. */
 
-	// only on unix-extension ?
-    unsigned char   minor_version;
+    unsigned char   minor_version; // only when EXTEND_UNIX
 	
 	UnixModeFlags   UnixMode;
     unsigned short  unix_uid;
     unsigned short  unix_gid;
+	QString         unix_user;
+	QString         unix_group;
 	
-	QString         user;
-	QString         group;
+	// just to see easily where it is modified
+	void setFileCrc(const uint16_t crc)
+	{
+		has_crc = true;
+		file_crc = crc;
+	}
+	uint16_t getFileCrc() const
+	{
+		// should be zero if not found from file
+		return file_crc;
+	}
+	bool isFileCrc(const uint16_t crc)
+	{
+		if (has_crc == true && file_crc != crc)
+		{
+			// crc was found but is different from given
+			// -> error somewhere
+			return false;
+		}
+		// equal or not found in file
+		// -> ok
+		return true;
+	}
+	void setHeaderCrc(const uint16_t crc)
+	{
+		header_crc = crc;
+	}
+	bool isHeaderCrc(const uint16_t crc)
+	{
+		if (header_crc == crc)
+		{
+			// match -> ok
+			return true;
+		}
+		// does not match
+		return false;
+	}
 
 
 	// get suitable method for extraction:
@@ -124,7 +163,7 @@ public:
 			&& pack_method.at(4) == '-')
 		{
 			// -lh?-
-			// -> LZHUFF, get level..
+			// LHarc -> LZHUFF
 			const char level = pack_method.at(3).toAscii();
 			switch (level)
 			{
@@ -145,29 +184,26 @@ public:
 			case '7':
 				return LZHUFF7_METHOD_NUM;
 				
-				/* 
-			case '8':
-				// -lh8- same as -lh7- ?
-				// was it ever in use?
-				return LZHUFF7_METHOD_NUM;
-				*/
-				
 			case 'd': // -lhd-
 				return LZHDIRS_METHOD_NUM;
 				
 				/*
+				// Joe Jared extensions
+			case '8': // -lh8-, same as -lh7-?
+				return LZHUFF7_METHOD_NUM;
 			case '9': // -lh9-
 			case 'a': // -lha-
 			case 'b': // -lhb-
 			case 'c': // -lhc-
 			case 'e': // -lhe-
-				// Joe Jared extensions, not yet supported..
 				break;
 				*/
 				
 				/*
+				// UNLHA32
 			case 'x': // -lhx-
-				// UNLHA32 ?
+				// test-compress only?
+				// dictionary size 128k-512k
 				break;
 				*/
 			}
@@ -176,7 +212,7 @@ public:
 			&& pack_method.at(4) == '-')
 		{
 			// -lz?-
-			// LArc, get level..
+			// LArc extensions
 			const char level = pack_method.at(3).toAscii();
 			switch (level)
 			{
@@ -188,24 +224,35 @@ public:
 				return LARC4_METHOD_NUM;
 
 				/*
+				// LArc extensions
+			case '2': // -lz2-
+				// extended -lzs-
+			case '3': // -lz3-
 			case '7': // -lz7-
 			case '8': // -lz8-
-			case '2': // -lz2-
-			case '3': // -lz3-
-				// LArc extensions, not yet supported..
 				break;
 				*/
 			}
 		}
-		/* 
-		else if (pack_method.contains("-pm") == true
-			&& pack_method.at(4) == '-')
-		{
-			// CP/M variations?
-		}
+		/*
+		// CP/M PMarc variations
 		else if (pack_method == "-pc1-")
 		{
-			// another CP/M variation?
+			// PopCom compressed executable archive
+		}
+		else if (pack_method == "-pm0-")
+		{
+			// no compression, store-only
+		}
+		else if (pack_method == "-pm1-")
+		{
+		}
+		else if (pack_method == "-pm2-")
+		{
+		}
+		else if (pack_method == "-pms-")
+		{
+			// PMarc self-extracting
 		}
 		*/
 
@@ -213,6 +260,8 @@ public:
 		return LZ_UNKNOWN;
 	}
 	
+	// this is stuff for user-display
+	// -> make it clear what one-character codes mean
 	QString GetOSTypeName()
 	{
 		if (extend_type == 0)
@@ -220,11 +269,13 @@ public:
 			return QString("Generic");
 		}
 	
-		QString type("(" + extend_type + ")"); // for logging
+		QString type = " (" + QString((char)extend_type) + ")"; // for logging
 		switch (extend_type)
 		{
 		case 'U':
 			return QString("Unix" + type);
+		case 'A': // unofficial?
+			return QString("Amiga" + type);
 		case 'M':
 			return QString("MSDOS" + type);
 		case 'm':
@@ -282,7 +333,8 @@ enum tHeaderIndices
 };
 
 // extended header attributes:
-// used to parse attributes from archive-file
+// attribute-type code of information in exteded-header
+//
 enum tExtendedAttribs
 {
 	EXTH_CRC      = 0x00, // 16-bit CRC
@@ -310,7 +362,7 @@ private:
 	
 	
 	// TODO: these buffer handlings REALLY need to be fixed..
-	// change methods later, move to buffer-class
+	// change methods later, move these to buffer-class or something
 	//
 	char    *m_get_ptr;
 	
@@ -341,17 +393,6 @@ private:
 		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
 	}
 
-	inline int get_bytes(char *buf, int len, int size)
-	{
-		int i = 0;
-		for (; i < len && i < size; i++)
-		{
-			buf[i] = m_get_ptr[i];
-		}
-		m_get_ptr += len;
-		return i;
-	}
-	
 	
 	// note: string isn't null-terminated in file.
 	//
@@ -444,14 +485,28 @@ private:
 		m_get_ptr += len;
 		return len;
 	}
+	
+	// just get value:
+	// stored as 32-bit long only
+	time_t get_unixtime()
+	{
+		long ltime = get_longword();
+		return (time_t)ltime;
+	}
+	
+	// get conversion helper
+	CGenericTime get_generictime()
+	{
+		long ltime = get_longword();
+		return CGenericTime(ltime);
+	}
 
+	// get conversion helper
 	CFiletimeHelper get_wintime()
 	{
 		unsigned long ulHiPart = (unsigned long)get_longword();
 		unsigned long ulLoPart = (unsigned long)get_longword();
-		
-		CFiletimeHelper ft(ulHiPart, ulLoPart);
-		return ft;
+		return CFiletimeHelper(ulHiPart, ulLoPart);
 	}
 	
 

@@ -65,6 +65,9 @@ public:
 	CGenericTime(const long lTime)
 		: m_lGenericTime(lTime)
 	{}
+	CGenericTime(const CGenericTime &Helper)
+		: m_lGenericTime(Helper.getRawValue())
+	{}
 
 	// just convert to something to useful	
 	operator time_t () const
@@ -72,6 +75,22 @@ public:
 		return generic_to_unix_stamp(m_lGenericTime);
 	}
 
+	long getRawValue() const
+	{
+		return m_lGenericTime;
+	}
+
+	CGenericTime& operator =(const CGenericTime &Helper)
+	{
+		// check self-assignment
+		if (this == &Helper)
+		{
+			return *this;
+		}
+		
+		m_lGenericTime = Helper.getRawValue();
+		return *this;
+	}
 };
 
 #endif // GENERICTIME_H

@@ -3,8 +3,7 @@
 // structure and code for handling Lz-archive header
 //
 // partly rewritten from header.c in LHa for UNIX
-//
-// Ilkka Prusi 2011
+// by: Ilkka Prusi 2011
 //
 // original copyrights:
 /* ------------------------------------------------------------------------ */
@@ -69,6 +68,8 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		m_HeaderList.push_back(pHeader);
 
 		// try to keep track of how much there is for header in truth..
+		// note: we don't know true "final" header size until reading it
+		// according to level, extended header fields etc.
 		// 
 		pHeader->header_size = COMMON_HEADER_SIZE;
 		pHeader->header_pos = lHeaderPos;
@@ -108,7 +109,8 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		// parse method-string to enum now..
 		pHeader->m_enCompression = pHeader->GetMethod();
 		
-		// fix path-names
+		// fix path-names, no need for MSDOS-style paths
+		// since around 1999 (W2k or newer)..
 		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
 		
@@ -203,8 +205,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-	CGenericTime gtStamp(get_longword());
-    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
+    pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     
@@ -223,15 +224,17 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		{
             /* CRC field is not given */
             pHeader->extend_type = EXTEND_GENERIC;
-            pHeader->has_crc = false;
+            
+            // no need, see header constructor
+            //pHeader->has_crc = false;
             return true;
         } 
 
 		throw ArcException("Unknown header (lha file?)", extend_size);
     }
 
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
+	// keep CRC
+    pHeader->setFileCrc(get_word());
 
     if (extend_size == 0)
 	{
@@ -246,7 +249,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
         if (extend_size >= 11) 
 		{
             pHeader->minor_version = get_byte();
-            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+            pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
             pHeader->UnixMode.ParseMode(get_word());
             pHeader->unix_uid = get_word();
             pHeader->unix_gid = get_word();
@@ -322,8 +325,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
-	CGenericTime gtStamp(get_longword());
-    pHeader->last_modified_stamp.setTime_t((time_t)gtStamp);
+    pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
     pHeader->header_level = get_byte();
 
@@ -336,8 +338,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	}
 
     /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
+    pHeader->setFileCrc(get_word());
     pHeader->extend_type = get_byte();
 
     int dummy = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE;
@@ -408,13 +409,12 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
+    pHeader->setFileCrc(get_word());
     pHeader->extend_type = get_byte();
     pHeader->extend_size = get_word();
 
@@ -430,7 +430,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     int padding = (pHeader->header_size - I_LEVEL2_HEADER_SIZE - extend_size);
 	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
 
-    if (pHeader->header_crc != hcrc)
+    if (pHeader->isHeaderCrc(hcrc) == false)
 	{
 		throw ArcException("header CRC error", hcrc);
 	}
@@ -481,15 +481,14 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+    pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
-    pHeader->has_crc = true;
-    pHeader->crc = get_word();
+    pHeader->setFileCrc(get_word());
+    
     pHeader->extend_type = get_byte();
-	
     pHeader->header_size = get_longword();
     pHeader->extend_size = get_longword();
 
@@ -505,11 +504,10 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     int padding = (pHeader->header_size - I_LEVEL3_HEADER_SIZE - extend_size);
 	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
 
-    if (pHeader->header_crc != hcrc)
+    if (pHeader->isHeaderCrc(hcrc) == false)
 	{
 		throw ArcException("header CRC error", hcrc);
 	}
-
     return true;
 }
 
@@ -574,7 +572,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         case EXTH_CRC:
 			{
 				/* header crc (CRC-16) */
-				pHeader->header_crc = get_word();
+				pHeader->setHeaderCrc(get_word());
 				
 				/* clear buffer for CRC calculation. */
 				unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -600,18 +598,12 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
 			
         case EXTH_WINDOWSTIMES:
-			{
-				/* Windows time stamp (FILETIME structure) */
-				/* time in 100 nanosecond-intervals since 1601-01-01 00:00:00 (UTC) */
-				
-				CFiletimeHelper ftCreation = get_wintime();
-				CFiletimeHelper ftLastModified = get_wintime();
-				CFiletimeHelper ftLastAccess = get_wintime();
-				
-				pHeader->creation_stamp.setTime_t((time_t)ftCreation);
-				pHeader->last_modified_stamp.setTime_t((time_t)ftLastModified); // already set ?
-				pHeader->last_access_stamp.setTime_t((time_t)ftLastAccess);
-			}
+			/* Windows time stamp (FILETIME structure) */
+			/* time in 100 nanosecond-intervals since 1601-01-01 00:00:00 (UTC) */
+			/* note order of reading values.. use conversion helpers */
+			pHeader->creation_stamp.setTime_t((time_t)get_wintime());
+			pHeader->last_modified_stamp.setTime_t((time_t)get_wintime()); // already set ?
+			pHeader->last_access_stamp.setTime_t((time_t)get_wintime());
 			break;
         case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
@@ -625,16 +617,16 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
             break;
         case EXTH_UNIXGROUP:
             /* UNIX group name */
-            pHeader->group = get_string(extend_size - nExtensionOverhead);
+            pHeader->unix_group = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXUSER:
             /* UNIX user name */
-            pHeader->user = get_string(extend_size - nExtensionOverhead);
+            pHeader->unix_user = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
 			// (32-bit time_t)
-            pHeader->last_modified_stamp.setTime_t((time_t)get_longword());
+            pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
             break;
             
 		case EXTH_COMMENT:

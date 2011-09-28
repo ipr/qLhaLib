@@ -223,7 +223,7 @@ bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeade
 	}
 	
 	// verify CRC: exception if not match (keep decoded anyway..)
-	if (pHeader->has_crc == true && pHeader->crc != uiFileCrc)
+	if (pHeader->isFileCrc(uiFileCrc) == false)
 	{
 		throw ArcException("CRC error on extract", pHeader->filename.toStdString());
 	}
