@@ -169,8 +169,8 @@ public:
 		QString m_szUser;
 		QString m_szGroup;
 		
-		unsigned short m_unix_uid;
-		unsigned short m_unix_gid;
+		unsigned int m_unix_uid;
+		unsigned int m_unix_gid;
 		
 		// generic way to give protection flags to caller?
 		// (whichever os, gui or console..)

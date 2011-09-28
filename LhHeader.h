@@ -400,55 +400,72 @@ private:
 	// TODO: these buffer handlings REALLY need to be fixed..
 	// change methods later, move these to buffer-class or something
 	//
-	char    *m_get_ptr;
-	
-	inline int get_byte()
+	//char    *m_get_ptr;
+	uint8_t *m_get_ptr; // position pointer to a buffer..
+
+	inline void incrementPtr(const size_t nLen)
 	{
-		return *m_get_ptr++ & 0xff;
+		m_get_ptr = (m_get_ptr + nLen);
 	}
 	
-	inline void skip_bytes(size_t len)
+	inline uint8_t get_byte()
 	{
-		m_get_ptr += (len);
+		uint8_t tmp = (m_get_ptr[0]);
+		incrementPtr(1);
+		return tmp;
 	}
 	
-	inline int get_word()
+	inline uint16_t get_word()
 	{
-		int b0 = get_byte();
-		int b1 = get_byte();
-		int w = (b1 << 8) + b0;
-		return w;
+		uint16_t tmp = 0;
+		tmp += m_get_ptr[1];
+		tmp <<= 8;
+		tmp += m_get_ptr[0];
+		incrementPtr(2);
+		return tmp;
 	}
 	
-	inline long get_longword()
+	inline uint32_t get_longword()
 	{
-		long b0 = get_byte();
-		long b1 = get_byte();
-		long b2 = get_byte();
-		long b3 = get_byte();
-		return (b3 << 24) + (b2 << 16) + (b1 << 8) + b0;
+		// avoid numerous temps
+		// and possible shifting in smaller type
+		// (loss of bits)
+		uint32_t tmp = 0;
+		tmp += m_get_ptr[3];
+		tmp <<= 8;
+		tmp += m_get_ptr[2];
+		tmp <<= 8;
+		tmp += m_get_ptr[1];
+		tmp <<= 8;
+		tmp += m_get_ptr[0];
+		incrementPtr(4);
+		return tmp;
 	}
 
 	// only for 64-bit filesize information (if used?)
 	inline uint64_t get_longlong()
 	{
-		long b0 = get_byte();
-		long b1 = get_byte();
-		long b2 = get_byte();
-		long b3 = get_byte();
-		long b4 = get_byte();
-		long b5 = get_byte();
-		long b6 = get_byte();
-		long b7 = get_byte();
-		
-		return ((b7 << 56) 
-				+ (b6 << 48) 
-				+ (b5 << 40) 
-				+ (b4 << 32) 
-				+ (b3 << 24) 
-				+ (b2 << 16) 
-				+ (b1 << 8) 
-				+ b0);
+		// avoid numerous temps
+		// and possible shifting in smaller type
+		// (loss of bits)
+		uint64_t tmp = 0;
+		tmp += m_get_ptr[7];
+		tmp <<= 8;
+		tmp += m_get_ptr[6];
+		tmp <<= 8;
+		tmp += m_get_ptr[5];
+		tmp <<= 8;
+		tmp += m_get_ptr[4];
+		tmp <<= 8;
+		tmp += m_get_ptr[3];
+		tmp <<= 8;
+		tmp += m_get_ptr[2];
+		tmp <<= 8;
+		tmp += m_get_ptr[1];
+		tmp <<= 8;
+		tmp += m_get_ptr[0];
+		incrementPtr(8);
+		return tmp;
 	}
 	
 	// note: string isn't null-terminated in file.
@@ -461,13 +478,13 @@ private:
 		QString szVal;
 		if (m_pTextCodec == nullptr)
 		{
-			szVal = QString::fromAscii(m_get_ptr, len);
+			szVal = QString::fromAscii((char*)m_get_ptr, len);
 		}
 		else
 		{
-			szVal = m_pTextCodec->toUnicode(m_get_ptr, len);
+			szVal = m_pTextCodec->toUnicode((char*)m_get_ptr, len);
 		}
-		m_get_ptr += len;
+		incrementPtr(len);
 		return szVal;
 	}
 	
@@ -477,7 +494,7 @@ private:
 	// 	
 	QString getPathname(int len, bool fixPath = true)
 	{
-		QByteArray tmp(m_get_ptr, len);
+		QByteArray tmp((char*)m_get_ptr, len);
 		
 		for (int i = 0; i < len; i++)
 		{
@@ -490,7 +507,7 @@ private:
 				tmp[i] = '/';
 			}
 		}
-		m_get_ptr += len;
+		incrementPtr(len);
 		
 		if (m_pTextCodec == nullptr)
 		{
@@ -533,13 +550,13 @@ private:
 		
 		if (m_pTextCodec == nullptr)
 		{
-			string = QString::fromAscii(m_get_ptr, len);
+			string = QString::fromAscii((char*)m_get_ptr, len);
 		}
 		else
 		{
-			string = m_pTextCodec->toUnicode(m_get_ptr, len);
+			string = m_pTextCodec->toUnicode((char*)m_get_ptr, len);
 		}
-		m_get_ptr += len;
+		incrementPtr(len);
 		return len;
 	}
 	
@@ -547,22 +564,22 @@ private:
 	// stored as 32-bit long only
 	time_t get_unixtime()
 	{
-		long ltime = get_longword();
+		uint32_t ltime = get_longword();
 		return (time_t)ltime;
 	}
 	
 	// get conversion helper
 	CGenericTime get_generictime()
 	{
-		long ltime = get_longword();
+		uint32_t ltime = get_longword();
 		return CGenericTime(ltime);
 	}
 
 	// get conversion helper
 	CFiletimeHelper get_wintime()
 	{
-		unsigned long ulHiPart = (unsigned long)get_longword();
-		unsigned long ulLoPart = (unsigned long)get_longword();
+		uint32_t ulHiPart = get_longword();
+		uint32_t ulLoPart = get_longword();
 		return CFiletimeHelper(ulHiPart, ulLoPart);
 	}
 	

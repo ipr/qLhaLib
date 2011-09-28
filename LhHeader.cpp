@@ -43,7 +43,7 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 	bool bIsEnd = false;
 	while (bIsEnd == false)
 	{
-		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
+		m_get_ptr = m_pReadBuffer->GetBegin();
 		
 		long lHeaderPos = 0;
 		if (ArchiveFile.Tell(lHeaderPos) == false)
@@ -262,7 +262,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     }
     if (extend_size > 0)
 	{
-        skip_bytes(extend_size);
+        incrementPtr(extend_size);
 	}
 
     pHeader->header_size += 2;
@@ -344,7 +344,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     int dummy = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE;
     if (dummy > 0)
 	{
-        skip_bytes(dummy); /* skip old style extend header */
+        incrementPtr(dummy); /* skip old style extend header */
 	}
 
 	pHeader->extend_size = get_word();
@@ -550,7 +550,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	long extend_size = pHeader->extend_size;
     while (extend_size) 
 	{
-		m_get_ptr = (char*)m_pReadBuffer->GetBegin();
+		m_get_ptr = m_pReadBuffer->GetBegin();
 		
 		// this only makes sense for "wrap-under" case of unsigned counter..
         if (m_pReadBuffer->GetSize() < extend_size) 
@@ -578,16 +578,20 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				unsigned char *pBuf = m_pReadBuffer->GetBegin();
 				pBuf[1] = pBuf[2] = 0;
 				
-				skip_bytes(extend_size - nExtensionOverhead - 2);
+				incrementPtr(extend_size - nExtensionOverhead - 2);
 			}
             break;
             
         case EXTH_FILENAME:
-            /* filename */
+            // filename 
+            // note: in case of broken compression-tool 
+            // there is a wchar-string instead of narrow-char which it should be..
             pHeader->filename = getPathname(extend_size - nExtensionOverhead, true);
             break;
         case EXTH_PATHNAME:
-            /* directory */
+            // directory 
+            // note: in case of broken compression-tool 
+            // there is a wchar-string instead of narrow-char which it should be..
             pHeader->dirname = getPathname(extend_size - nExtensionOverhead, true);
             break;
 			
@@ -656,7 +660,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			
 			/*
 		case EXTH_NEWATTRIBUTES:
-			// - 2 bytes, msdos attribute
+			// - 2 bytes, msdos file attribute
 			// - 2 bytes, "permission" of file
 			// - 2 bytes, group ID
 			// - 2 byte, user ID
@@ -713,7 +717,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                0xff: extended attribute - permission, owner-id and timestamp
                      (level 3 on UNLHA32) 
             */
-            skip_bytes(extend_size - nExtensionOverhead);
+            incrementPtr(extend_size - nExtensionOverhead);
 			emit warning(QString("unknown extended header %1").arg(iExtType));
             break;
         }
