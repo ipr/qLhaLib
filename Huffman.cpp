@@ -8,198 +8,6 @@
 
 /* ------------------------------------------------------------------------ */
 /* LHa for UNIX                                                             */
-/*              maketree.c -- make Huffman tree                             */
-/*                                                                          */
-/*      Modified                Nobutaka Watazaki                           */
-/*                                                                          */
-/*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
-/* ------------------------------------------------------------------------ */
-
-void CHuffmanTree::make_code(int nchar, 
-			   unsigned char  *bitlen, 
-			   unsigned short *code,       /* table */
-			   unsigned short *leaf_num) const
-{
-    unsigned short  weight[17]; /* 0x10000ul >> bitlen */
-    unsigned short  start[17];  /* start code */
-    unsigned short total = 0;
-	
-    for (int i = 1; i <= 16; i++) 
-	{
-        start[i] = total;
-        weight[i] = 1 << (16 - i);
-        total += weight[i] * leaf_num[i];
-    }
-	
-    for (int c = 0; c < nchar; c++) 
-	{
-        int l = bitlen[c];
-        code[c] = start[l];
-        start[l] += weight[l];
-    }
-}
-
-void CHuffmanTree::count_leaf(int node, /* call with node = root */
-						  int nchar, 
-						  unsigned short leaf_num[], 
-						  int depth) const
-{
-    if (node < nchar)
-	{
-        leaf_num[depth < 16 ? depth : 16]++;
-	}
-    else 
-	{
-        count_leaf(left[node], nchar, leaf_num, depth + 1);
-        count_leaf(right[node], nchar, leaf_num, depth + 1);
-    }
-}
-
-void CHuffmanTree::make_len(int nchar, 
-			  unsigned char *bitlen,
-			  unsigned short *sort,       /* sorted characters */
-			  unsigned short *leaf_num) const
-{
-    unsigned int cum = 0;
-    for (int i = 16; i > 0; i--) 
-	{
-        cum += leaf_num[i] << (16 - i);
-    }
-	
-#if (UINT_MAX != 0xffff)
-    cum &= 0xffff;
-#endif
-	
-    /* adjust len */
-    if (cum) 
-	{
-        leaf_num[16] -= cum; /* always leaf_num[16] > cum */
-        do 
-		{
-            for (int i = 15; i > 0; i--) 
-			{
-                if (leaf_num[i]) 
-				{
-                    leaf_num[i]--;
-                    leaf_num[i + 1] += 2;
-                    break;
-                }
-            }
-        } while (--cum);
-    }
-	
-    /* make len */
-    for (int i = 16; i > 0; i--) 
-	{
-        int k = leaf_num[i];
-        while (k > 0) 
-		{
-            bitlen[*sort] = i;
-			sort++;
-            k--;
-        }
-    }
-}
-
-/* priority queue; send i-th entry down heap */
-void CHuffmanTree::downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const
-{
-    short k = heap[i];
-    short j = 2 * i;
-    while (j <= heapsize) 
-	{
-        if (j < heapsize && freq[heap[j]] > freq[heap[j + 1]])
-		{
-            j++;
-		}
-        if (freq[k] <= freq[heap[j]])
-		{
-            break;
-		}
-        heap[i] = heap[j];
-        i = j;
-		j = 2 * i;
-    }
-    heap[i] = k;
-}
-
-/* make tree, calculate bitlen[], return root */
-short CHuffmanTree::make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code)
-{
-    short root;
-
-    short heap[NC_LEN + 1];       /* NC >= nchar */
-    short avail = nchar;
-    size_t heapsize = 0;
-    heap[1] = 0;
-	
-    for (short i = 0; i < nchar; i++) 
-	{
-        bitlen[i] = 0;
-        if (freq[i])
-		{
-            heap[++heapsize] = i;
-		}
-    }
-    if (heapsize < 2) 
-	{
-        code[heap[1]] = 0;
-        return heap[1];
-    }
-
-    /* make priority queue */
-    for (short i = heapsize / 2; i >= 1; i--)
-	{
-        downheap(i, heap, heapsize, freq);
-	}
-
-    /* make huffman tree */
-    unsigned short *sort = code;
-
-	/* while queue has at least two entries */	
-    do 
-	{
-        short i = heap[1];    /* take out least-freq entry */
-        if (i < nchar)
-		{
-            *sort++ = i;
-		}
-        heap[1] = heap[heapsize--];
-        downheap(1, heap, heapsize, freq);
-		
-        short j = heap[1];    /* next least-freq entry */
-        if (j < nchar)
-		{
-            *sort++ = j;
-		}
-        root = avail++;    /* generate new node */
-        freq[root] = freq[i] + freq[j];
-        heap[1] = root;
-        downheap(1, heap, heapsize, freq);    /* put into queue */
-        left[root] = i;
-        right[root] = j;
-    } while (heapsize > 1);
-
-    {
-        unsigned short leaf_num[17];
-
-        /* make leaf_num */
-        memset(leaf_num, 0, sizeof(leaf_num));
-        count_leaf(root, nchar, leaf_num, 0);
-
-        /* make bitlen */
-        make_len(nchar, bitlen, code, leaf_num);
-
-        /* make code table */
-        make_code(nchar, bitlen, code, leaf_num);
-    }
-
-    return root;
-}
-
-
-/* ------------------------------------------------------------------------ */
-/* LHa for UNIX                                                             */
 /*              maketbl.c -- makes decoding table                           */
 /*                                                                          */
 /*      Modified                Nobutaka Watazaki                           */
@@ -217,7 +25,7 @@ void CHuffmanTree::make_table(
     unsigned short  count[17];  /* count of bitlen */
     unsigned short  weight[17]; /* 0x10000ul >> bitlen */
     unsigned short  start[17];  /* first code of bitlen */
-    unsigned int    iCount;
+    unsigned int    iCount = 0;
 
     int avail = nchar;
 
@@ -376,8 +184,10 @@ void CShuffleHuffman::decode_start_fix()
 	// call to base-class
 	CHuffman::init_decode_start(314, 60);
 	m_BitIo.init_getbits();
-	
-    m_np = 1 << (LZHUFF1_DICBIT - 6);
+
+	// -lh1- shift by 6 for table configuration
+    //m_np = 1 << (LZHUFF1_DICBIT - 6);
+    m_np = SHUF_NP_LZHUFF1;
 	
     start_c_dyn();
 
@@ -393,7 +203,9 @@ void CShuffleHuffman::decode_start_st0()
 	CHuffman::init_decode_start(286, MAXMATCH);
 	m_BitIo.init_getbits();
 	
-    m_np = 1 << (LZHUFF3_DICBIT - 6);
+	// -lh3- shift by 7 
+    //m_np = 1 << (LZHUFF3_DICBIT - 6);
+    m_np = SHUF_NP_LZHUFF3;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -612,7 +424,7 @@ void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
     total_p = 0;
 
 	// keep m_nn for: decode_p_dyn()
-	m_nn = (1 << ((int)enBit));
+	m_nn = (1 << (int)enBit);
     nextcount = 64;
 }
 
@@ -757,7 +569,7 @@ void CDynamicHuffman::swap_inc_Adjust(int &p, int &b)
 }
 
 /* ------------------------------------------------------------------------ */
-void CDynamicHuffman::update_c(int p)
+void CDynamicHuffman::dyn_update_c(int p)
 {
     if (freq[ROOT_C] == 0x8000) 
 	{
@@ -773,7 +585,7 @@ void CDynamicHuffman::update_c(int p)
 }
 
 /* ------------------------------------------------------------------------ */
-void CDynamicHuffman::update_p(int p)
+void CDynamicHuffman::dyn_update_p(int p)
 {
     if (total_p == 0x8000) 
 	{
@@ -811,8 +623,9 @@ void CDynamicHuffman::make_new_node(int p)
     }
 	
     parent[r] = parent[q] = most_p;
-    edge[block[q] = stock[avail++]] = s_node[p + N_CHAR] = most_p = q;
-    update_p(p);
+    block[q] = stock[avail++];
+    edge[(block[q])] = s_node[p + N_CHAR] = most_p = q;
+    dyn_update_p(p);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -837,7 +650,7 @@ unsigned short CDynamicHuffman::decode_c_dyn()
 	
     m_BitIo.fillbuf(cnt);
     c = ~c;
-    update_c(c);
+    dyn_update_c(c);
 	
     if (c == m_n1)
 	{
@@ -878,7 +691,7 @@ unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
 	
     m_BitIo.fillbuf(cnt);
     c = (~c) - N_CHAR;
-    update_p(c);
+    dyn_update_p(c);
 
     return (c << 6) + m_BitIo.getbits(6);
 }

@@ -106,17 +106,17 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 			throw IOException("Failure getting current position");
 		}
 		
-		if (pHeader->packed_size == 0 || pHeader->original_size == 0)
-		{
-			emit warning(QString("zero size in file: %1 method: ")
-							.arg(pHeader->filename).append(pHeader->pack_method));
-		}
-		
 		// parse method-string to enum now..
 		pHeader->m_enCompression = pHeader->GetMethod();
 		if (pHeader->m_enCompression == LZ_UNKNOWN)
 		{
 			emit warning(QString("unknown compression in file: %1 method: ")
+							.arg(pHeader->filename).append(pHeader->pack_method));
+		}
+		else if ((pHeader->packed_size == 0 || pHeader->original_size == 0)
+				&& pHeader->m_enCompression != LZHDIRS_METHOD_NUM)
+		{
+			emit warning(QString("zero size in file: %1 method: ")
 							.arg(pHeader->filename).append(pHeader->pack_method));
 		}
 		

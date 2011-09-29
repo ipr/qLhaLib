@@ -146,26 +146,6 @@ public:
     CHuffmanTree()
 	{}
 	
-	void make_code(int nchar, 
-				   unsigned char  *bitlen, 
-				   unsigned short *code,       /* table */
-				   unsigned short *leaf_num) const;
-	
-	void count_leaf(
-			int node, /* call with node = root */
-			int nchar, 
-			unsigned short leaf_num[], 
-			int depth) const;
-	
-	void make_len(int nchar, 
-				  unsigned char *bitlen,
-				  unsigned short *sort,       /* sorted characters */
-				  unsigned short *leaf_num) const;
-	
-	void downheap(int i, short *heap, size_t heapsize, unsigned short *freq) const;
-	
-	short make_tree(int nchar, unsigned short *freq, unsigned char *bitlen, unsigned short *code);
-	
 	void make_table(short nchar, unsigned char bitlen[], short tablebits, unsigned short table[]);
 
 protected:
@@ -208,8 +188,7 @@ public:
     CDynamicHuffman()
 		: CHuffman()
 		, CHuffmanTree()
-	{
-	}
+	{}
 	
 	void start_c_dyn();
 
@@ -218,8 +197,8 @@ public:
 	int swap_inc(int p);
 	void swap_inc_Adjust(int &p, int &b);
 
-	void update_c(int p);
-	void update_p(int p);
+	void dyn_update_c(int p);
+	void dyn_update_p(int p);
 	
 	void make_new_node(int p);
 	
@@ -235,6 +214,8 @@ protected:
 	// avoid name collisions
 	enum tShuffle
 	{
+		SHUF_NP_LZHUFF1 = (1 << 6), // -lh1- init value for m_np
+		SHUF_NP_LZHUFF3 = (1 << 7), // -lh3- init value for m_np
 		SHUF_NP  = (8 * 1024 / 64),
 		SHUF_N1  = 286,                     // alphabet size
 		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
@@ -257,8 +238,7 @@ public:
     CShuffleHuffman()
 		: CDynamicHuffman()
 		, m_blocksize(0)
-	{
-	}
+	{}
 
 	// uses lookup-tables with -lh1- and -lh3-
 	//void fixed_method_pt_len(int method);
@@ -290,8 +270,7 @@ public:
 		: CHuffman()
 		, CHuffmanTree()
 	    , m_blocksize(0)
-	{
-	}
+	{}
 	
 	void read_pt_len(short nn, short nbit, short i_special);
 	void read_c_len();

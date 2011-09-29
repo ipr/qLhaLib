@@ -39,10 +39,9 @@ enum tHuffBits
 	LARC_DICBIT             = 11,      /* 2^11 =  2KB sliding dictionary */
 	LARC5_DICBIT            = 12,      /* 2^12 =  4KB sliding dictionary */
 	LARC4_DICBIT            = 0,      /* no compress */
-							  
-	 MAX_DICBIT          = LZHUFF7_DICBIT,      /* lh7 use 16bits */
-						  
-	 MAX_DICSIZ          = (1L << MAX_DICBIT)
+	
+	MAX_DICBIT          = LZHUFF7_DICBIT,      /* lh7 use 16bits */
+	MAX_DICSIZ          = (1L << MAX_DICBIT)
 };
 
 /* */
