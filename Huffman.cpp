@@ -419,7 +419,8 @@ void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
     freq[ROOT_P] = 1;
     child[ROOT_P] = ~(N_CHAR);
     s_node[N_CHAR] = ROOT_P;
-    edge[block[ROOT_P] = stock[avail++]] = ROOT_P;
+    block[ROOT_P] = stock[avail++];
+    edge[(block[ROOT_P])] = ROOT_P;
     most_p = ROOT_P;
     total_p = 0;
 
@@ -564,7 +565,9 @@ void CDynamicHuffman::swap_inc_Adjust(int &p, int &b)
 	}
 	else 
 	{
-		edge[block[p] = stock[avail++]] = p;    /* create block */
+		/* create block */
+		block[p] = stock[avail++];
+		edge[(block[p])] = p;
 	}
 }
 
