@@ -45,10 +45,12 @@ enum tHuffBits
 };
 
 /* */
+// TODO: replace defines with 'enum class' when supported..
 #define EXTEND_GENERIC          0
 #define EXTEND_UNIX             'U'
-#define EXTEND_MSDOS            'M'
+#define EXTEND_AMIGA            'A'
 #define EXTEND_MACOS            'm'
+#define EXTEND_MSDOS            'M'
 #define EXTEND_OS9              '9'
 #define EXTEND_OS2              '2'
 #define EXTEND_OS68K            'K'

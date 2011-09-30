@@ -196,7 +196,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     pHeader->size_field_length = 2; /* in bytes */
 	
-	size_t header_size = get_byte();
+	size_t header_size = get_byte(); // whole header -2 (size&sum)
     int checksum = get_byte();
     pHeader->header_size = header_size +2;
 	
@@ -225,11 +225,16 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     // on Amiga, may include file comment as part of filename
 	readFilenameComment(ArchiveFile, pHeader, name_length);
 	
-    long extend_size = header_size - name_length - 24;
+	// header_size: total data in header
+	// name_length: size of filename (from above)
+	// I_GENERIC_HEADER_SIZE: size of fixed fields in header
+	// -> extended area size is whatever remains
+	//
+    long extend_size = (header_size - name_length) - I_GENERIC_HEADER_SIZE;
 	if (extend_size == 0) 
 	{
 	    // old version of LArc does not write CRC-field
-	    // -> ok
+	    // -> ok, nothing more to do here?
 		pHeader->os_type = EXTEND_GENERIC;
 		return true;
 	}
@@ -256,7 +261,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     extend_size -= get_extended_area(ArchiveFile, pHeader, extend_size);
     if (extend_size > 0)
 	{
-        incrementPtr(extend_size);
+        incrementPtr(extend_size); // skip rest of old style extend area
 	}
 
 	// +2 for size-field of extended header segment?
@@ -300,13 +305,13 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     pHeader->size_field_length = 2; /* in bytes */
 	
-	size_t header_size = get_byte();
+	size_t header_size = get_byte(); // whole header -2 (size&sum)
 	int checksum = get_byte();
     pHeader->header_size = header_size +2;
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
-    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, header_size + 2 - COMMON_HEADER_SIZE) == false) 
+    if (ArchiveFile.Read(pBuf + COMMON_HEADER_SIZE, (header_size + 2) - COMMON_HEADER_SIZE) == false) 
 	{
 		throw ArcException("Invalid header (LHarc file ?)", header_size);
     }
@@ -333,13 +338,13 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->setFileCrc(get_word());
 
 	// count size for old style "extended area"
-    int extarea_size = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE +1;
-    //extarea_size += 1; // for OS-type reading
+    int extarea_size = ((header_size+2) - name_length) - I_LEVEL1_HEADER_SIZE;
+    extarea_size += 1; // for OS-type reading
     //pHeader->os_type = get_byte(); // -> moved to get_extended_area()
     extarea_size -= get_extended_area(ArchiveFile, pHeader, extarea_size);
     if (extarea_size > 0)
 	{
-        incrementPtr(extarea_size); // skip old style extend header 
+        incrementPtr(extarea_size); // skip rest of old style extend area 
 	}
 
 	pHeader->extend_size = get_word();
@@ -611,7 +616,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 	m_pReadBuffer->PrepareBuffer(pHeader->extend_size, false);
 	
 	// keep this size while reading
-	long extend_size = pHeader->extend_size;
+	size_t extend_size = pHeader->extend_size;
     while (extend_size) 
 	{
 		m_get_ptr = m_pReadBuffer->GetBegin();

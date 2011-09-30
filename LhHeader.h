@@ -36,6 +36,35 @@
 // renamed for clarity..
 #define PACKMETHOD_TYPE_LENGTH ((int)5)
 
+/*
+// TODO: enable when C++11 compilers mature..
+//
+// OS type identification (user information mostly)
+// VC++ 2010 does not yet support fully 'enum class' it seems,
+// should allow this: 
+//
+// enum class EOSType : unsigned char 
+//
+enum EOSType : unsigned char 
+{
+	GENERIC          = 0,
+	UNIX             = 'U',
+	AMIGA            = 'A',
+	MACOS            = 'm',
+	MSDOS            = 'M',
+	OS9              = '9',
+	OS2              = '2',
+	OS68K            = 'K',
+	OS386            = '3', // OS-9000??? 
+	HUMAN            = 'H', // Human
+	CPM              = 'C', // CP/M (PMarc?)
+	FLEX             = 'F',
+	RUNSER           = 'R',
+	TOWNSOS          = 'T',
+	XOSK             = 'X', // OS-9 for X68000 (?)
+	JAVA             = 'J'
+};
+*/
 
 class LzHeader 
 {
@@ -271,7 +300,7 @@ public:
 	// -> make it clear what one-character codes mean
 	QString GetOSTypeName()
 	{
-		if (os_type == 0)
+		if (os_type == EXTEND_GENERIC)
 		{
 			return QString("Generic");
 		}
@@ -283,10 +312,10 @@ public:
 			return QString("Unix" + type);
 		case 'A': // unofficial?
 			return QString("Amiga" + type);
-		case 'M':
-			return QString("MSDOS" + type);
 		case 'm':
 			return QString("MacOS" + type);
+		case 'M':
+			return QString("MSDOS" + type);
 		case '2':
 			return QString("OS/2" + type);
 		case '9':

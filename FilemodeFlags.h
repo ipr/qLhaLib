@@ -198,10 +198,11 @@ typedef struct AmigaAttributes
 // i (bool) invisible (hidden)
 // l (bool) locked (read-only?)
 //
-typedef struct MacOSAttributes
+/*
+typedef struct MacOSHFSAttributes
 {
 	// constructor
-	MacOSAttributes(void)
+	MacOSHFSAttributes(void)
 	{
 	}
 
@@ -209,7 +210,7 @@ typedef struct MacOSAttributes
 	{
 	}
 	
-} MacOSAttributes;
-
+} MacOSHFSAttributes;
+*/
 
 #endif // FILEMODEFLAGS_H
