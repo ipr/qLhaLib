@@ -162,6 +162,7 @@ bool CLhArchive::Extract()
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
+		// check packmethod also in case unix modeflags are not given?
 		if (pHeader->UnixMode.isDir)
 		{
 			// make directory only
@@ -226,6 +227,7 @@ bool CLhArchive::ExtractSelected(QStringList &lstFiles)
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
+		// check packmethod also in case unix modeflags are not given?
 		if (pHeader->UnixMode.isDir)
 		{
 			// make directory only

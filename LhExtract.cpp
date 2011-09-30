@@ -256,6 +256,9 @@ void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		// link/directory with no data (handled separately)
 		return;
 	}
+	
+	// TODO: replace non-path characters in case name has them?
+	// (different platforms, different restrictions..)
 
 	// check line-ending&combine
 	QString szTempPath = GetExtractPathToFile(pHeader->filename);

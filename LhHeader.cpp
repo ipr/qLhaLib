@@ -216,74 +216,50 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->pack_method = get_string(PACKMETHOD_TYPE_LENGTH);
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
-    
-    /*
-    if (pHeader->packed_size == 0 || pHeader->original_size == 0)
-    {
-		qDebug() << "empty size in file";
-    }
-    */
-    
     pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     
     int name_length = get_byte(); // keep full length
-	int read_name_len = readFilenameComment(ArchiveFile, pHeader, name_length);
-	if (read_name_len != name_length)
-	{
-		// if we did not read enough our offsets may be wrong afterwards..
-		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
-	}
+    
+    // on Amiga, may include file comment as part of filename
+	readFilenameComment(ArchiveFile, pHeader, name_length);
 	
-    long extend_size = header_size+2 - name_length - 24;
-    if (extend_size < 0) 
+    long extend_size = header_size - name_length - 24;
+	if (extend_size == 0) 
 	{
-        if (extend_size == -2) 
-		{
-            /* CRC field is not given */
-            pHeader->extend_type = EXTEND_GENERIC;
-            
-            // no need, see header constructor
-            //pHeader->has_crc = false;
-            return true;
-        } 
-
+	    // old version of LArc does not write CRC-field
+	    // -> ok
+		pHeader->os_type = EXTEND_GENERIC;
+		return true;
+	}
+    else if (extend_size < 0 || extend_size == 1) 
+	{
+		// any other values it's error?
 		throw ArcException("Unknown header (lha file?)", extend_size);
     }
-
-	// keep CRC
-    pHeader->setFileCrc(get_word());
+	else if (extend_size >= 2) 
+	{
+		// 2 or more bytes remain,
+		// get & keep CRC
+		pHeader->setFileCrc(get_word());
+		extend_size -= 2; // update count
+	}
 
     if (extend_size == 0)
 	{
+		// no extended area -> ok
         return true;
 	}
 
-    pHeader->extend_type = get_byte();
-    extend_size--;
-
-    if (pHeader->extend_type == EXTEND_UNIX) 
-	{
-        if (extend_size >= 11) 
-		{
-            pHeader->minor_version = get_byte();
-            pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
-            pHeader->UnixMode.ParseMode(get_word());
-            pHeader->unix_uid = get_word();
-            pHeader->unix_gid = get_word();
-            extend_size -= 11;
-        } 
-		else 
-		{
-            pHeader->extend_type = EXTEND_GENERIC;
-        }
-    }
+	// read old-style "extended area"
+    extend_size -= get_extended_area(ArchiveFile, pHeader, extend_size);
     if (extend_size > 0)
 	{
         incrementPtr(extend_size);
 	}
 
+	// +2 for size-field of extended header segment?
     pHeader->header_size += 2;
     return true;
 }
@@ -349,21 +325,21 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->header_level = get_byte();
 
     int name_length = get_byte();
-	int read_name_len = readFilenameComment(ArchiveFile, pHeader, name_length);
-	if (read_name_len != name_length)
-	{
-		// if we did not read enough our offsets may be wrong afterwards..
-		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
-	}
+    
+    // on Amiga, may include file comment as part of filename
+	readFilenameComment(ArchiveFile, pHeader, name_length);
 
     /* defaults for other type */
     pHeader->setFileCrc(get_word());
-    pHeader->extend_type = get_byte();
 
-    int dummy = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE;
-    if (dummy > 0)
+	// count size for old style "extended area"
+    int extarea_size = header_size+2 - name_length - I_LEVEL1_HEADER_SIZE +1;
+    //extarea_size += 1; // for OS-type reading
+    //pHeader->os_type = get_byte(); // -> moved to get_extended_area()
+    extarea_size -= get_extended_area(ArchiveFile, pHeader, extarea_size);
+    if (extarea_size > 0)
 	{
-        incrementPtr(dummy); /* skip old style extend header */
+        incrementPtr(extarea_size); // skip old style extend header 
 	}
 
 	pHeader->extend_size = get_word();
@@ -434,7 +410,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 
     /* defaults for other type */
     pHeader->setFileCrc(get_word());
-    pHeader->extend_type = get_byte();
+    pHeader->os_type = get_byte(); // OSType
     pHeader->extend_size = get_word();
 
     unsigned int hcrc = 0;
@@ -507,7 +483,7 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     /* defaults for other type */
     pHeader->setFileCrc(get_word());
     
-    pHeader->extend_type = get_byte();
+    pHeader->os_type = get_byte();
     pHeader->header_size = get_longword();
     pHeader->extend_size = get_longword();
 
@@ -528,6 +504,75 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 		throw ArcException("header CRC error", hcrc);
 	}
     return true;
+}
+
+// Extended area: used by at least level 0 header, possibly level 1 also,
+// replaced by "extended header" in level 2 and 3 headers
+//
+/*
+ * For "EXTEND_UNIX"
+ *
+ * offset   size  field name
+ * --------------------------------------------------
+ *     0       1  OS type ID     
+ *     1       1  minor version
+ *     2       4  time (time_t)
+ *     6       2  permission (bitfield)
+ *     8       2  Unix user ID
+ *    10       2  Unix group ID
+ */
+/*
+ * For "EXTEND_MACOS",
+ * unknown if ever used.
+ *
+ * offset   size  field name
+ * --------------------------------------------------
+ *     0       1  extended area ID (slightly different..)
+ *     1       4  file creator
+ *     5       4  file type
+ *     9       4  creation time
+ *    13       4  size of compressed resource fork
+ *    17       4  size of resource fork
+ *    21       2  CRC16 or resource fork
+ *    23       2  MacOS file attributes
+ *
+ * About Mac OS HFS/HFS+ volume timestamp:
+ * - unsigned 32-bit integer (UInt32)
+ * - HFS+: number of seconds since midnight, January 1, 1904, GMT
+ * - HFS: same but localtime ?
+ * - maximum representable date is February 6, 2040 at 06:28:15 GMT
+ * - The date values do not account for leap seconds. They do include a leap day in every year that is evenly divisible by four. 
+ * This is sufficient given that the range of representable dates does not contain 1900 or 2100, neither of which have leap days.
+ */
+/*
+ * For "EXTEND_OS9"
+ * unknown if ever used.
+ *
+ * offset   size  field name
+ * --------------------------------------------------
+ *     0       1  OS type ID     
+ *     1       1  Sub identifier     
+ *     2       1  MSDOS file attributes
+ *     3       2  Owner ID
+ */
+size_t CLhHeader::get_extended_area(CAnsiFile &ArchiveFile, LzHeader *pHeader, const size_t nLen)
+{
+	size_t areaSize = 0;
+
+    pHeader->os_type = get_byte();
+    areaSize += 1;
+
+	// check whole size, including OS ID..
+	if (nLen == 12 && pHeader->os_type == EXTEND_UNIX) 
+	{
+		pHeader->minor_version = get_byte();
+		pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
+		pHeader->UnixMode.ParseMode(get_word());
+		pHeader->unix_uid = get_word();
+		pHeader->unix_gid = get_word();
+		areaSize = 12; // set fixed length (read wholly)
+	} 
+	return areaSize;
 }
 
 
@@ -582,11 +627,10 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 			throw ArcException("Invalid header (LHa file ?)", extend_size);
         }
 		
-        // type of extension
+        // type of extension "header"
         //
-        int iExtType = get_byte();
-        
-        switch (iExtType) 
+        const int iExthType = get_byte();
+        switch (iExthType) 
 		{
         case EXTH_CRC:
 			{
@@ -737,7 +781,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
                      (level 3 on UNLHA32) 
             */
             incrementPtr(extend_size - nExtensionOverhead);
-			emit warning(QString("unknown extended header %1").arg(iExtType));
+			emit warning(QString("unknown extended header %1").arg(iExthType));
             break;
         }
 
@@ -780,7 +824,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 // Normal Unicode-reading tries to locate two NULL-terminators
 // before ending string -> need to check for that.
 //
-int CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length)
+void CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length)
 {
 	// read at max. given length, stop on NULL if found:
 	// check what remains (if any)
@@ -791,9 +835,16 @@ int CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, co
 		read_name_len += 1;
 		
 		// read remaining part to file comment
-		read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
+		//read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
+		pHeader->file_comment = get_string(name_length - read_name_len);
+		read_name_len = (name_length - read_name_len); // check
 	}
-	return read_name_len;
+	if (read_name_len != name_length)
+	{
+		// if we did not read enough our offsets may be wrong afterwards..
+		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
+	}
+	//return name_length;
 }
 
 void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize)

@@ -8,6 +8,7 @@
 #ifndef FILEMODEFLAGS_H
 #define FILEMODEFLAGS_H
 
+#include <stdint.h>
 
 typedef struct MsdosFlags
 {
@@ -25,7 +26,7 @@ typedef struct MsdosFlags
 	bool bDir; // bit5  directory
 	bool bArc; // bit6  archive bit (need to backup)
 	
-	void SetFromValue(unsigned char ucVal)
+	void SetFromValue(const uint8_t ucVal)
 	{
 		bRo = ((ucVal & 2) ? true : false);
 		bHid = ((ucVal & 4) ? true : false);
@@ -103,7 +104,7 @@ typedef struct UnixModeFlags
 		*/
 	}
 	
-	void ParseMode(const unsigned short mode)
+	void ParseMode(const uint16_t mode)
 	{
 		unix_mode = mode;
 		
@@ -174,7 +175,7 @@ typedef struct AmigaAttributes
 	}
 	
 	/* parse file protection modes */
-	void ParseAttributes(const unsigned char ucAttribs)
+	void ParseAttributes(const uint8_t ucAttribs)
 	{
 		m_ucAttribs = ucAttribs;
 		h = ((m_ucAttribs & (int)APF_PROT_HOLD)    ? true : false);
@@ -188,6 +189,27 @@ typedef struct AmigaAttributes
 	}
 
 } AmigaAttributes;
+
+// placeholder: no idea of contents yet..
+//
+// HFS/HFS+ protection flags:
+// t (<TYPE>)
+// c (<CREA>) creator, name/ID?
+// i (bool) invisible (hidden)
+// l (bool) locked (read-only?)
+//
+typedef struct MacOSAttributes
+{
+	// constructor
+	MacOSAttributes(void)
+	{
+	}
+
+	void ParseAttributes(const uint16_t attribs)
+	{
+	}
+	
+} MacOSAttributes;
 
 
 #endif // FILEMODEFLAGS_H

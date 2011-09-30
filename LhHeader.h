@@ -63,7 +63,7 @@ public:
 		, lf_originalsize(0)
 		, header_pos(0)
 		, data_pos(0)
-		, extend_type(EXTEND_UNIX)
+		, os_type(EXTEND_UNIX)
 		, filename()
 		, dirname()
 		, realname()
@@ -93,7 +93,7 @@ public:
 	long            header_pos;
 	long            data_pos;
     
-    unsigned char   extend_type; /* OS type, single character */
+    unsigned char   os_type; /* OS type, single character, used in extensions */
 
 	// note on paths: directory maybe given in filename or it may be given separately,
 	// either way we will join directoy to filename and keep full path in it finally.
@@ -112,7 +112,7 @@ public:
     QDateTime       last_modified_stamp;
     QDateTime       last_access_stamp;
 
-    /* extend_type == EXTEND_UNIX  and convert from other type. */
+    /* os_type == EXTEND_UNIX  and convert from other type. */
 
     unsigned char   minor_version; // only when EXTEND_UNIX
 	
@@ -271,13 +271,13 @@ public:
 	// -> make it clear what one-character codes mean
 	QString GetOSTypeName()
 	{
-		if (extend_type == 0)
+		if (os_type == 0)
 		{
 			return QString("Generic");
 		}
 	
-		QString type = " (" + QString((char)extend_type) + ")"; // for logging
-		switch (extend_type)
+		QString type = " (" + QString((char)os_type) + ")"; // for logging
+		switch (os_type)
 		{
 		case 'U':
 			return QString("Unix" + type);
@@ -563,6 +563,15 @@ private:
 	}
 	
 	// get conversion helper
+	/*
+	CMacHfsTimeHelper get_mactime()
+	{
+		uint32_t ltime = get_longword();
+		return CMacHfsTimeHelper(ltime);
+	}
+	*/
+	
+	// get conversion helper
 	CGenericTime get_generictime()
 	{
 		uint32_t ltime = get_longword();
@@ -759,9 +768,10 @@ protected:
 	bool get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 	bool get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader);
 
+	size_t get_extended_area(CAnsiFile &ArchiveFile, LzHeader *pHeader, const size_t nLen);
 	size_t get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader, unsigned int *hcrc);
 	
-	int readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length);
+	void readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, const int name_length);
 	
 	void UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize);
 	
