@@ -1,16 +1,14 @@
 #include "crcio.h"
 
-#define CRCPOLY         0xA001      /* CRC-16 (x^16+x^15+x^2+1) */
-
-
 void CCrcIo::make_crctable()
 {
-    unsigned int    i, j, r;
-
-    for (i = 0; i <= UCHAR_MAX; i++) 
+	/* CRC-16 (x^16+x^15+x^2+1) */
+	const unsigned int CRCPOLY = 0xA001; 
+	
+    for (unsigned int i = 0; i <= UCHAR_MAX; i++) 
 	{
-        r = i;
-        for (j = 0; j < CHAR_BIT; j++)
+        unsigned int r = i;
+        for (unsigned int j = 0; j < CHAR_BIT; j++)
 		{
             if (r & 1)
 			{
@@ -25,11 +23,11 @@ void CCrcIo::make_crctable()
     }
 }
 
-unsigned int CCrcIo::calccrc(unsigned int crc, unsigned char *p, unsigned int n)
+unsigned int CCrcIo::calccrc(unsigned int crc, unsigned char *data, unsigned int size)
 {
-    while (n-- > 0)
+    while (size-- > 0)
 	{
-        crc = UPDATE_CRC(crc, *p++);
+        crc = getCRC(crc, *data++);
 	}
     return crc;
 }

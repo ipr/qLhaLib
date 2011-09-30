@@ -239,6 +239,8 @@ bool CLhExtract::ExtractFileFromArchive(CAnsiFile &ArchiveFile, LzHeader *pHeade
 //
 void CLhExtract::ToFile(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
+	// note: "directory only" entry should be handled by caller already..
+	//
 	// if compressed size is zero, how much could we read?
 	// if original size is zero, what could we write?
 	// -> broken archive-file?

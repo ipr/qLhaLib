@@ -15,9 +15,9 @@
 class BitIo
 {
 public:
-	unsigned short bitbuf;
-	unsigned char subbitbuf;
-	unsigned char bitcount;
+	uint16_t bitbuf;
+	uint8_t subbitbuf;
+	uint8_t bitcount;
 
 	size_t origsize; // (uncompressed) size of file
 	size_t compsize; // compressed size of file
@@ -28,14 +28,15 @@ public:
 	CReadBuffer *m_pReadBuf;
 	CReadBuffer *m_pWriteBuf;
 	
-	unsigned short peekbits(unsigned char n)
+	uint16_t peekbits(const uint8_t count)
 	{
-		return (bitbuf >> (sizeof(bitbuf)*8 - (n)));
+		return (bitbuf >> ((sizeof(bitbuf)*8) - count));
 	}
 
 	/* Shift bitbuf n bits left, read n bits */
-	void fillbuf(unsigned char n)
+	void fillbuf(const uint8_t count)
 	{
+		uint8_t n = count;
 		while (n > bitcount) 
 		{
 	        n -= bitcount;
@@ -56,11 +57,10 @@ public:
 	    subbitbuf <<= n;
 	}
 	
-	unsigned short getbits(unsigned char n)
+	uint16_t getbits(const uint8_t count)
 	{
-		unsigned short x;
-		x = bitbuf >> (2 * CHAR_BIT - n);
-		fillbuf(n);
+		uint16_t x = (bitbuf >> (2 * CHAR_BIT - count));
+		fillbuf(count);
 		return x;
 	}
 	

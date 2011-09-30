@@ -196,8 +196,8 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     pHeader->size_field_length = 2; /* in bytes */
 	
-	size_t header_size = get_byte(); // whole header -2 (size&sum)
-    int checksum = get_byte();
+	const size_t header_size = get_byte(); // whole header -2 (size&sum)
+    const int checksum = get_byte();
     pHeader->header_size = header_size +2;
 	
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
@@ -220,7 +220,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     
-    int name_length = get_byte(); // keep full length
+    const int name_length = get_byte(); // keep full length
     
     // on Amiga, may include file comment as part of filename
 	readFilenameComment(ArchiveFile, pHeader, name_length);
@@ -228,9 +228,8 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 	// header_size: total data in header
 	// name_length: size of filename (from above)
 	// I_GENERIC_HEADER_SIZE: size of fixed fields in header
-	// -> extended area size is whatever remains
-	//
-    long extend_size = (header_size - name_length) - I_GENERIC_HEADER_SIZE;
+	// -> extended area size is whatever remains,
+    long extend_size = (header_size+2 - name_length) - (I_GENERIC_HEADER_SIZE -2);
 	if (extend_size == 0) 
 	{
 	    // old version of LArc does not write CRC-field
@@ -329,18 +328,17 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
     pHeader->header_level = get_byte();
 
-    int name_length = get_byte();
+    int name_length = get_byte(); // keep for later..
     
     // on Amiga, may include file comment as part of filename
 	readFilenameComment(ArchiveFile, pHeader, name_length);
 
-    /* defaults for other type */
+	// get & keep CRC
     pHeader->setFileCrc(get_word());
 
 	// count size for old style "extended area"
     int extarea_size = ((header_size+2) - name_length) - I_LEVEL1_HEADER_SIZE;
     extarea_size += 1; // for OS-type reading
-    //pHeader->os_type = get_byte(); // -> moved to get_extended_area()
     extarea_size -= get_extended_area(ArchiveFile, pHeader, extarea_size);
     if (extarea_size > 0)
 	{
@@ -392,11 +390,16 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  * -------------------------------------------------
  *
  */
+ //
+// note: if "low byte" of header size field is zero, 
+// should add extra byte to header (with 0x00 value)
+// and replace low byte in size-field with 0x01..
+//
 bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
 {
     pHeader->size_field_length = 2; /* in bytes */
 	
-	pHeader->header_size = get_word();
+	pHeader->header_size = get_word(); // (see notes)
 
 	unsigned char *pBuf = m_pReadBuffer->GetBegin();
 	
@@ -418,15 +421,16 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->os_type = get_byte(); // OSType
     pHeader->extend_size = get_word();
 
-    unsigned int hcrc = 0;
-    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
-
+    // fixed size -> should use constant value
+    unsigned int hcrc = m_crcio.calccrc(0, pBuf, I_LEVEL2_HEADER_SIZE);
     long extend_size = get_extended_header(ArchiveFile, pHeader, &hcrc);
     if (extend_size == -1)
 	{
+		// should throw exception instead?
         return false;
 	}
 
+	// see notes, padding just 0/1 always?
     int padding = (pHeader->header_size - I_LEVEL2_HEADER_SIZE - extend_size);
 	UpdatePaddingToCrc(ArchiveFile, hcrc, padding);
 
@@ -492,9 +496,8 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->header_size = get_longword();
     pHeader->extend_size = get_longword();
 
-    unsigned int hcrc = 0;
-    hcrc = m_crcio.calccrc(hcrc, pBuf, (unsigned char*)m_get_ptr - pBuf);
-
+    // fixed size -> use constant value
+    unsigned int hcrc = m_crcio.calccrc(0, pBuf, I_LEVEL3_HEADER_SIZE);
     long extend_size = get_extended_header(ArchiveFile, pHeader, &hcrc);
     if (extend_size == -1)
 	{
@@ -541,13 +544,17 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  *    21       2  CRC16 or resource fork
  *    23       2  MacOS file attributes
  *
- * About Mac OS HFS/HFS+ volume timestamp:
+ * About Mac OS HFS/HFS+ volume timestamp, check! :
  * - unsigned 32-bit integer (UInt32)
- * - HFS+: number of seconds since midnight, January 1, 1904, GMT
+ * - HFS+ (Mac OS X?): number of seconds since midnight, January 1, 1904, GMT
  * - HFS: same but localtime ?
  * - maximum representable date is February 6, 2040 at 06:28:15 GMT
  * - The date values do not account for leap seconds. They do include a leap day in every year that is evenly divisible by four. 
  * This is sufficient given that the range of representable dates does not contain 1900 or 2100, neither of which have leap days.
+ *
+ * Actully, stored as "time_t" but adjusted automatically to 1904 instead of 1970 ?
+ * (constant difference..)
+ *
  */
 /*
  * For "EXTEND_OS9"
@@ -562,21 +569,81 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
  */
 size_t CLhHeader::get_extended_area(CAnsiFile &ArchiveFile, LzHeader *pHeader, const size_t nLen)
 {
+	bool bMacOsArea = false; // MacOS style extended area
 	size_t areaSize = 0;
 
+	// note: if packed on MacOS this may have 
+	// different values from Unix LHa..
+	//
     pHeader->os_type = get_byte();
     areaSize += 1;
+    
+    // no ambiguousness with this type-ID?
+    /*
+    if (nLen == 5 && pHeader->os_type == EXTEND_OS9)
+    {
+		uint8_t subid = get_byte();
+		uint8_t attribs = get_byte();
+		uint16_t ownerID = get_word();
+	    return nLen;
+    }
+    */
 
 	// check whole size, including OS ID..
-	if (nLen == 12 && pHeader->os_type == EXTEND_UNIX) 
+	if (nLen == 12 && pHeader->os_type == EXTEND_UNIX
+		&& bMacOsArea == false) 
 	{
 		pHeader->minor_version = get_byte();
 		pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
 		pHeader->UnixMode.ParseMode(get_word());
 		pHeader->unix_uid = get_word();
 		pHeader->unix_gid = get_word();
-		areaSize = 12; // set fixed length (read wholly)
+		return nLen; // set fixed length (read wholly)
 	} 
+    
+    // check for MacOS-style header..
+    if (pHeader->os_type == 0x00)
+    {
+		// same as "EXTEND_GENERIC" - MS-DOS in MacOS-style extended area..
+		// -> convert to enumeration
+		pHeader->os_type = EXTEND_MSDOS;
+		//bMacOsArea = true; // ?? is it or not?? same ID ??
+    }
+    else if (pHeader->os_type == 0x01)
+    {
+		// MacOS in MacOS-style extended area..
+		// -> convert to enumeration
+		pHeader->os_type = EXTEND_MACOS;
+		bMacOsArea = true;
+    }
+    else if (pHeader->os_type == 0x02)
+    {
+		// Unix in MacOS-style extended area..
+		// -> convert to enumeration
+		pHeader->os_type = EXTEND_UNIX;
+		bMacOsArea = true;
+    }
+
+	// known size and should be supported data format..
+	if (nLen == 25 && bMacOsArea == true)
+	{
+		// note: check endianess..
+		// also contents..?
+		uint32_t creator = get_longword();
+		uint32_t filetype = get_longword();
+		
+		// TODO: make conversion helper
+		//CMacHfsTimeHelper time = get_mactime();
+		//pHeader->last_modified_stamp.setTime_t((time_t)time());
+		uint32_t time = get_mactime();
+		uint32_t compressedSize = get_longword();
+		uint32_t originalSize = get_longword();
+		uint16_t crc = get_word();
+		uint16_t macAttribs = get_word();
+		//TODO: make attrib handler
+		//MacOSHFSAttributes.ParseAttributes();
+		areaSize = nLen; // set fixed length (read wholly)
+	}
 	return areaSize;
 }
 
@@ -642,8 +709,8 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
 				/* header crc (CRC-16) */
 				pHeader->setHeaderCrc(get_word());
 				
-				/* clear buffer for CRC calculation. */
-				unsigned char *pBuf = m_pReadBuffer->GetBegin();
+				/* clear CRC in buffer for CRC calculation. */
+				uint8_t *pBuf = m_pReadBuffer->GetBegin();
 				pBuf[1] = pBuf[2] = 0;
 				
 				incrementPtr(extend_size - nExtensionOverhead - 2);
@@ -844,6 +911,7 @@ void CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, c
 		pHeader->file_comment = get_string(name_length - read_name_len);
 		read_name_len = (name_length - read_name_len); // check
 	}
+	
 	if (read_name_len != name_length)
 	{
 		// if we did not read enough our offsets may be wrong afterwards..
@@ -860,7 +928,10 @@ void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, c
 
 	// check how much of file remains
 	long lPos = 0;
-	ArchiveFile.Tell(lPos);
+	if (ArchiveFile.Tell(lPos) == false)
+	{
+		throw IOException("Failed to tell() current position");
+	}
 	long lRemaining = (ArchiveFile.GetSize() - lPos);
 
 	// read padding

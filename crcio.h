@@ -12,27 +12,27 @@ class CCrcIo
 {
 protected:
 	unsigned int m_crctable[UCHAR_MAX + 1];
-	//int      dispflg;
 
 	void make_crctable();
 
-	inline unsigned int UPDATE_CRC(unsigned int crc, unsigned int c)
+	// table is not modified -> make const
+	inline unsigned int getCRC(const unsigned int crc, const unsigned int c) const
 	{
-		return m_crctable[((crc) ^ (c)) & 0xFF] ^ ((crc) >> CHAR_BIT);
+		return m_crctable[(crc ^ c) & 0xFF] ^ (crc >> CHAR_BIT);
 	}
 	
 public:
     CCrcIo()
 	{
 		make_crctable();
-	};
-	
-	unsigned int UpdateCrc(unsigned int crc, unsigned int c)
-	{
-		return UPDATE_CRC(crc, c);
 	}
 	
-	unsigned int calccrc(unsigned int crc, unsigned char *p, unsigned int n);
+	unsigned int UpdateCrc(const unsigned int crc, const unsigned int c) const
+	{
+		return getCRC(crc, c);
+	}
+	
+	unsigned int calccrc(unsigned int crc, unsigned char *data, unsigned int size);
 };
 
 #endif // CRCIO_H

@@ -64,6 +64,8 @@ enum tHuffBits
 #define EXTEND_TOWNSOS          'T'
 #define EXTEND_XOSK             'X' /* OS-9 for X68000 (?) */
 #define EXTEND_JAVA             'J'
+#define EXTEND_W9598            'w'
+#define EXTEND_WNT              'W'
 
 
 // -lzs- and -lz5- decoders

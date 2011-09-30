@@ -56,13 +56,15 @@ enum EOSType : unsigned char
 	OS2              = '2',
 	OS68K            = 'K',
 	OS386            = '3', // OS-9000??? 
-	HUMAN            = 'H', // Human
+	HUMAN            = 'H', // Human68k
 	CPM              = 'C', // CP/M (PMarc?)
 	FLEX             = 'F',
 	RUNSER           = 'R',
 	TOWNSOS          = 'T',
 	XOSK             = 'X', // OS-9 for X68000 (?)
-	JAVA             = 'J'
+	JAVA             = 'J',
+	WinNT            = 'W',
+	W9598            = 'w'
 };
 */
 
@@ -308,44 +310,49 @@ public:
 		QString type = " (" + QString((char)os_type) + ")"; // for logging
 		switch (os_type)
 		{
-		case 'U':
+		case EXTEND_UNIX:
 			return QString("Unix" + type);
-		case 'A': // unofficial?
+		case EXTEND_AMIGA:
+			// unofficial?
 			return QString("Amiga" + type);
-		case 'm':
+		case EXTEND_MACOS:
 			return QString("MacOS" + type);
-		case 'M':
+		case EXTEND_MSDOS:
 			return QString("MSDOS" + type);
-		case '2':
+		case EXTEND_OS2:
 			return QString("OS/2" + type);
-		case '9':
-			return QString("OS9" + type);
-		case 'K':
-			return QString("OS/68K" + type);
-		case '3': /* OS-9000 ?? */
-			return QString("OS/386" + type);
-		case 'H':
-			return QString("HUMAN" + type);
-		case 'C':
+		case EXTEND_OS9:
+			return QString("OS-9" + type);
+		case EXTEND_OS68K:
+			return QString("OS-9/68K" + type);
+		case EXTEND_OS386:
+			// OS-9000 ?? 
+			return QString("OS-386" + type);
+		case EXTEND_HUMAN:
+			return QString("Human68K" + type);
+		case EXTEND_CPM:
 			return QString("CP/M" + type);
-		case 'F':
+		case EXTEND_FLEX:
 			return QString("FLEX" + type);
-		case 'w':
-			return QString("Windows 95/98" + type);
-		case 'W':
-			return QString("Windows NT" + type);
-		case 'R':
+		case EXTEND_RUNSER:
 			return QString("Runser" + type);
-		case 'T':
+		case EXTEND_TOWNSOS:
 			// not official..
 			return QString("Townsos" + type);
-		case 'X': /* OS-9 for X68000 ?*/
-			// not official..
+		case EXTEND_XOSK:
+			// OS-9 for X68000 ? not official..?
 			return QString("XOSK" + type);
-		case 'J':
-			// not official..
+		case EXTEND_JAVA:
 			return QString("Java" + type);
+		case EXTEND_WNT:
+			return QString("Windows NT" + type);
+		case EXTEND_W9598:
+			return QString("Windows 95/98" + type);
+		default:
+			// silence some compilers
+			break;
 		}
+		// fallthrough
 		return QString("Unknown" + type);
 	}
 };
@@ -458,6 +465,8 @@ private:
 		return tmp;
 	}
 	
+	// note: sizeof(long) differs on 64-bit Linux and Windows
+	// -> use ISO-standard typedef instead..
 	inline uint32_t get_longword()
 	{
 		// avoid numerous temps
@@ -592,13 +601,17 @@ private:
 	}
 	
 	// get conversion helper
-	/*
-	CMacHfsTimeHelper get_mactime()
+	// TODO:
+	// CMacHfsTimeHelper get_mactime()
+	time_t get_mactime()
 	{
+		// this isn't too far off..?
+		// (see comments regarding extended area..)
 		uint32_t ltime = get_longword();
-		return CMacHfsTimeHelper(ltime);
+		return (time_t)ltime;
+		// TODO:
+		//return CMacHfsTimeHelper(ltime);
 	}
-	*/
 	
 	// get conversion helper
 	CGenericTime get_generictime()
@@ -626,7 +639,7 @@ protected:
 	QTextCodec *m_pTextCodec;
 	CReadBuffer *m_pReadBuffer;
 
-	inline int calc_sum(unsigned char *p, size_t len) const
+	int calc_sum(unsigned char *p, size_t len) const
 	{
 		int sum = 0;
 		while (len--) 
