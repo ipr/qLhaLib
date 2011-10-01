@@ -623,9 +623,14 @@ private:
 	// get conversion helper
 	CFiletimeHelper get_wintime()
 	{
+		uint64_t ultime = get_longlong();
+		return CFiletimeHelper(ultime);
+	
+		/* old style
 		uint32_t ulHiPart = get_longword();
 		uint32_t ulLoPart = get_longword();
 		return CFiletimeHelper(ulHiPart, ulLoPart);
+		*/
 	}
 	
 

@@ -225,16 +225,18 @@ void CShuffleHuffman::read_tree_c()
             c_len[i] = 0;
 		}
 		
+		// if this byte-combination is found, zeroize lengths,
+		// set next bits to table and end loop
         if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
 		{
+            // zeroize byte-array
+            ::memset(c_len, 0, SHUF_N1);
+
+			// set next bits to table elements
             int c = m_BitIo.getbits(CBIT);
-            for (i = 0; i < SHUF_N1; i++)
+            for (int n = 0; n < 4096; n++)
 			{
-                c_len[i] = 0;
-			}
-            for (i = 0; i < 4096; i++)
-			{
-                c_table[i] = c;
+                c_table[n] = c;
 			}
             return;
         }
@@ -246,22 +248,22 @@ void CShuffleHuffman::read_tree_c()
 void CShuffleHuffman::read_tree_p()
 {
 	/* read tree from file */
-
     int i = 0;
     while (i < SHUF_NP) 
 	{
         pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
-		
+
+		// if this byte-combination is found, zeroize lengths,
+		// set next bits to table and end loop
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
+            // zeroize byte-array
+            ::memset(pt_len, 0, SHUF_NP);
+            
             int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
-            for (i = 0; i < SHUF_NP; i++)
+            for (int n = 0; n < 256; n++)
 			{
-                pt_len[i] = 0;
-			}
-            for (i = 0; i < 256; i++)
-			{
-                pt_table[i] = c;
+                pt_table[n] = c;
 			}
             return;
         }
@@ -300,21 +302,13 @@ unsigned short CShuffleHuffman::decode_c_st0()
     else 
 	{
         m_BitIo.fillbuf(12);
-        int i = m_BitIo.bitbuf;
-        do 
-		{
-            if ((short) i < 0)
-			{
-                j = right[j];
-			}
-            else
-			{
-                j = left[j];
-			}
-            i <<= 1;
-        } while (j >= SHUF_N1);
+        
+		// use inlinable helper..        
+        shuf_decode_bitbuf(j, m_BitIo.bitbuf, SHUF_N1);
+        
         m_BitIo.fillbuf(c_len[j] - 12);
     }
+    
     if (j == SHUF_N1 - 1)
 	{
         j += m_BitIo.getbits(SHUF_EXTRABITS);
@@ -335,22 +329,32 @@ unsigned short CShuffleHuffman::decode_p_st0()
     else 
 	{
         m_BitIo.fillbuf(8);
-        int i = m_BitIo.bitbuf;
-        do {
-            if ((short) i < 0)
-			{
-                j = right[j];
-			}
-            else
-			{
-                j = left[j];
-			}
-            i <<= 1;
-        } while (j >= m_np);
+
+		// use inlinable helper..        
+        shuf_decode_bitbuf(j, m_BitIo.bitbuf, m_np);
+        
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
     return (j << 6) + m_BitIo.getbits(6);
 }
+
+void CShuffleHuffman::shuf_decode_bitbuf(int &j, const short bitbuf, const int nCount)
+{
+	short i = bitbuf;
+	do 
+	{
+		if (i < 0)
+		{
+			j = right[j];
+		}
+		else
+		{
+			j = left[j];
+		}
+		i <<= 1;
+	} while (j >= nCount);
+}
+
 
 //// CDynamicHuffman
 
@@ -426,7 +430,7 @@ void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
 
 	// keep m_nn for: decode_p_dyn()
 	m_nn = (1 << (int)enBit);
-    nextcount = 64;
+    m_nextcount = 64;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -622,7 +626,7 @@ void CDynamicHuffman::make_new_node(int p)
     if (most_p == ROOT_P) 
 	{
         freq[ROOT_P] = 0xffff;
-        edge[block[ROOT_P]]++;
+        edge[(block[ROOT_P])]++;
     }
 	
     parent[r] = parent[q] = most_p;
@@ -666,13 +670,13 @@ unsigned short CDynamicHuffman::decode_c_dyn()
 /* lh2 */
 unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
 {
-    while (decode_count > nextcount) 
+    while (decode_count > m_nextcount) 
 	{
-        make_new_node(nextcount / 64);
-        nextcount += 64;
-        if (nextcount >= m_nn)
+        make_new_node(m_nextcount / 64);
+        m_nextcount += 64;
+        if (m_nextcount >= m_nn)
 		{
-            nextcount = 0xffffffff;
+            m_nextcount = 0xffffffff;
 		}
     }
 	
@@ -721,13 +725,12 @@ void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
     int n = m_BitIo.getbits(nbit);
     if (n == 0) 
 	{
-		int i = 0;
+        // zeroize byte-array
+        ::memset(pt_len, 0, nn);
+
+		// set table elements to next bits
         int c = m_BitIo.getbits(nbit);
-        for (i = 0; i < nn; i++)
-		{
-            pt_len[i] = 0;
-		}
-        for (i = 0; i < 256; i++)
+        for (int i = 0; i < 256; i++)
 		{
             pt_table[i] = c;
 		}
@@ -777,41 +780,45 @@ void CStaticHuffman::read_c_len()
     short n = m_BitIo.getbits(CBIT);
     if (n == 0) 
 	{
+		// zeroize byte-array..
+		::memset(c_len, 0, NC_LEN); 
+
+		// set table elements to next bits
         short c = m_BitIo.getbits(CBIT);
-		short i = 0;
-        for (i = 0; i < NC_LEN; i++)
-		{
-            c_len[i] = 0;
-		}
-        for (i = 0; i < 4096; i++)
+        for (short i = 0; i < 4096; i++)
 		{
             c_table[i] = c;
 		}
     } 
 	else 
 	{
-		short c = 0;
         short i = 0;
         while (i < n) 
 		{
 			unsigned short bit = m_BitIo.peekbits(8);
-            c = pt_table[bit];
 			
+            //unsigned short c = pt_table[bit];
+            // note: needs to be signed..
+            short c = pt_table[bit];
             if (c >= NT_LEN) 
 			{
-                unsigned short  mask = 1 << (16 - 9);
-                do 
+				// reduce duplication, use inline-helper
+				// TODO: check, here c needs to be signed, how is other cases?
+				//decode_mask_bitbuf(c, NT_LEN, (16 - 9));
+				
+				unsigned short mask = (1 << (16 - 9));
+				do 
 				{
-                    if (m_BitIo.bitbuf & mask)
+					if (m_BitIo.bitbuf & mask)
 					{
-                        c = right[c];
+						c = right[c];
 					}
-                    else
+					else
 					{
-                        c = left[c];
+						c = left[c];
 					}
-                    mask >>= 1;
-                } while (c >= NT_LEN);
+					mask >>= 1;
+				} while (c >= NT_LEN);
             }
 			
             m_BitIo.fillbuf(pt_len[c]);
@@ -872,7 +879,7 @@ unsigned short CStaticHuffman::decode_c_st1()
 	{
         m_BitIo.fillbuf(12);
 		
-		decode_st1_mask_bitbuf(j, NC_LEN);
+		decode_mask_bitbuf(j, NC_LEN, (16 - 1));
 		
         m_BitIo.fillbuf(c_len[j] - 12);
     }
@@ -893,7 +900,7 @@ unsigned short CStaticHuffman::decode_p_st1()
 	{
         m_BitIo.fillbuf(8);
 		
-		decode_st1_mask_bitbuf(j, m_np_dict);
+		decode_mask_bitbuf(j, m_np_dict, (16 - 1));
 		
         m_BitIo.fillbuf(pt_len[j] - 8);
     }
@@ -946,9 +953,9 @@ void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
 }
 
 // reduce duplication
-void CStaticHuffman::decode_st1_mask_bitbuf(unsigned short &j, const int nCount)
+void CStaticHuffman::decode_mask_bitbuf(unsigned short &j, const int nCount, const int masksize)
 {
-	unsigned short mask = 1 << (16 - 1);
+	unsigned short mask = (1 << masksize);
 	do 
 	{
 		if (m_BitIo.bitbuf & mask)

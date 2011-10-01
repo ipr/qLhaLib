@@ -182,12 +182,13 @@ protected:
 	int      m_n1;
 	int      most_p;
 	int      m_nn;
-	unsigned long nextcount;
+	uint32_t m_nextcount;
 	
 public:
     CDynamicHuffman()
 		: CHuffman()
 		, CHuffmanTree()
+		, m_nextcount(0)
 	{}
 	
 	void start_c_dyn();
@@ -252,6 +253,10 @@ public:
 	
 	unsigned short decode_c_st0();
 	unsigned short decode_p_st0();
+	
+protected:
+	// used by: decode_c_st0(), decode_p_st0()
+	inline void shuf_decode_bitbuf(int &j, const short bitbuf, const int nCount);
 };
 
 class CStaticHuffman : public CHuffman, public CHuffmanTree
@@ -280,9 +285,8 @@ public:
 	void decode_start_st1(const tHuffBits enBit);
 
 protected:
-	// used by decode_c_st1() and decode_p_st1()
-	inline void decode_st1_mask_bitbuf(unsigned short &j, const int nCount);
-	
+	// used by: decode_c_st1(), decode_p_st1(), read_c_len()
+	inline void decode_mask_bitbuf(unsigned short &j, const int nCount, const int masksize);
 };
 
 #endif // HUFFMAN_H

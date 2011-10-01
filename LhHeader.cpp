@@ -907,17 +907,8 @@ void CLhHeader::readFilenameComment(CAnsiFile &ArchiveFile, LzHeader *pHeader, c
 		read_name_len += 1;
 		
 		// read remaining part to file comment
-		//read_name_len += getStringToNULL(name_length - read_name_len, pHeader->file_comment);
 		pHeader->file_comment = get_string(name_length - read_name_len);
-		read_name_len = (name_length - read_name_len); // check
 	}
-	
-	if (read_name_len != name_length)
-	{
-		// if we did not read enough our offsets may be wrong afterwards..
-		throw ArcException("Name length mismatch, offsets may be wrong after this?", read_name_len);
-	}
-	//return name_length;
 }
 
 void CLhHeader::UpdatePaddingToCrc(CAnsiFile &ArchiveFile, unsigned int &hcrc, const long lPadSize)
