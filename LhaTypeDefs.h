@@ -44,30 +44,6 @@ enum tHuffBits
 	MAX_DICSIZ          = (1L << MAX_DICBIT)
 };
 
-/* */
-// TODO: replace defines with 'enum class' when supported..
-#define EXTEND_GENERIC          0
-#define EXTEND_UNIX             'U'
-#define EXTEND_AMIGA            'A'
-#define EXTEND_MACOS            'm'
-#define EXTEND_MSDOS            'M'
-#define EXTEND_OS9              '9'
-#define EXTEND_OS2              '2'
-#define EXTEND_OS68K            'K'
-#define EXTEND_OS386            '3' /* OS-9000??? */
-#define EXTEND_HUMAN            'H'
-#define EXTEND_CPM              'C'
-#define EXTEND_FLEX             'F'
-#define EXTEND_RUNSER           'R'
-
-/* this OS type is not official */
-#define EXTEND_TOWNSOS          'T'
-#define EXTEND_XOSK             'X' /* OS-9 for X68000 (?) */
-#define EXTEND_JAVA             'J'
-#define EXTEND_W9598            'w'
-#define EXTEND_WNT              'W'
-
-
 // -lzs- and -lz5- decoders
 enum tLzDecoderMagicNumbers
 {

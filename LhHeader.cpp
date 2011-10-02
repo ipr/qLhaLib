@@ -125,17 +125,21 @@ void CLhHeader::ParseHeaders(CAnsiFile &ArchiveFile)
 		pHeader->filename.replace('\\', "/");
 		pHeader->dirname.replace('\\', "/");
 		
-		if (pHeader->UnixMode.isSymlink) 
+		// symlink only on unix-style file-attributes
+		if (pHeader->m_pUnixHeader != nullptr)
 		{
-			/* hdr->name is symbolic link name */
-			/* hdr->realname is real name */
-			int iPos = pHeader->filename.lastIndexOf('|');
-			if (iPos == -1)
+			if (pHeader->GetUnixHeader()->UnixMode.isSymlink) 
 			{
-				// not found as expecing -> fatal
-				throw ArcException("Unknown symlink name", pHeader->filename.toStdString());
+				/* hdr->name is symbolic link name */
+				/* hdr->realname is real name */
+				int iPos = pHeader->filename.lastIndexOf('|');
+				if (iPos == -1)
+				{
+					// not found as expecing -> fatal
+					throw ArcException("Unknown symlink name", pHeader->filename.toStdString());
+				}
+				pHeader->realname = pHeader->filename.left(iPos +1);
 			}
-			pHeader->realname = pHeader->filename.left(iPos +1);
 		}
 		
 		// seek past actual data of the entry in archive
@@ -217,7 +221,7 @@ bool CLhHeader::get_header_level0(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* MS-DOS attribute */
+    pHeader->GetDosHeader()->msdos_attributes.SetFromValue(get_byte()); /* MS-DOS attribute */
     pHeader->header_level = get_byte();
     
     const int name_length = get_byte(); // keep full length
@@ -325,7 +329,7 @@ bool CLhHeader::get_header_level1(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword(); /* skip size */
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_generictime());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* 0x20 fixed */
+    pHeader->GetDosHeader()->msdos_attributes.SetFromValue(get_byte()); /* 0x20 fixed */
     pHeader->header_level = get_byte();
 
     int name_length = get_byte(); // keep for later..
@@ -413,7 +417,7 @@ bool CLhHeader::get_header_level2(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
+    pHeader->GetDosHeader()->msdos_attributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
@@ -486,7 +490,7 @@ bool CLhHeader::get_header_level3(CAnsiFile &ArchiveFile, LzHeader *pHeader)
     pHeader->packed_size = get_longword();
     pHeader->original_size = get_longword();
     pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
-    pHeader->MsDosAttributes.SetFromValue(get_byte()); /* reserved */
+    pHeader->GetDosHeader()->msdos_attributes.SetFromValue(get_byte()); /* reserved */
     pHeader->header_level = get_byte();
 
     /* defaults for other type */
@@ -593,11 +597,13 @@ size_t CLhHeader::get_extended_area(CAnsiFile &ArchiveFile, LzHeader *pHeader, c
 	if (nLen == 12 && pHeader->os_type == EXTEND_UNIX
 		&& bMacOsArea == false) 
 	{
-		pHeader->minor_version = get_byte();
+		LzUnixHeader *pUxh = pHeader->GetUnixHeader();
+		pUxh->minor_version = get_byte();
+		// this still goes in "common" header
 		pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
-		pHeader->UnixMode.ParseMode(get_word());
-		pHeader->unix_uid = get_word();
-		pHeader->unix_gid = get_word();
+		pUxh->UnixMode.ParseMode(get_word());
+		pUxh->unix_uid = get_word();
+		pUxh->unix_gid = get_word();
 		return nLen; // set fixed length (read wholly)
 	} 
     
@@ -733,7 +739,7 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         case EXTH_MSDOSATTRIBS:
             /* MS-DOS attribute flags */
             // (if EXTEND_MSDOS || EXTEND_HUMAN || EXTEND_GENERIC)
-            pHeader->MsDosAttributes.SetFromValue(get_word());
+            pHeader->GetDosHeader()->msdos_attributes.SetFromValue(get_word());
             break;
 			
         case EXTH_WINDOWSTIMES:
@@ -754,24 +760,25 @@ size_t CLhHeader::get_extended_header(CAnsiFile &ArchiveFile, LzHeader *pHeader,
         case EXTH_UNIXPERMISSIONS:
             /* UNIX permission */
             // (if EXTEND_UNIX)
-            pHeader->UnixMode.ParseMode(get_word());
+            pHeader->GetUnixHeader()->UnixMode.ParseMode(get_word());
             break;
         case EXTH_UNIXGIDUID:
             /* UNIX gid and uid */
-            pHeader->unix_gid = get_word();
-            pHeader->unix_uid = get_word();
+            pHeader->GetUnixHeader()->unix_gid = get_word();
+            pHeader->GetUnixHeader()->unix_uid = get_word();
             break;
         case EXTH_UNIXGROUP:
             /* UNIX group name */
-            pHeader->unix_group = get_string(extend_size - nExtensionOverhead);
+            pHeader->GetUnixHeader()->unix_group = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXUSER:
             /* UNIX user name */
-            pHeader->unix_user = get_string(extend_size - nExtensionOverhead);
+            pHeader->GetUnixHeader()->unix_user = get_string(extend_size - nExtensionOverhead);
             break;
         case EXTH_UNIXLASTMODIFIED:
             /* UNIX last modified time */
 			// (32-bit time_t)
+			// this still goes in "common" header
             pHeader->last_modified_stamp.setTime_t((time_t)get_unixtime());
             break;
             

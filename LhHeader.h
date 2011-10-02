@@ -36,37 +36,75 @@
 // renamed for clarity..
 #define PACKMETHOD_TYPE_LENGTH ((int)5)
 
-/*
-// TODO: enable when C++11 compilers mature..
-//
 // OS type identification (user information mostly)
 // VC++ 2010 does not yet support fully 'enum class' it seems,
 // should allow this: 
 //
 // enum class EOSType : unsigned char 
 //
-enum EOSType : unsigned char 
+// TODO: enable when C++11 compilers mature..
+// that would give us proper namespacing of enums
+//
+enum EOSType : unsigned char
 {
-	GENERIC          = 0,
-	UNIX             = 'U',
-	AMIGA            = 'A',
-	MACOS            = 'm',
-	MSDOS            = 'M',
-	OS9              = '9',
-	OS2              = '2',
-	OS68K            = 'K',
-	OS386            = '3', // OS-9000??? 
-	HUMAN            = 'H', // Human68k
-	CPM              = 'C', // CP/M (PMarc?)
-	FLEX             = 'F',
-	RUNSER           = 'R',
-	TOWNSOS          = 'T',
-	XOSK             = 'X', // OS-9 for X68000 (?)
-	JAVA             = 'J',
-	WinNT            = 'W',
-	W9598            = 'w'
+	EXTEND_GENERIC   = 0,
+	EXTEND_UNIX      = 'U',
+	EXTEND_AMIGA     = 'A',
+	EXTEND_MACOS     = 'm',
+	EXTEND_MSDOS     = 'M',
+	EXTEND_OS9       = '9',
+	EXTEND_OS2       = '2',
+	EXTEND_OS68K     = 'K',
+	EXTEND_OS386     = '3', // OS-9000??? 
+	EXTEND_HUMAN     = 'H', // Human68k
+	EXTEND_CPM       = 'C', // CP/M (PMarc?)
+	EXTEND_FLEX      = 'F',
+	EXTEND_RUNSER    = 'R',
+	EXTEND_TOWNSOS   = 'T',
+	EXTEND_XOSK      = 'X', // OS-9 for X68000 (?)
+	EXTEND_JAVA      = 'J',
+	EXTEND_WinNT     = 'W',
+	EXTEND_W9598     = 'w'
 };
-*/
+
+// Unix-like values in headers
+// (extended values)
+//
+class LzUnixHeader 
+{
+public:
+	LzUnixHeader()
+		: os_type(EXTEND_UNIX)
+		, minor_version(0)
+		, UnixMode()
+		, unix_gid(0)
+		, unix_uid(0)
+		, unix_user()
+		, unix_group()
+	{}
+	
+    unsigned char   os_type; /* OS type, single character, used in extensions */
+    unsigned char   minor_version; // only when EXTEND_UNIX
+	
+	UnixModeFlags   UnixMode;
+    unsigned short  unix_uid;
+    unsigned short  unix_gid;
+	QString         unix_user;
+	QString         unix_group;
+};
+
+// msdos and other crap like that..
+class LzDosHeader 
+{
+public:
+	LzDosHeader()
+		: msdos_attributes()
+	{}
+	
+	// MS-DOS attribute-flags
+    MsdosFlags      msdos_attributes;
+};
+
 
 class LzHeader 
 {
@@ -99,11 +137,8 @@ public:
 		, dirname()
 		, realname()
 		, file_comment()
-		, UnixMode()
-		, unix_gid(0)
-		, unix_uid(0)
-		, unix_user()
-		, unix_group()
+		, m_pUnixHeader(nullptr)
+		, m_pDosHeader(nullptr)
 	{}
 
     tCompressionMethod m_enCompression; // enumerated compression of entry
@@ -133,26 +168,15 @@ public:
 	QString         realname; // real name for symbolic link (unix)
 	
 	QString			file_comment; // usually Amiga-packed files have comment or found in extended header
-	
 
-	// MS-DOS attribute-flags
-    MsdosFlags      MsDosAttributes;
-
-	// read Windows FILETIME format timestamps -> converted to here
     QDateTime       creation_stamp;
-    QDateTime       last_modified_stamp;
+    QDateTime       last_modified_stamp; // generic
     QDateTime       last_access_stamp;
+    
+    LzUnixHeader	*m_pUnixHeader;
 
-    /* os_type == EXTEND_UNIX  and convert from other type. */
+    LzDosHeader		*m_pDosHeader;
 
-    unsigned char   minor_version; // only when EXTEND_UNIX
-	
-	UnixModeFlags   UnixMode;
-    unsigned short  unix_uid;
-    unsigned short  unix_gid;
-	QString         unix_user;
-	QString         unix_group;
-	
 	// just to see easily where it is modified
 	void setFileCrc(const uint16_t crc)
 	{
@@ -164,7 +188,7 @@ public:
 		// should be zero if not found from file
 		return file_crc;
 	}
-	bool isFileCrc(const uint16_t crc)
+	bool isFileCrc(const uint16_t crc) const
 	{
 		if (has_crc == true && file_crc != crc)
 		{
@@ -180,7 +204,7 @@ public:
 	{
 		header_crc = crc;
 	}
-	bool isHeaderCrc(const uint16_t crc)
+	bool isHeaderCrc(const uint16_t crc) const
 	{
 		if (header_crc == crc)
 		{
@@ -190,12 +214,47 @@ public:
 		// does not match
 		return false;
 	}
+	
+	bool isDir()
+	{
+		if (m_pUnixHeader != nullptr)
+		{
+			return m_pUnixHeader->UnixMode.isDir;
+		}
+		if (m_enCompression == LZHDIRS_METHOD_NUM)
+		{
+			return true;
+		}
+		return false;
+	}
+	
+	// helper for adding unix-related values
+	// into header information
+	//
+	LzUnixHeader *GetUnixHeader()
+	{
+		if (m_pUnixHeader != nullptr)
+		{
+			return m_pUnixHeader;
+		}
+		m_pUnixHeader = new LzUnixHeader();
+		return m_pUnixHeader;
+	}
 
+	LzDosHeader *GetDosHeader()
+	{
+		if (m_pDosHeader != nullptr)
+		{
+			return m_pDosHeader;
+		}
+		m_pDosHeader = new LzDosHeader();
+		return m_pDosHeader;
+	}
 
 	// get suitable method for extraction:
 	// check string if it is supported.
 	//
-	tCompressionMethod GetMethod()
+	tCompressionMethod GetMethod() const
 	{
 		if (pack_method.contains("-lh") == true
 			&& pack_method.at(4) == '-')
@@ -300,7 +359,7 @@ public:
 	
 	// this is stuff for user-display
 	// -> make it clear what one-character codes mean
-	QString GetOSTypeName()
+	QString GetOSTypeName() const
 	{
 		if (os_type == EXTEND_GENERIC)
 		{
@@ -344,7 +403,7 @@ public:
 			return QString("XOSK" + type);
 		case EXTEND_JAVA:
 			return QString("Java" + type);
-		case EXTEND_WNT:
+		case EXTEND_WinNT:
 			return QString("Windows NT" + type);
 		case EXTEND_W9598:
 			return QString("Windows 95/98" + type);

@@ -234,10 +234,7 @@ void CShuffleHuffman::read_tree_c()
 
 			// set next bits to table elements
             int c = m_BitIo.getbits(CBIT);
-            for (int n = 0; n < 4096; n++)
-			{
-                c_table[n] = c;
-			}
+            bufferSet(c, c_table, 4096);
             return;
         }
     }
@@ -261,10 +258,7 @@ void CShuffleHuffman::read_tree_p()
             ::memset(pt_len, 0, SHUF_NP);
             
             int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
-            for (int n = 0; n < 256; n++)
-			{
-                pt_table[n] = c;
-			}
+            bufferSet(c, pt_table, 256);
             return;
         }
     }
@@ -730,10 +724,7 @@ void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
 
 		// set table elements to next bits
         int c = m_BitIo.getbits(nbit);
-        for (int i = 0; i < 256; i++)
-		{
-            pt_table[i] = c;
-		}
+		bufferSet(c, pt_table, 256);
     }
     else 
 	{
@@ -785,10 +776,7 @@ void CStaticHuffman::read_c_len()
 
 		// set table elements to next bits
         short c = m_BitIo.getbits(CBIT);
-        for (short i = 0; i < 4096; i++)
-		{
-            c_table[i] = c;
-		}
+        bufferSet(c, c_table, 4096);
     } 
 	else 
 	{

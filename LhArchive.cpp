@@ -163,7 +163,7 @@ bool CLhArchive::Extract()
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
 		// check packmethod also in case unix modeflags are not given?
-		if (pHeader->UnixMode.isDir)
+		if (pHeader->isDir())
 		{
 			// make directory only
 			CPathHelper::MakePath(szTempPath.toStdString());
@@ -228,7 +228,7 @@ bool CLhArchive::ExtractSelected(QStringList &lstFiles)
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
 		// check packmethod also in case unix modeflags are not given?
-		if (pHeader->UnixMode.isDir)
+		if (pHeader->isDir())
 		{
 			// make directory only
 			CPathHelper::MakePath(szTempPath.toStdString());
@@ -270,7 +270,7 @@ bool CLhArchive::ExtractToUserBuffer(QString &szFileEntry, QByteArray &outArray)
 	{
 		LzHeader *pHeader = (*it);
 		
-		if (pHeader->UnixMode.isDir)
+		if (pHeader->isDir())
 		{
 			if (pHeader->filename == szFileEntry)
 			{
@@ -318,7 +318,7 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		LzHeader *pHeader = (*it);
 		
 		// if it's directory-entry -> nothing more to do here
-		if (pHeader->UnixMode.isDir)
+		if (pHeader->isDir())
 		{
 			++it;
 			continue;
@@ -336,10 +336,15 @@ bool CLhArchive::List(QLhALib::tArchiveEntryList &lstArchiveInfo)
 		Entry.m_Stamp = pHeader->last_modified_stamp;
 		Entry.m_extendType = pHeader->GetOSTypeName();
 		Entry.m_szComment = pHeader->file_comment;
-		Entry.m_szUser = pHeader->unix_user;
-		Entry.m_szGroup = pHeader->unix_group;
-		Entry.m_unix_uid = pHeader->unix_uid;
-		Entry.m_unix_gid = pHeader->unix_gid;
+		
+		if (pHeader->os_type == EXTEND_UNIX)
+		{
+			LzUnixHeader *pUxh = pHeader->GetUnixHeader();
+			Entry.m_szUser = pUxh->unix_user;
+			Entry.m_szGroup = pUxh->unix_group;
+			Entry.m_unix_uid = pUxh->unix_uid;
+			Entry.m_unix_gid = pUxh->unix_gid;
+		}
 		
 		// file attributes/protection flags? which ones?
 		// unix? msdos? (amiga?) 
@@ -383,7 +388,7 @@ bool CLhArchive::Test()
 		
 		// if it's directory-entry -> nothing more to do here
 		// (usually has -lhd- compression method for "store only"?)
-		if (pHeader->UnixMode.isDir)
+		if (pHeader->isDir())
 		{
 			++it;
 			continue;

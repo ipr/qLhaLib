@@ -111,6 +111,15 @@ protected:
 	unsigned short m_maxmatch;
 	unsigned int n_max;
 	
+	// simplify code, reusable method
+	void bufferSet(const unsigned short c, unsigned short *pBuf, const int size) const
+	{
+		for (int n = 0; n < size; n++)
+		{
+			pBuf[n] = c;
+		}
+	}
+	
 public:
     CHuffman()
 		: m_BitIo()
@@ -205,7 +214,6 @@ public:
 	
 	unsigned short decode_c_dyn();
 	unsigned short decode_p_dyn(size_t &decode_count);
-	
 };
 
 // mess sharing entirely different handlings of 1..3
