@@ -140,6 +140,20 @@ public:
 		, m_pUnixHeader(nullptr)
 		, m_pDosHeader(nullptr)
 	{}
+	// destructor
+	~LzHeader()
+	{
+		if (m_pUnixHeader != nullptr)
+		{
+			delete m_pUnixHeader;
+		}
+		if (m_pDosHeader != nullptr)
+		{
+			delete m_pDosHeader;
+		}
+		m_pUnixHeader = nullptr;
+		m_pDosHeader = nullptr;
+	}
 
     tCompressionMethod m_enCompression; // enumerated compression of entry
 	QString         pack_method; // method as-is from file, e.g. -lh0-..-lh7-, -lhd-, -lzs-, -lz5-, -lz4-
