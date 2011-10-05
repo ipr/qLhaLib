@@ -90,16 +90,7 @@ enum tDecodingLimits
 	MAXMATCH           = 256, /* formerly F (not more than UCHAR_MAX + 1) */
 	THRESHOLD          = 3,   /* choose optimal value */
 
-	USHRT_BIT          = 16,  /* (CHAR_BIT * sizeof(ushort)) */
-	
-	NP_LEN         = (MAX_DICBIT + 1),
-	NT_LEN         = (USHRT_BIT + 3),
-	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD), // 510
-	
-	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
-	
-	/*      #if NT > NP #define NPT NT #else #define NPT NP #endif  */
-	PT_LEN_SIZE        = 0x80
+	CBIT       = 9       /* smallest integer such that (1 << CBIT) > * NC */
 };
 
 
@@ -131,8 +122,13 @@ protected:
 
 	enum tHuffmanTree
 	{
-		C_TABLE_LEN = 4096, // element count, not bytes
-		PT_TABLE_LEN = 256 // element count, not bytes
+		C_TABLE_LEN		= 4096, // element count, not bytes
+		PT_TABLE_LEN	= 256, // element count, not bytes
+		
+		
+		NC_LEN          = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD), // 510
+		C_LEN_SIZE		= NC_LEN, // temp..
+		PT_LEN_SIZE		= 0x80 // pt_len array size (8*1024/64)==128==0x80
 	};
 
 	
@@ -142,14 +138,17 @@ protected:
 	uint16_t c_table[C_TABLE_LEN];   /* decode */
 	uint16_t pt_table[PT_TABLE_LEN];   /* decode */
 	
-	// used by the shuffling also..
-	// should be in base?
-	uint8_t c_len[NC_LEN];
+	// used by shuffle and static
+	uint8_t c_len[C_LEN_SIZE];
 	
-public:
+	// used by shuffle and static
+	uint8_t pt_len[PT_LEN_SIZE];
+	
+	// protected: only derived instance possible
     CHuffmanTree()
 	{}
 	
+public:
 	void make_table(const int16_t nchar, uint8_t bitlen[], int16_t tablebits, uint16_t table[]);
 
 protected:
@@ -161,7 +160,7 @@ class CDynamicHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
 	// avoid name collisions
-	enum tDynamicHuffman
+	enum tDynamicDecoding
 	{
 		DYNH_MAXMATCH_LH2 = MAXMATCH,	// -lh2- maxmatch (init only)
 		DYNH_NUM_MAX_LH2 = 286,			// -lh2- num max (init)
@@ -232,23 +231,19 @@ class CShuffleHuffman : public CDynamicHuffman
 {
 protected:
 	// avoid name collisions
-	enum tShuffle
+	enum tShuffleDecoding
 	{
 		SHUF_MAXMATCH_LH1 = 60,			// -lh1- maxmatch (init only)
 		SHUF_NUM_MAX_LH1 = 314,			// -lh1- num_max (init)
 		SHUF_NUM_MAX_LH3 = 286,			// -lh3- num max (init)
 		SHUF_NP_LZHUFF1 = (1 << 6),		// -lh1- init value for m_np
 		SHUF_NP_LZHUFF3 = (1 << 7),		// -lh3- init value for m_np
-		//SHUF_NP  = PT_LEN_SIZE,
-		SHUF_PT_LEN_SIZE  = PT_LEN_SIZE, // (8*1024/64)==128==0x80
 		SHUF_N1  = 286,                     // alphabet size
 		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
 		SHUF_BUFBITS     = 16,              // >= log2(MAXBUF)
 		SHUF_LENFIELD    = 4               // bit size of length field for tree output
 	};
 
-	uint8_t pt_len[SHUF_PT_LEN_SIZE];
-	
 	unsigned int m_np;
 	
 	// was static
@@ -258,7 +253,8 @@ protected:
 	static const int fixed_method_lh1[16]; // old compatible
 	static const int fixed_method_lh3[16]; // 8K buf
 
-	// uses lookup-tables with -lh1- and -lh3-
+	// uses fixed lookup-tables with -lh1- and -lh3-
+	// to initialize pt_len-array
 	void fixed_method_pt_len(const int *tbl);
 	
 public:
@@ -284,8 +280,13 @@ protected:
 class CStaticHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
-
-	uint8_t pt_len[PT_LEN_SIZE];
+	// avoid name collisions
+	enum tStaticDecoding
+	{
+		USHRT_BIT      = 16,  /* (CHAR_BIT * sizeof(ushort)) */
+		NT_LEN         = (USHRT_BIT + 3)
+	};
+	
 	
 	int16_t m_blocksize; /* decode */
 	

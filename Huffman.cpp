@@ -226,7 +226,7 @@ uint16_t CShuffleHuffman::decode_c_st0()
 		{
 		    fixed_method_pt_len(fixed_method_lh3);
         }
-        make_table(SHUF_PT_LEN_SIZE, pt_len, 8, pt_table);
+        make_table(PT_LEN_SIZE, pt_len, 8, pt_table);
     }
     m_blocksize--;
 	
@@ -315,6 +315,8 @@ void CShuffleHuffman::read_tree_c()
             // zeroize byte-array
             // part of it? (size: NC_LEN)
             ::memset(c_len, 0, SHUF_N1);
+            // TODO: clear entirely..?
+            //::memset(c_len, 0, C_LEN_SIZE);
 
 			// set next bits to table elements
             uint16_t c = m_BitIo.getbits(CBIT);
@@ -329,7 +331,7 @@ void CShuffleHuffman::read_tree_p()
 {
 	/* read tree from file */
     int i = 0;
-    while (i < SHUF_PT_LEN_SIZE) 
+    while (i < PT_LEN_SIZE) 
 	{
         pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
 
@@ -338,7 +340,7 @@ void CShuffleHuffman::read_tree_p()
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
             // zeroize byte-array
-            ::memset(pt_len, 0, SHUF_PT_LEN_SIZE);
+            ::memset(pt_len, 0, PT_LEN_SIZE);
             
             uint16_t c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
             bufferSet(c, pt_table, PT_TABLE_LEN);
@@ -763,7 +765,7 @@ void CStaticHuffman::read_c_len()
     if (n == 0) 
 	{
 		// zeroize byte-array..
-		::memset(c_len, 0, NC_LEN); 
+		::memset(c_len, 0, C_LEN_SIZE); 
 
 		// set table elements to next bits
         uint16_t c = m_BitIo.getbits(CBIT);
@@ -827,11 +829,11 @@ void CStaticHuffman::read_c_len()
 			}
         }
 		
-        while (i < NC_LEN)
+        while (i < C_LEN_SIZE)
 		{
             c_len[i++] = 0;
 		}
-        make_table(NC_LEN, c_len, 12, c_table);
+        make_table(C_LEN_SIZE, c_len, 12, c_table);
     }
 }
 
@@ -850,7 +852,7 @@ uint16_t CStaticHuffman::decode_c_st1()
 	
 	uint16_t bit = m_BitIo.peekbits(12);
     uint16_t j = c_table[bit];
-    if (j < NC_LEN)
+    if (j < C_LEN_SIZE)
 	{
         m_BitIo.fillbuf(c_len[j]);
 	}
@@ -858,7 +860,7 @@ uint16_t CStaticHuffman::decode_c_st1()
 	{
         m_BitIo.fillbuf(12);
 		
-		decode_mask_bitbuf(j, NC_LEN, (16 - 1));
+		decode_mask_bitbuf(j, C_LEN_SIZE, (16 - 1));
 		
         m_BitIo.fillbuf(c_len[j] - 12);
     }
