@@ -1,6 +1,5 @@
 List of currently known bugs:
-none?
-
-That doesn't mean that there aren't bugs:
-they're just not known yet if there are..
+* 64-bit build ?
+ - possibly doesn't work (not tested)
+ - no setup to build or test with currently..
 
