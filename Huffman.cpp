@@ -16,21 +16,19 @@
 /* ------------------------------------------------------------------------ */
 
 void CHuffmanTree::make_table(
-    short           nchar,
-    unsigned char   bitlen[],
-    short           tablebits,
-    unsigned short  table[])
+    const int16_t	nchar,
+    uint8_t			bitlen[],
+    int16_t			tablebits,
+    uint16_t		table[])
 {
 	// note: loops below are 1..<=16 -> need 17 cells
-    unsigned short  count[17];  /* count of bitlen */
-    unsigned short  weight[17]; /* 0x10000ul >> bitlen */
-    unsigned short  start[17];  /* first code of bitlen */
-    unsigned int    iCount = 0;
-
-    int avail = nchar;
+    uint16_t  count[17];  /* count of bitlen */
+    uint16_t  weight[17]; /* 0x10000ul >> bitlen */
+    uint16_t  start[17];  /* first code of bitlen */
+    uint32_t  iCount = 0;
 
     /* initialize */
-	::memset(count, 0, sizeof(unsigned short)*17);
+	::memset(count, 0, sizeof(uint16_t)*17);
     for (iCount = 1; iCount <= 16; iCount++) 
 	{
         weight[iCount] = 1 << (16 - iCount);
@@ -43,7 +41,7 @@ void CHuffmanTree::make_table(
 	}
 
     /* calculate first code */
-    unsigned short total = 0;
+    uint16_t total = 0;
     for (iCount = 1; iCount <= 16; iCount++) 
 	{
         start[iCount] = total;
@@ -74,6 +72,8 @@ void CHuffmanTree::make_table(
 		}
 	}
 
+    int avail = nchar;
+
     /* create table and tree */
     for (int j = 0; j < nchar; j++) 
 	{
@@ -98,7 +98,7 @@ void CHuffmanTree::make_table(
             /* code not in table */
 			unsigned int i = start[k];
 			
-            unsigned short *pTbl = &table[i >> m];
+            uint16_t *pTbl = &table[i >> m];
             i <<= tablebits;
 			
             int n = k - tablebits;
@@ -113,9 +113,10 @@ void CHuffmanTree::make_table(
 // split from above: this is called in loop from make_table(),
 // only part in make_table() that uses left[] and right[] arrays
 //
-void CHuffmanTree::make_table_tree(int nLen, const int j, unsigned int &i, unsigned short *pTbl, int &avail)
+void CHuffmanTree::make_table_tree(const int treeLen, const int j, unsigned int &i, uint16_t *pTbl, int &avail)
 {
 	/* make tree (n length) */
+	int nLen = treeLen;
     while (--nLen >= 0) 
 	{
         if ((*pTbl) == 0) 
@@ -181,15 +182,14 @@ void CShuffleHuffman::fixed_method_pt_len(const int *tbl)
 /* lh1 */
 void CShuffleHuffman::decode_start_fix()
 {
-	// call to base-class
-	CHuffman::init_decode_start(314, 60);
 	m_BitIo.init_getbits();
 
 	// -lh1- shift by 6 for table configuration
     //m_np = 1 << (LZHUFF1_DICBIT - 6);
     m_np = SHUF_NP_LZHUFF1;
 	
-    start_c_dyn();
+	CDynamicHuffman::init_num_max(SHUF_NUM_MAX_LH1);
+    start_c_dyn(SHUF_MAXMATCH_LH1);
 
     fixed_method_pt_len(fixed_method_lh1);
     make_table(m_np, pt_len, 8, pt_table);
@@ -199,9 +199,8 @@ void CShuffleHuffman::decode_start_fix()
 /* lh3 */
 void CShuffleHuffman::decode_start_st0()
 {
-	// call to base-class
-	CHuffman::init_decode_start(286, MAXMATCH);
 	m_BitIo.init_getbits();
+	CDynamicHuffman::init_num_max(SHUF_NUM_MAX_LH3);
 	
 	// -lh3- shift by 7 
     //m_np = 1 << (LZHUFF3_DICBIT - 6);
@@ -215,7 +214,7 @@ void CShuffleHuffman::read_tree_c()
     int i = 0;
     while (i < SHUF_N1) 
 	{
-		unsigned short bit = m_BitIo.getbits(1);
+		uint16_t bit = m_BitIo.getbits(1);
         if (bit)
 		{
             c_len[i] = m_BitIo.getbits(SHUF_LENFIELD) + 1;
@@ -233,7 +232,7 @@ void CShuffleHuffman::read_tree_c()
             ::memset(c_len, 0, SHUF_N1);
 
 			// set next bits to table elements
-            int c = m_BitIo.getbits(CBIT);
+            uint16_t c = m_BitIo.getbits(CBIT);
             bufferSet(c, c_table, 4096);
             return;
         }
@@ -257,7 +256,7 @@ void CShuffleHuffman::read_tree_p()
             // zeroize byte-array
             ::memset(pt_len, 0, SHUF_NP);
             
-            int c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
+            uint16_t c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
             bufferSet(c, pt_table, 256);
             return;
         }
@@ -266,7 +265,7 @@ void CShuffleHuffman::read_tree_p()
 
 /* ------------------------------------------------------------------------ */
 /* lh3 */
-unsigned short CShuffleHuffman::decode_c_st0()
+uint16_t CShuffleHuffman::decode_c_st0()
 {
     if (m_blocksize == 0)    /* read block head */
 	{
@@ -274,7 +273,7 @@ unsigned short CShuffleHuffman::decode_c_st0()
 		
         read_tree_c();
 		
-		unsigned short bit = m_BitIo.getbits(1);
+		uint16_t bit = m_BitIo.getbits(1);
         if (bit) 
 		{
             read_tree_p();
@@ -287,7 +286,7 @@ unsigned short CShuffleHuffman::decode_c_st0()
     }
     m_blocksize--;
 	
-	unsigned short bit = m_BitIo.peekbits(12);
+	uint16_t bit = m_BitIo.peekbits(12);
     int j = c_table[bit];
     if (j < SHUF_N1)
 	{
@@ -312,9 +311,9 @@ unsigned short CShuffleHuffman::decode_c_st0()
 
 /* ------------------------------------------------------------------------ */
 /* lh1, 3 */
-unsigned short CShuffleHuffman::decode_p_st0()
+uint16_t CShuffleHuffman::decode_p_st0()
 {
-	unsigned short bit = m_BitIo.peekbits(8);
+	uint16_t bit = m_BitIo.peekbits(8);
     int j = pt_table[bit];
     if (j < m_np) 
 	{
@@ -332,9 +331,9 @@ unsigned short CShuffleHuffman::decode_p_st0()
     return (j << 6) + m_BitIo.getbits(6);
 }
 
-void CShuffleHuffman::shuf_decode_bitbuf(int &j, const short bitbuf, const int nCount)
+void CShuffleHuffman::shuf_decode_bitbuf(int &j, const int16_t bitbuf, const int nCount)
 {
-	short i = bitbuf;
+	int16_t i = bitbuf;
 	do 
 	{
 		if (i < 0)
@@ -363,10 +362,10 @@ void CShuffleHuffman::shuf_decode_bitbuf(int &j, const short bitbuf, const int n
 
 /* ------------------------------------------------------------------------ */
 
-void CDynamicHuffman::start_c_dyn()
+void CDynamicHuffman::start_c_dyn(const uint16_t maxmatch)
 {
 	// keep m_n1 for: decode_c_dyn()
-    m_n1 = (n_max >= 256 + m_maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
+    m_n1 = (n_max >= 256 + maxmatch - THRESHOLD + 1) ? 512 : n_max - 1;
     for (int n = 0; n < TREESIZE_C; n++) 
 	{
         stock[n] = n;
@@ -408,11 +407,10 @@ void CDynamicHuffman::start_c_dyn()
 /* lh2 */
 void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
 {
-	// call to base-class
-	CHuffman::init_decode_start(286, MAXMATCH);
 	m_BitIo.init_getbits();
 	
-    start_c_dyn(); // shared with -lh1-
+	CDynamicHuffman::init_num_max(DYNH_NUM_MAX_LH2);
+    start_c_dyn(DYNH_MAXMATCH_LH2); // shared with -lh1-
 	
     freq[ROOT_P] = 1;
     child[ROOT_P] = ~(N_CHAR);
@@ -493,8 +491,7 @@ void CDynamicHuffman::reconst(int start, int end)
             parent[j] = parent[j - 1] = i;
 		}
 		
-		unsigned int g = freq[i];
-        if (g == f) 
+        if (f == freq[i]) 
 		{
             block[i] = b;
         }
@@ -502,7 +499,7 @@ void CDynamicHuffman::reconst(int start, int end)
 		{
 			b = block[i] = stock[avail++];
             edge[b] = i;
-            f = g;
+            f = freq[i];
         }
     }
 }
@@ -631,12 +628,11 @@ void CDynamicHuffman::make_new_node(int p)
 
 /* ------------------------------------------------------------------------ */
 /* lh1, 2 */
-unsigned short CDynamicHuffman::decode_c_dyn()
+uint16_t CDynamicHuffman::decode_c_dyn()
 {
     int c = child[ROOT_C];
-    short buf = m_BitIo.bitbuf;
-    short cnt = 0;
-	
+    int16_t buf = m_BitIo.bitbuf;
+    int16_t cnt = 0;
     do 
 	{
         c = child[c - (buf < 0)];
@@ -662,7 +658,7 @@ unsigned short CDynamicHuffman::decode_c_dyn()
 
 /* ------------------------------------------------------------------------ */
 /* lh2 */
-unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
+uint16_t CDynamicHuffman::decode_p_dyn(size_t &decode_count)
 {
     while (decode_count > m_nextcount) 
 	{
@@ -675,9 +671,8 @@ unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
     }
 	
     int c = child[ROOT_P];
-    short buf = m_BitIo.bitbuf;
-    short cnt = 0;
-	
+    int16_t buf = m_BitIo.bitbuf;
+    int16_t cnt = 0;
     while (c > 0) 
 	{
         c = child[c - (buf < 0)];
@@ -714,17 +709,18 @@ unsigned short CDynamicHuffman::decode_p_dyn(size_t &decode_count)
 /* ------------------------------------------------------------------------ */
 /*                              decoding                                    */
 /* ------------------------------------------------------------------------ */
-void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
+void CStaticHuffman::read_pt_len(int16_t nn, int16_t nbit, int16_t i_special)
 {
-    int n = m_BitIo.getbits(nbit);
+    int16_t n = m_BitIo.getbits(nbit);
     if (n == 0) 
 	{
         // zeroize byte-array
         ::memset(pt_len, 0, nn);
 
 		// set table elements to next bits
-        int c = m_BitIo.getbits(nbit);
+        uint16_t c = m_BitIo.getbits(nbit);
 		bufferSet(c, pt_table, 256);
+        return; // nothing more to do here
     }
     else 
 	{
@@ -738,7 +734,7 @@ void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
 			}
             else 
 			{
-                unsigned short  mask = 1 << (16 - 4);
+                uint16_t mask = 1 << (16 - 4);
                 while (mask & m_BitIo.bitbuf) 
 				{
                     mask >>= 1;
@@ -768,33 +764,33 @@ void CStaticHuffman::read_pt_len(short nn, short nbit, short i_special)
 /* ------------------------------------------------------------------------ */
 void CStaticHuffman::read_c_len()
 {
-    short n = m_BitIo.getbits(CBIT);
+    int16_t n = m_BitIo.getbits(CBIT);
     if (n == 0) 
 	{
 		// zeroize byte-array..
 		::memset(c_len, 0, NC_LEN); 
 
 		// set table elements to next bits
-        short c = m_BitIo.getbits(CBIT);
+        uint16_t c = m_BitIo.getbits(CBIT);
         bufferSet(c, c_table, 4096);
+        return; // nothing more to do here
     } 
 	else 
 	{
-        short i = 0;
+        int16_t i = 0;
         while (i < n) 
 		{
-			unsigned short bit = m_BitIo.peekbits(8);
+			uint16_t bit = m_BitIo.peekbits(8);
 			
-            //unsigned short c = pt_table[bit];
-            // note: needs to be signed..
-            short c = pt_table[bit];
+            // note: needs to be signed here..
+            int16_t c = pt_table[bit];
             if (c >= NT_LEN) 
 			{
 				// reduce duplication, use inline-helper
 				// TODO: check, here c needs to be signed, how is other cases?
 				//decode_mask_bitbuf(c, NT_LEN, (16 - 9));
 				
-				unsigned short mask = (1 << (16 - 9));
+				uint16_t mask = (1 << (16 - 9));
 				do 
 				{
 					if (m_BitIo.bitbuf & mask)
@@ -846,7 +842,7 @@ void CStaticHuffman::read_c_len()
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-unsigned short CStaticHuffman::decode_c_st1()
+uint16_t CStaticHuffman::decode_c_st1()
 {
     if (m_blocksize == 0) 
 	{
@@ -857,8 +853,8 @@ unsigned short CStaticHuffman::decode_c_st1()
     }
     m_blocksize--;
 	
-	unsigned short bit = m_BitIo.peekbits(12);
-    unsigned short j = c_table[bit];
+	uint16_t bit = m_BitIo.peekbits(12);
+    uint16_t j = c_table[bit];
     if (j < NC_LEN)
 	{
         m_BitIo.fillbuf(c_len[j]);
@@ -876,10 +872,10 @@ unsigned short CStaticHuffman::decode_c_st1()
 
 /* ------------------------------------------------------------------------ */
 /* lh4, 5, 6, 7 */
-unsigned short CStaticHuffman::decode_p_st1()
+uint16_t CStaticHuffman::decode_p_st1()
 {
-	unsigned short bit = m_BitIo.peekbits(8);
-    unsigned short j = pt_table[bit];
+	uint16_t bit = m_BitIo.peekbits(8);
+    uint16_t j = pt_table[bit];
     if (j < m_np_dict)
 	{
         m_BitIo.fillbuf(pt_len[j]);
@@ -941,9 +937,9 @@ void CStaticHuffman::decode_start_st1(const tHuffBits enBit)
 }
 
 // reduce duplication
-void CStaticHuffman::decode_mask_bitbuf(unsigned short &j, const int nCount, const int masksize)
+void CStaticHuffman::decode_mask_bitbuf(uint16_t &j, const int nCount, const int masksize)
 {
-	unsigned short mask = (1 << masksize);
+	uint16_t mask = (1 << masksize);
 	do 
 	{
 		if (m_BitIo.bitbuf & mask)
