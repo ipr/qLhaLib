@@ -115,7 +115,8 @@ protected:
 	{}
 };
 
-
+// combine with CHuffman instead of separate..?
+// (both needed as base anyway..)
 class CHuffmanTree
 {
 protected:
@@ -155,7 +156,8 @@ protected:
 	inline void make_table_tree(const int treeLen, const int j, unsigned int &i, uint16_t *pTbl, int &avail);
 };
 
-
+// -lh2- entirely here,
+// part of -lh1- (decode-C)
 class CDynamicHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
@@ -209,7 +211,7 @@ public:
 		, m_nextcount(0)
 	{}
 
-	void decode_start_dyn(const tHuffBits enBit);
+	void decode_start_dyn(const tHuffBits enBit); // -lh2-
 	uint16_t decode_c_dyn(); // -lh1-, -lh2-
 	uint16_t decode_p_dyn(size_t &decode_count); // -lh2-
 
@@ -226,7 +228,8 @@ protected:
 	void make_new_node(int p);
 };
 
-// mess sharing entirely different handlings of 1..3
+// -lh3- entirely here,
+// part of -lh1- (start, decode-P)
 class CShuffleHuffman : public CDynamicHuffman
 {
 protected:
@@ -249,7 +252,7 @@ protected:
 	// was static
 	uint16_t m_blocksize; /* decode */
 
-	// these lookup-tables only used by -lh1- and -lh2-
+	// these lookup-tables only used by -lh1- and -lh3-
 	static const int fixed_method_lh1[16]; // old compatible
 	static const int fixed_method_lh3[16]; // 8K buf
 
@@ -277,6 +280,7 @@ protected:
 	void read_tree_p();
 };
 
+// -lh4-, -lh5-, -lh6-, -lh7- entirely here
 class CStaticHuffman : public CHuffman, public CHuffmanTree
 {
 protected:
@@ -286,7 +290,6 @@ protected:
 		USHRT_BIT      = 16,  /* (CHAR_BIT * sizeof(ushort)) */
 		NT_LEN         = (USHRT_BIT + 3)
 	};
-	
 	
 	int16_t m_blocksize; /* decode */
 	
