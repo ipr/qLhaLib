@@ -700,15 +700,14 @@ void CDynamicHuffman::make_new_node(int p)
 /* ------------------------------------------------------------------------ */
 
 
-/* ------------------------------------------------------------------------ */
-/*                              decoding                                    */
-/* ------------------------------------------------------------------------ */
 void CStaticHuffman::read_pt_len(int16_t nn, int16_t nbit, int16_t i_special)
 {
     int16_t n = m_BitIo.getbits(nbit);
     if (n == 0) 
 	{
         // zeroize byte-array
+        // only part of it?
+        // (size: PT_LEN_SIZE)
         ::memset(pt_len, 0, nn);
 
 		// set table elements to next bits
@@ -747,6 +746,8 @@ void CStaticHuffman::read_pt_len(int16_t nn, int16_t nbit, int16_t i_special)
 				}
             }
         }
+        
+        // clear only part of the array??
         while (i < nn)
 		{
             pt_len[i++] = 0;
@@ -755,7 +756,6 @@ void CStaticHuffman::read_pt_len(int16_t nn, int16_t nbit, int16_t i_special)
     }
 }
 
-/* ------------------------------------------------------------------------ */
 void CStaticHuffman::read_c_len()
 {
     int16_t n = m_BitIo.getbits(CBIT);

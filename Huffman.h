@@ -177,7 +177,7 @@ protected:
 	
 	uint16_t freq[TREESIZE];
 	
-	unsigned int n_max;
+	uint32_t n_max; //
 	
 	uint16_t total_p;
 	int      avail;
@@ -189,7 +189,7 @@ protected:
 	// shared code called when starting decoding,
 	// used from inherited only
 	// (only with: -lh1-, -lh2-, -lh3-)
-	void init_num_max(unsigned int num_max)
+	void init_num_max(const uint32_t num_max)
 	{
 		n_max = num_max;
 	}
@@ -281,7 +281,7 @@ protected:
 	int16_t m_blocksize; /* decode */
 	
 	int m_dict_bit; // set in decode_start_st1()
-	unsigned int m_np_dict; // depends on dict bit
+	unsigned int m_np_dict; // depends on dict bit (16-bit uint only?)
 	
 	void read_pt_len(int16_t nn, int16_t nbit, int16_t i_special);
 	void read_c_len();

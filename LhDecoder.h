@@ -71,7 +71,7 @@ protected:
 	
 	// dictionary-related
 	unsigned long m_dicsiz;
-	unsigned char *m_dtext;
+	uint8_t *m_dtext;
 	unsigned int m_dicsiz_1;
 	unsigned int m_adjust;
 	tHuffBits m_enBit;
@@ -102,7 +102,7 @@ public:
 		m_decode_count = 0;
 		
 		m_dicsiz = 0;
-		m_dtext = nullptr;
+		m_dtext = nullptr; // only helper-pointer, don't delete (see buffer m_DictionaryText)
 		m_dicsiz_1 = 0;
 		m_adjust = 0;
 		m_loc = 0;
@@ -154,11 +154,11 @@ public:
 	virtual CReadBuffer *GetWriteBuf() = 0;
 	virtual BitIo *GetBitIo() = 0;
 	
-	virtual void DecodeStart() = 0;
-	virtual unsigned short DecodeC() = 0;
-	virtual unsigned short DecodeP() = 0;
+	virtual void DecodeStart() = 0; // keep public
+	virtual unsigned short DecodeC() = 0; // could be protected..
+	virtual unsigned short DecodeP() = 0; // could be protected..
 
-	virtual void DecodeFinish()
+	virtual void DecodeFinish() // keep public
 	{
 		if (m_loc != 0) 
 		{
@@ -177,7 +177,8 @@ public:
 		return m_decode_count;
 	}
 	
-	// 
+	// call in loop to decode in chunks,
+	// this will call actual C/P decode methods in derived
 	virtual void Decode();
 };
 
