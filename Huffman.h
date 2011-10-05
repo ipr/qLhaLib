@@ -94,7 +94,7 @@ enum tDecodingLimits
 	
 	NP_LEN         = (MAX_DICBIT + 1),
 	NT_LEN         = (USHRT_BIT + 3),
-	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD),
+	NC_LEN         = (UCHAR_MAX + MAXMATCH + 2 - THRESHOLD), // 510
 	
 	CBIT       = 9,       /* smallest integer such that (1 << CBIT) > * NC */
 	
@@ -111,6 +111,7 @@ protected:
 	// simplify code, reusable method
 	void bufferSet(const uint16_t c, uint16_t *pBuf, const int size) const
 	{
+		// note: 16-bit int buffer, expecting element count..
 		for (int n = 0; n < size; n++)
 		{
 			pBuf[n] = c;
@@ -127,12 +128,19 @@ protected:
 class CHuffmanTree
 {
 protected:
+
+	enum tHuffmanTree
+	{
+		C_TABLE_LEN = 4096, // element count, not bytes
+		PT_TABLE_LEN = 256 // element count, not bytes
+	};
+
 	
 	uint16_t left[2 * NC_LEN - 1];
 	uint16_t right[2 * NC_LEN - 1];
 	
-	uint16_t c_table[4096];   /* decode */
-	uint16_t pt_table[256];   /* decode */
+	uint16_t c_table[C_TABLE_LEN];   /* decode */
+	uint16_t pt_table[PT_TABLE_LEN];   /* decode */
 	
 	// used by the shuffling also..
 	// should be in base?
@@ -231,14 +239,15 @@ protected:
 		SHUF_NUM_MAX_LH3 = 286,			// -lh3- num max (init)
 		SHUF_NP_LZHUFF1 = (1 << 6),		// -lh1- init value for m_np
 		SHUF_NP_LZHUFF3 = (1 << 7),		// -lh3- init value for m_np
-		SHUF_NP  = (8 * 1024 / 64),
+		//SHUF_NP  = PT_LEN_SIZE,
+		SHUF_PT_LEN_SIZE  = PT_LEN_SIZE, // (8*1024/64)==128==0x80
 		SHUF_N1  = 286,                     // alphabet size
 		SHUF_EXTRABITS   = 8,               // >= log2(F-THRESHOLD+258-N1) 
 		SHUF_BUFBITS     = 16,              // >= log2(MAXBUF)
 		SHUF_LENFIELD    = 4               // bit size of length field for tree output
 	};
 
-	uint8_t pt_len[PT_LEN_SIZE];
+	uint8_t pt_len[SHUF_PT_LEN_SIZE];
 	
 	unsigned int m_np;
 	

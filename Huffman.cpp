@@ -226,7 +226,7 @@ uint16_t CShuffleHuffman::decode_c_st0()
 		{
 		    fixed_method_pt_len(fixed_method_lh3);
         }
-        make_table(SHUF_NP, pt_len, 8, pt_table);
+        make_table(SHUF_PT_LEN_SIZE, pt_len, 8, pt_table);
     }
     m_blocksize--;
 	
@@ -313,11 +313,12 @@ void CShuffleHuffman::read_tree_c()
         if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
 		{
             // zeroize byte-array
+            // part of it? (size: NC_LEN)
             ::memset(c_len, 0, SHUF_N1);
 
 			// set next bits to table elements
             uint16_t c = m_BitIo.getbits(CBIT);
-            bufferSet(c, c_table, 4096);
+            bufferSet(c, c_table, C_TABLE_LEN);
             return;
         }
     }
@@ -328,7 +329,7 @@ void CShuffleHuffman::read_tree_p()
 {
 	/* read tree from file */
     int i = 0;
-    while (i < SHUF_NP) 
+    while (i < SHUF_PT_LEN_SIZE) 
 	{
         pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
 
@@ -337,10 +338,10 @@ void CShuffleHuffman::read_tree_p()
         if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
 		{
             // zeroize byte-array
-            ::memset(pt_len, 0, SHUF_NP);
+            ::memset(pt_len, 0, SHUF_PT_LEN_SIZE);
             
             uint16_t c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
-            bufferSet(c, pt_table, 256);
+            bufferSet(c, pt_table, PT_TABLE_LEN);
             return;
         }
     }
@@ -712,7 +713,7 @@ void CStaticHuffman::read_pt_len(int16_t nn, int16_t nbit, int16_t i_special)
 
 		// set table elements to next bits
         uint16_t c = m_BitIo.getbits(nbit);
-		bufferSet(c, pt_table, 256);
+		bufferSet(c, pt_table, PT_TABLE_LEN);
         return; // nothing more to do here
     }
     else 
@@ -766,7 +767,7 @@ void CStaticHuffman::read_c_len()
 
 		// set table elements to next bits
         uint16_t c = m_BitIo.getbits(CBIT);
-        bufferSet(c, c_table, 4096);
+        bufferSet(c, c_table, C_TABLE_LEN);
         return; // nothing more to do here
     } 
 	else 
