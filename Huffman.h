@@ -201,10 +201,14 @@ public:
 	    , n_max(0)
 		, m_nextcount(0)
 	{}
-	
-	void start_c_dyn(const uint16_t maxmatch);
 
 	void decode_start_dyn(const tHuffBits enBit);
+	uint16_t decode_c_dyn(); // -lh1-, -lh2-
+	uint16_t decode_p_dyn(size_t &decode_count); // -lh2-
+
+protected:
+	void start_c_dyn(const uint16_t maxmatch);
+
 	void reconst(int start, int end);
 	int swap_inc(int p);
 	void swap_inc_Adjust(int &p, int &b);
@@ -213,9 +217,6 @@ public:
 	void dyn_update_p(int p);
 	
 	void make_new_node(int p);
-	
-	uint16_t decode_c_dyn(); // -lh1-, -lh2-
-	uint16_t decode_p_dyn(size_t &decode_count); // -lh2-
 };
 
 // mess sharing entirely different handlings of 1..3
@@ -247,6 +248,9 @@ protected:
 	// these lookup-tables only used by -lh1- and -lh2-
 	static const int fixed_method_lh1[16]; // old compatible
 	static const int fixed_method_lh3[16]; // 8K buf
+
+	// uses lookup-tables with -lh1- and -lh3-
+	void fixed_method_pt_len(const int *tbl);
 	
 public:
     CShuffleHuffman()
@@ -254,14 +258,8 @@ public:
 		, m_blocksize(0)
 	{}
 
-	// uses lookup-tables with -lh1- and -lh3-
-	void fixed_method_pt_len(const int *tbl);
-
-	void decode_start_fix();
-	
-	void decode_start_st0();
-	void read_tree_c();
-	void read_tree_p();
+	void decode_start_fix(); // -lh1-
+	void decode_start_st0(); // -lh3-
 	
 	uint16_t decode_c_st0(); // -lh3-
 	uint16_t decode_p_st0(); // -lh1-, -lh3-
@@ -269,6 +267,9 @@ public:
 protected:
 	// used by: decode_c_st0(), decode_p_st0()
 	inline void shuf_decode_bitbuf(int &j, const int16_t bitbuf, const int nCount);
+	
+	void read_tree_c();
+	void read_tree_p();
 };
 
 class CStaticHuffman : public CHuffman, public CHuffmanTree
@@ -282,6 +283,9 @@ protected:
 	int m_dict_bit; // set in decode_start_st1()
 	unsigned int m_np_dict; // depends on dict bit
 	
+	void read_pt_len(int16_t nn, int16_t nbit, int16_t i_special);
+	void read_c_len();
+	
 public:
     CStaticHuffman()
 		: CHuffman()
@@ -289,8 +293,6 @@ public:
 	    , m_blocksize(0)
 	{}
 	
-	void read_pt_len(int16_t nn, int16_t nbit, int16_t i_special);
-	void read_c_len();
 	uint16_t decode_c_st1();
 	uint16_t decode_p_st1();
 	

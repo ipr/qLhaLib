@@ -208,62 +208,6 @@ void CShuffleHuffman::decode_start_st0()
 }
 
 /* ------------------------------------------------------------------------ */
-void CShuffleHuffman::read_tree_c()
-{
-	/* read tree from file */
-    int i = 0;
-    while (i < SHUF_N1) 
-	{
-		uint16_t bit = m_BitIo.getbits(1);
-        if (bit)
-		{
-            c_len[i] = m_BitIo.getbits(SHUF_LENFIELD) + 1;
-		}
-        else
-		{
-            c_len[i] = 0;
-		}
-		
-		// if this byte-combination is found, zeroize lengths,
-		// set next bits to table and end loop
-        if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
-		{
-            // zeroize byte-array
-            ::memset(c_len, 0, SHUF_N1);
-
-			// set next bits to table elements
-            uint16_t c = m_BitIo.getbits(CBIT);
-            bufferSet(c, c_table, 4096);
-            return;
-        }
-    }
-    make_table(SHUF_N1, c_len, 12, c_table);
-}
-
-/* ------------------------------------------------------------------------ */
-void CShuffleHuffman::read_tree_p()
-{
-	/* read tree from file */
-    int i = 0;
-    while (i < SHUF_NP) 
-	{
-        pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
-
-		// if this byte-combination is found, zeroize lengths,
-		// set next bits to table and end loop
-        if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
-		{
-            // zeroize byte-array
-            ::memset(pt_len, 0, SHUF_NP);
-            
-            uint16_t c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
-            bufferSet(c, pt_table, 256);
-            return;
-        }
-    }
-}
-
-/* ------------------------------------------------------------------------ */
 /* lh3 */
 uint16_t CShuffleHuffman::decode_c_st0()
 {
@@ -348,6 +292,60 @@ void CShuffleHuffman::shuf_decode_bitbuf(int &j, const int16_t bitbuf, const int
 	} while (j >= nCount);
 }
 
+void CShuffleHuffman::read_tree_c()
+{
+	/* read tree from file */
+    int i = 0;
+    while (i < SHUF_N1) 
+	{
+		uint16_t bit = m_BitIo.getbits(1);
+        if (bit)
+		{
+            c_len[i] = m_BitIo.getbits(SHUF_LENFIELD) + 1;
+		}
+        else
+		{
+            c_len[i] = 0;
+		}
+		
+		// if this byte-combination is found, zeroize lengths,
+		// set next bits to table and end loop
+        if (++i == 3 && c_len[0] == 1 && c_len[1] == 1 && c_len[2] == 1) 
+		{
+            // zeroize byte-array
+            ::memset(c_len, 0, SHUF_N1);
+
+			// set next bits to table elements
+            uint16_t c = m_BitIo.getbits(CBIT);
+            bufferSet(c, c_table, 4096);
+            return;
+        }
+    }
+    make_table(SHUF_N1, c_len, 12, c_table);
+}
+
+void CShuffleHuffman::read_tree_p()
+{
+	/* read tree from file */
+    int i = 0;
+    while (i < SHUF_NP) 
+	{
+        pt_len[i] = m_BitIo.getbits(SHUF_LENFIELD);
+
+		// if this byte-combination is found, zeroize lengths,
+		// set next bits to table and end loop
+        if (++i == 3 && pt_len[0] == 1 && pt_len[1] == 1 && pt_len[2] == 1) 
+		{
+            // zeroize byte-array
+            ::memset(pt_len, 0, SHUF_NP);
+            
+            uint16_t c = m_BitIo.getbits(LZHUFF3_DICBIT - 6);
+            bufferSet(c, pt_table, 256);
+            return;
+        }
+    }
+}
+
 
 //// CDynamicHuffman
 
@@ -359,6 +357,94 @@ void CShuffleHuffman::shuf_decode_bitbuf(int &j, const int16_t bitbuf, const int
 /*                                                                          */
 /*  Ver. 1.14   Source All chagned              1995.01.14  N.Watazaki      */
 /* ------------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------------ */
+/* lh2 */
+void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
+{
+	m_BitIo.init_getbits();
+	
+	CDynamicHuffman::init_num_max(DYNH_NUM_MAX_LH2);
+    start_c_dyn(DYNH_MAXMATCH_LH2); // shared with -lh1-
+	
+    freq[ROOT_P] = 1;
+    child[ROOT_P] = ~(N_CHAR);
+    s_node[N_CHAR] = ROOT_P;
+    block[ROOT_P] = stock[avail++];
+    edge[(block[ROOT_P])] = ROOT_P;
+    most_p = ROOT_P;
+    total_p = 0;
+
+	// keep m_nn for: decode_p_dyn()
+	m_nn = (1 << (int)enBit);
+    m_nextcount = 64;
+}
+
+/* ------------------------------------------------------------------------ */
+/* lh1, 2 */
+uint16_t CDynamicHuffman::decode_c_dyn()
+{
+    int c = child[ROOT_C];
+    int16_t buf = m_BitIo.bitbuf;
+    int16_t cnt = 0;
+    do 
+	{
+        c = child[c - (buf < 0)];
+        buf <<= 1;
+        if (++cnt == 16) 
+		{
+            m_BitIo.fillbuf(16);
+            buf = m_BitIo.bitbuf;
+            cnt = 0;
+        }
+    } while (c > 0);
+	
+    m_BitIo.fillbuf(cnt);
+    c = ~c;
+    dyn_update_c(c);
+	
+    if (c == m_n1)
+	{
+        c += m_BitIo.getbits(8);
+	}
+    return c;
+}
+
+/* ------------------------------------------------------------------------ */
+/* lh2 */
+uint16_t CDynamicHuffman::decode_p_dyn(size_t &decode_count)
+{
+    while (decode_count > m_nextcount) 
+	{
+        make_new_node(m_nextcount / 64);
+        m_nextcount += 64;
+        if (m_nextcount >= m_nn)
+		{
+            m_nextcount = 0xffffffff;
+		}
+    }
+	
+    int c = child[ROOT_P];
+    int16_t buf = m_BitIo.bitbuf;
+    int16_t cnt = 0;
+    while (c > 0) 
+	{
+        c = child[c - (buf < 0)];
+        buf <<= 1;
+        if (++cnt == 16) 
+		{
+            m_BitIo.fillbuf(16);
+            buf = m_BitIo.bitbuf;
+            cnt = 0;
+        }
+    }
+	
+    m_BitIo.fillbuf(cnt);
+    c = (~c) - N_CHAR;
+    dyn_update_p(c);
+
+    return (c << 6) + m_BitIo.getbits(6);
+}
 
 /* ------------------------------------------------------------------------ */
 
@@ -403,29 +489,6 @@ void CDynamicHuffman::start_c_dyn(const uint16_t maxmatch)
     }
 }
 
-/* ------------------------------------------------------------------------ */
-/* lh2 */
-void CDynamicHuffman::decode_start_dyn(const tHuffBits enBit)
-{
-	m_BitIo.init_getbits();
-	
-	CDynamicHuffman::init_num_max(DYNH_NUM_MAX_LH2);
-    start_c_dyn(DYNH_MAXMATCH_LH2); // shared with -lh1-
-	
-    freq[ROOT_P] = 1;
-    child[ROOT_P] = ~(N_CHAR);
-    s_node[N_CHAR] = ROOT_P;
-    block[ROOT_P] = stock[avail++];
-    edge[(block[ROOT_P])] = ROOT_P;
-    most_p = ROOT_P;
-    total_p = 0;
-
-	// keep m_nn for: decode_p_dyn()
-	m_nn = (1 << (int)enBit);
-    m_nextcount = 64;
-}
-
-/* ------------------------------------------------------------------------ */
 void CDynamicHuffman::reconst(int start, int end)
 {
     int i, j;
@@ -504,7 +567,6 @@ void CDynamicHuffman::reconst(int start, int end)
     }
 }
 
-/* ------------------------------------------------------------------------ */
 int CDynamicHuffman::swap_inc(int p)
 {
     int b = block[p];
@@ -566,7 +628,6 @@ void CDynamicHuffman::swap_inc_Adjust(int &p, int &b)
 	}
 }
 
-/* ------------------------------------------------------------------------ */
 void CDynamicHuffman::dyn_update_c(int p)
 {
     if (freq[ROOT_C] == 0x8000) 
@@ -582,7 +643,6 @@ void CDynamicHuffman::dyn_update_c(int p)
     } while (q != ROOT_C);
 }
 
-/* ------------------------------------------------------------------------ */
 void CDynamicHuffman::dyn_update_p(int p)
 {
     if (total_p == 0x8000) 
@@ -600,7 +660,6 @@ void CDynamicHuffman::dyn_update_p(int p)
     total_p++;
 }
 
-/* ------------------------------------------------------------------------ */
 void CDynamicHuffman::make_new_node(int p)
 {
     int r = most_p + 1;
@@ -626,71 +685,6 @@ void CDynamicHuffman::make_new_node(int p)
     dyn_update_p(p);
 }
 
-/* ------------------------------------------------------------------------ */
-/* lh1, 2 */
-uint16_t CDynamicHuffman::decode_c_dyn()
-{
-    int c = child[ROOT_C];
-    int16_t buf = m_BitIo.bitbuf;
-    int16_t cnt = 0;
-    do 
-	{
-        c = child[c - (buf < 0)];
-        buf <<= 1;
-        if (++cnt == 16) 
-		{
-            m_BitIo.fillbuf(16);
-            buf = m_BitIo.bitbuf;
-            cnt = 0;
-        }
-    } while (c > 0);
-	
-    m_BitIo.fillbuf(cnt);
-    c = ~c;
-    dyn_update_c(c);
-	
-    if (c == m_n1)
-	{
-        c += m_BitIo.getbits(8);
-	}
-    return c;
-}
-
-/* ------------------------------------------------------------------------ */
-/* lh2 */
-uint16_t CDynamicHuffman::decode_p_dyn(size_t &decode_count)
-{
-    while (decode_count > m_nextcount) 
-	{
-        make_new_node(m_nextcount / 64);
-        m_nextcount += 64;
-        if (m_nextcount >= m_nn)
-		{
-            m_nextcount = 0xffffffff;
-		}
-    }
-	
-    int c = child[ROOT_P];
-    int16_t buf = m_BitIo.bitbuf;
-    int16_t cnt = 0;
-    while (c > 0) 
-	{
-        c = child[c - (buf < 0)];
-        buf <<= 1;
-        if (++cnt == 16) 
-		{
-            m_BitIo.fillbuf(16);
-            buf = m_BitIo.bitbuf;
-            cnt = 0;
-        }
-    }
-	
-    m_BitIo.fillbuf(cnt);
-    c = (~c) - N_CHAR;
-    dyn_update_p(c);
-
-    return (c << 6) + m_BitIo.getbits(6);
-}
 
 //// CStaticHuffman
 
