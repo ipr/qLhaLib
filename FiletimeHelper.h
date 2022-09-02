@@ -17,6 +17,7 @@
 
 #else
 
+/*
 // for compatibility in other platforms
 struct FILETIME 
 {
@@ -35,6 +36,7 @@ union ULARGE_INTEGER
 	struct ULARGE_PAIR u;
     uint64_t QuadPart;
 };
+*/
 
 #endif
 
@@ -44,6 +46,7 @@ private:
 	uint64_t m_u64Stamp;
 	
 protected:
+	/*
 	uint64_t GetFiletimeValue(const FILETIME &ftStamp) const
 	{
 		ULARGE_INTEGER ulTemp;
@@ -51,7 +54,8 @@ protected:
 		ulTemp.LowPart = ftStamp.dwLowDateTime;
 		return ulTemp.QuadPart;
 	}
-	
+	*/
+	/*
 	FILETIME GetValueAsFiletime(const uint64_t u64Stamp) const
 	{
 		FILETIME ftStamp;
@@ -61,6 +65,7 @@ protected:
 		ftStamp.dwLowDateTime = ulTemp.LowPart;
 		return ftStamp;
 	}
+	*/
 	
 public:
     CFiletimeHelper()
@@ -69,11 +74,14 @@ public:
     CFiletimeHelper(const uint64_t u64Stamp)
 		: m_u64Stamp(u64Stamp)
 	{}
+	/*
     CFiletimeHelper(const FILETIME &ftStamp)
 		: m_u64Stamp(0)
 	{
 		m_u64Stamp = GetFiletimeValue(ftStamp);
 	}
+	*/
+	/*
     CFiletimeHelper(const uint32_t ulHiPart, const uint32_t ulLoPart)
 		: m_u64Stamp(0)
 	{
@@ -82,6 +90,7 @@ public:
 		ft.dwLowDateTime = ulLoPart;
 		m_u64Stamp = GetFiletimeValue(ft);
 	}
+	*/
 	CFiletimeHelper(const CFiletimeHelper &Helper)
 		: m_u64Stamp(Helper.GetValue())
 	{}
@@ -96,10 +105,12 @@ public:
 		return (time_t)GetAsUnixTime();
 	}
 
+	/*
 	operator FILETIME() const
 	{
 		return GetValueAsFiletime(m_u64Stamp);
 	}
+	*/
 
 	bool operator ==(const CFiletimeHelper &Helper) const
 	{
@@ -127,11 +138,13 @@ public:
 	}
 	*/
 	
+	/*
 	CFiletimeHelper& operator =(const FILETIME &ftStamp)
 	{
 		m_u64Stamp = GetFiletimeValue(ftStamp);
 		return *this;
 	}
+	*/
 
 	CFiletimeHelper& operator =(const CFiletimeHelper &Helper)
 	{
@@ -167,6 +180,7 @@ public:
 		return ((m_u64Stamp - 116444736000000000ULL) / 10000000ULL);
 	}
 	
+	/*
 	CFiletimeHelper& SetNow()
 	{
 		FILETIME ftNow;
@@ -175,6 +189,7 @@ public:
 		m_u64Stamp = GetFiletimeValue(ftNow);
 		return *this;
 	}
+	*/
 	
 };
 
