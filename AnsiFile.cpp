@@ -8,9 +8,22 @@
 
 #include "AnsiFile.h"
 
+#ifdef _WINDOWS
 #include <direct.h>
+#else
+#include <sys/stat.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
+
+void makeDir(const std::string &szPath)
+{
+#ifdef _WINDOWS
+		_mkdir(szPath.c_str());
+#else
+		mkdir(szPath.c_str(), S_IRWXU);
+#endif
+}
 
 // expects path only without file name
 bool CPathHelper::MakePath(const std::string &szPath)
@@ -28,7 +41,7 @@ bool CPathHelper::MakePath(const std::string &szPath)
 		// -> create what we have
 
 		// don't care if it succeeds of not..
-		_mkdir(szPath.c_str());
+		makeDir(szPath);
 		return true;
 	}
 
@@ -38,7 +51,7 @@ bool CPathHelper::MakePath(const std::string &szPath)
 		std::string szTmpPath = szPath.substr(0, nPos +1);
 
 		// don't care if it succeeds of not..
-		_mkdir(szTmpPath.c_str());
+		makeDir(szTmpPath);
 
 		nPrevPos = nPos +1;
 		// locate next separator (after current)
@@ -50,7 +63,7 @@ bool CPathHelper::MakePath(const std::string &szPath)
 		// use remaining also (if it doesn't end with path separator)
 		std::string szTmpPath = szPath.substr(nPrevPos);
 		// don't care if it succeeds of not..
-		_mkdir(szTmpPath.c_str());
+		makeDir(szTmpPath);
 	}
 	return true;
 }
@@ -78,7 +91,7 @@ bool CPathHelper::MakePathToFile(const std::string &szOutFile)
 		std::string szPath = szOutFile.substr(0, nPos +1);
 
 		// don't care if it succeeds of not..
-		_mkdir(szPath.c_str());
+		makeDir(szPath);
 
 		// locate next separator (after current)
 		nPos = szOutFile.find('/', nPos +2);

@@ -12,29 +12,40 @@
 #include <string>
 #include <exception>
 
+// exception with GCC does no have suitable constructor so replace it
+class BaseException
+{
+public:
+	std::string m_message;
+public:
+	BaseException(const char *szMessage)
+	: m_message(szMessage)
+	{}
+	const char* what() { return m_message.c_str(); }
+};
 
 // exception-classes for error cases
-class IOException : public std::exception
+class IOException : public BaseException
 {
 public:
 	IOException(const char *szMessage)
-		: std::exception(szMessage)
+		: BaseException(szMessage) 
 	{
 	}
 };
 
-class ArcException : public std::exception
+class ArcException : public BaseException
 {
 protected:
 	std::string m_szData;
 public:
 	ArcException(const char *szMessage, const std::string &szData)
-		: std::exception(szMessage)
+		: BaseException(szMessage) 
 		, m_szData(szData)
 	{
 	}
 	ArcException(const char *szMessage, const size_t nData)
-		: std::exception(szMessage)
+		: BaseException(szMessage) 
 		, m_szData()
 	{
 		// TODO:
